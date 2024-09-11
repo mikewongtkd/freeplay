@@ -1,17 +1,16 @@
-import sys
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 import cv2
-import error_message
+from camera import error_message
+from camera import camerainfo
 
 
 # RTSP info -- change these 5 values according to your RTSP URL
-username = 'admin'
-password = 'root'
-endpoint = 'cam/realmonitor?channel='
-ip = '192.168.1.8'
-
+username = camerainfo.username
+password = camerainfo.password
+endpoint = camerainfo.endpoint
+ip = camerainfo.ip
 
 class Camera(QThread): #creates thread for individual cameras
     imageUpdate = pyqtSignal(QImage)

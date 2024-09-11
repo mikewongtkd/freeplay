@@ -1,5 +1,5 @@
 import sys
-import camera
+from camera import camera
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *

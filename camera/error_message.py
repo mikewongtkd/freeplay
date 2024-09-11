@@ -1,5 +1,4 @@
 from PIL import Image, ImageDraw, ImageFont
-import cv2
 def text_to_image(
     text: str,
     font_filepath: str,

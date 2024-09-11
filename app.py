@@ -1,5 +1,5 @@
 import sys
-import overview
+from stages import overview
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
