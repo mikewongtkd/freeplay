@@ -3,10 +3,11 @@ from stages import overview
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
+import cv2
 
 
 
-class MyWidget(QWidget):
+class Main_Page(QWidget):
     def __init__(self):
         super().__init__()
 
@@ -54,40 +55,3 @@ class MyWidget(QWidget):
 
 
         self.setLayout(self.main)
-        
-
-
-if __name__ == "__main__":
-    
-    app = QApplication(sys.argv)
-    widget = MyWidget()
-    # widget.resize(1500, 1200)
-    widget.show()
-
-
-    sys.exit(app.exec())
-
-# class MyWidget(QWidget):
-#     def __init__(self):
-#         super().__init__()
-#         #pages
-#         setup = setup.Setup()
-#         main_page = main_page.Main_Page()
-
-
-#         state = (setup, main_page)
-#         self.page = setup
-    
-
-    
-
-
-# if __name__ == "__main__":
-    
-#     app = QApplication(sys.argv)
-#     widget = MyWidget()
-#     # widget.resize(1500, 1200)
-#     widget.show()
-
-
-#     sys.exit(app.exec())
