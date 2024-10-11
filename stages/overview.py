@@ -58,3 +58,13 @@ class Overview(Main_Page):
             cameras.updateSlot(i, feedlabels[i])
 
         return self.page
+    
+
+    class ClickableLabel(QLabel):
+        def __init__(self):
+            super().__init__()
+        def mousePressEvent(self, event, controller, num):
+            signals = {1: controller.cam1, 2: controller.cam2, 3: controller.cam3, 4: controller.cam4}
+            if event.button() == Qt.LeftButton:  # Check if left button was clicked
+                signals[num].emit()  # Emit the signal
+            super().mousePressEvent(event)
