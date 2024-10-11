@@ -91,14 +91,14 @@ class App(QApplication):
         # Initialize pages
         self.setup = Setup()
         # self.overview = self.init_overview()
-
+        self.overview = Overview()
         # Add pages to the page manager
         self.page_manager.addWidget(self.setup)
-        # self.page_manager.addWidget(self.overview)
+        self.page_manager.addWidget(self.overview)
 
         # Show the setup page first
-        self.page_manager.setCurrentWidget(self.setup)
-        # self.page_manager.setCurrentWidget(self.overview)
+        # self.page_manager.setCurrentWidget(self.setup)
+        self.page_manager.setCurrentWidget(self.overview)
 
         # Listen for signal from one page to another
         # self.controller.show_overview.connect(self.switch_to_overview)
@@ -110,9 +110,10 @@ class App(QApplication):
     
 
     # def init_overview(self):
-    #     #connect cameras
-    #     self.cameras_connection = connection.Connection()
-    #     self.overview = Overview(self.cameras_connection)
+        #connect cameras
+        # self.cameras_connection = connection.Connection()
+        # self.overview = Overview(self.cameras_connection)
+        
         
     # def init_single_camera_page(self, cam_num):
     #     pass
