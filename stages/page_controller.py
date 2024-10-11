@@ -5,10 +5,10 @@ class PageController(QObject):
     show_overview = pyqtSignal()  # Signal for showing settings page
     stop = pyqtSignal()
 
-    cam1 = pyqtSignal()
-    cam2 = pyqtSignal()
-    cam3 = pyqtSignal()
-    cam4 = pyqtSignal()
+    show_cam1 = pyqtSignal()
+    show_cam2 = pyqtSignal()
+    show_cam3 = pyqtSignal()
+    show_cam4 = pyqtSignal()
 
     def __init__(self):
         super().__init__()

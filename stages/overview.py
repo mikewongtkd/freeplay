@@ -3,29 +3,43 @@ from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
+class ClickableLabel(QLabel):
+    clicked = pyqtSignal()
+    def __init__(self):
+        super().__init__()
+    def mousePressEvent(self, event):
+        # signals = {1: controller.cam1, 2: controller.cam2, 3: controller.cam3, 4: controller.cam4}
+        if event.button() == Qt.LeftButton:  # Check if left button was clicked
+            self.clicked.emit()  # Emit the signal
+        super().mousePressEvent(event)
 
 class Overview(Main_Page):
     def __init__(self, cameras, controller):
         super().__init__() #call Main_page and overlay camera stuff on it
-        self.overview = self.camera_setup(cameras)
+        self.overview = self.camera_setup(cameras, controller)
         self.setup_page(self.overview, controller)
         
 
 
-    def camera_setup(self, cameras): #camera setup
+    def camera_setup(self, cameras, controller): #camera setup
         self.page = QVBoxLayout() 
 
         #camera 1 and 2
         self.row1 = QHBoxLayout()
-        self.FeedLabel1 = QLabel()
-        self.FeedLabel2 = QLabel()
+        self.FeedLabel1 = ClickableLabel()
+        self.FeedLabel1.clicked.connect(controller.show_cam1.emit)
+        self.FeedLabel2 = ClickableLabel()
+        self.FeedLabel2.clicked.connect(controller.show_cam2.emit)
         self.row1.addWidget(self.FeedLabel1)
         self.row1.addWidget(self.FeedLabel2)
 
         #camera 3 and 4
         self.row2 = QHBoxLayout()
-        self.FeedLabel3 = QLabel()
-        self.FeedLabel4 = QLabel()
+        self.FeedLabel3 = ClickableLabel()
+        # Connect the clicked signal to a slot
+        self.FeedLabel3.clicked.connect(controller.show_cam3.emit)
+        self.FeedLabel4 = ClickableLabel()
+        self.FeedLabel4.clicked.connect(controller.show_cam4.emit)
         self.row2.addWidget(self.FeedLabel3)
         self.row2.addWidget(self.FeedLabel4)
 
@@ -59,12 +73,6 @@ class Overview(Main_Page):
 
         return self.page
     
-
-    class ClickableLabel(QLabel):
-        def __init__(self):
-            super().__init__()
-        def mousePressEvent(self, event, controller, num):
-            signals = {1: controller.cam1, 2: controller.cam2, 3: controller.cam3, 4: controller.cam4}
-            if event.button() == Qt.LeftButton:  # Check if left button was clicked
-                signals[num].emit()  # Emit the signal
-            super().mousePressEvent(event)
+    def getCameraSlot(self, cam_num):
+        cameras = {1:self.FeedLabel1, 2: self.FeedLabel2, 3: self.FeedLabel3, 4: self.FeedLabel4}
+        return cameras[cam_num]

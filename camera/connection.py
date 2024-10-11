@@ -5,6 +5,7 @@ from PyQt5.QtCore import *
 class Connection():
     def __init__(self):
         self.startCamera()
+        self.cameras = {1: self.Camera1, 2: self.Camera2, 3: self.Camera3, 4: self.Camera4}
 
 
     def startCamera(self):
@@ -32,9 +33,12 @@ class Connection():
     def getCameras(self):
         return [self.Camera1, self.Camera2, self.Camera3, self.Camera4]
     
+    def getCamera(self, num):
+        return self.cameras[num]
+
     def updateSlot(self, camera_number, feedlabel):
-        cameras = {1: self.Camera1, 2: self.Camera2, 3: self.Camera3, 4: self.Camera4}
-        cameras[camera_number].imageUpdate.connect(lambda image: self.imageUpdateSlot1(image, feedlabel))
+        self.cameras[camera_number].imageUpdate.connect(lambda image: self.imageUpdateSlot1(image, feedlabel))
         # self.Camera2.imageUpdate.connect(lambda image: self.imageUpdateSlot1(image, self.FeedLabel2))
         # self.Camera3.imageUpdate.connect(lambda image: self.imageUpdateSlot1(image, self.FeedLabel3))
         # self.Camera4.imageUpdate.connect(lambda image: self.imageUpdateSlot1(image, self.FeedLabel4))
+
