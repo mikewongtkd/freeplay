@@ -6,7 +6,6 @@ from PyQt5.QtCore import Qt
 
 class Setup(QWidget):
     # Signal to inform app.py to switch pages
-    # start_signal = pyqtSignal()
     def __init__(self, controller):
         super().__init__()
 
@@ -29,5 +28,10 @@ class Setup(QWidget):
         self.main.addWidget(self.start_button)
         # Connect the button click to the method that emits the signal
         self.start_button.clicked.connect(controller.show_overview.emit)
+
+        self.stop_btn = QPushButton("Stop", self)
+        self.main.addWidget(self.stop_btn)
+        self.stop_btn.clicked.connect(controller.stop.emit)
+
 
         self.setLayout(self.main)

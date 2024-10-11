@@ -49,7 +49,13 @@ class Camera(QThread): #creates thread for individual cameras
         
 
 
+    # def stop(self):
+    #     self.ThreadActive = False
+    #     self.capture.release()
+    #     self.quit()
+
     def stop(self):
         self.ThreadActive = False
-        self.capture.release()
+        if hasattr(self, 'capture') and self.capture is not None:
+            self.capture.release()
         self.quit()

@@ -7,6 +7,7 @@ from PyQt5.QtCore import *
 
 
 class App(QApplication):
+    
     def __init__(self, sys_argv):
         super().__init__(sys_argv)
         
@@ -20,18 +21,18 @@ class App(QApplication):
         # Initialize pages
         self.setup = Setup(self.controller)
         self.cameras_connection = connection.Connection()
-        self.overview = Overview(self.cameras_connection)
+        self.overview = Overview(self.cameras_connection, self.controller)
         # Add pages to the page manager
         self.page_manager.addWidget(self.setup)
         self.page_manager.addWidget(self.overview)
 
         # Show the setup page first
         self.page_manager.setCurrentWidget(self.setup)
-        # self.page_manager.setCurrentWidget(self.overview)
 
         # Listen for signal from one page to another
         self.controller.show_overview.connect(self.switch_to_overview)
-        # self.controller.show_setup.connect(self.switch_to_setup) 
+        self.controller.show_setup.connect(self.switch_to_setup) 
+        self.controller.stop.connect(self.stop_cameras)
         
 
         self.page_manager.show()
@@ -47,15 +48,19 @@ class App(QApplication):
         """Switch to the main page when the signal is received."""
         self.page_manager.setCurrentWidget(self.overview)
     
-    # # @Slot()
-    # def switch_to_setup(self):
-    #     """Switch to the main page when the signal is received."""
-    #     self.page_manager.setCurrentWidget(self.setup)
+    # @Slot()
+    def switch_to_setup(self):
+        """Switch to the main page when the signal is received."""
+        self.page_manager.setCurrentWidget(self.setup)
+
+    def stop_cameras(self):
+        self.cameras_connection.cancelFeed()
+        QApplication.quit()
+
 
 
 if __name__ == "__main__":
     app = App(sys.argv)
-    # app.resize(1500, 1200)
-
 
     sys.exit(app.exec())
+    

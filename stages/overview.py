@@ -5,10 +5,10 @@ from PyQt5.QtCore import *
 
 
 class Overview(Main_Page):
-    def __init__(self, cameras):
+    def __init__(self, cameras, controller):
         super().__init__() #call Main_page and overlay camera stuff on it
         self.overview = self.camera_setup(cameras)
-        self.setup_page(self.overview)
+        self.setup_page(self.overview, controller)
         
 
 
@@ -58,13 +58,3 @@ class Overview(Main_Page):
             cameras.updateSlot(i, feedlabels[i])
 
         return self.page
-
-
-    
-    # def return_to_setup(self):
-    #     self.start_signal.emit()
-
-
-            #TO BE PUT SOMEWHERE ELSE
-        # self.CancelBTN = QPushButton("Cancel")
-        # self.CancelBTN.clicked.connect(cameras.cancelFeed)
