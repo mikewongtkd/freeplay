@@ -5,14 +5,14 @@ from PyQt5.QtCore import *
 
 
 class SingleCamView(Main_Page):
-    def __init__(self, controller):
+    def __init__(self, controller, camera):
         super().__init__() #call Main_page and overlay camera stuff on it
-        self.single_page = self.camera_setup()
+        self.single_page = self.camera_setup(camera)
         self.setup_page(self.single_page, controller)
 
-    def camera_setup(self): #camera setup
+    def camera_setup(self, camera): #camera setup
         self.page = QVBoxLayout() 
-        self.cameraWidget = QLabel() #this doesn't work
+        self.cameraWidget = camera #this doesn't work
         self.page.addWidget(self.cameraWidget)
 
 
@@ -38,6 +38,6 @@ class SingleCamView(Main_Page):
 
         return self.page
     
-    def addCamera(self, cameraSlot):
-        # connection.updateSlot(cam_num, self.cameraWidget)
-        self.cameraWidget = cameraSlot
+    # def addCamera(self, cameraSlot):
+    #     # connection.updateSlot(cam_num, self.cameraWidget)
+    #     self.cameraWidget = cameraSlot
