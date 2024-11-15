@@ -16,7 +16,8 @@ class ClickableLabel(QLabel):
 class Overview(Main_Page):
     def __init__(self, cameras, controller):
         super().__init__() #call Main_page and overlay camera stuff on it
-        self.overview = self.camera_setup(cameras, controller)
+        self.cameras = cameras
+        self.overview = self.camera_setup(self.cameras, controller)
         self.setup_page(self.overview, controller)
         
 
@@ -73,6 +74,9 @@ class Overview(Main_Page):
 
         return self.page
     
-    def getCameraSlot(self, cam_num):
+    def getCameraSlot(self, cam_num): #this returns qlabel of a camera
         cameras = {1:self.FeedLabel1, 2: self.FeedLabel2, 3: self.FeedLabel3, 4: self.FeedLabel4}
         return cameras[cam_num]
+    
+    # def disconnectCameraSlot(self, cam_num): #disconnect the camera that is to be fed into single page
+    #     self.cameras.disconnectSlot(cam_num)

@@ -23,6 +23,10 @@ class Camera(QThread): #creates thread for individual cameras
         try:
             self.ThreadActive = True
             self.capture = cv2.VideoCapture(f'rtsp://{username}:{password}@{ip}/{endpoint}{self.camNum}')
+            # Check if the camera is opened successfully
+            if not self.capture.isOpened():
+                print("Error: Unable to access the camera.")
+                exit()
             # print("print capture" + str(self.capture.read()))
             while self.ThreadActive:
                 ret, frame = self.capture.read()
@@ -54,8 +58,12 @@ class Camera(QThread): #creates thread for individual cameras
     #     self.capture.release()
     #     self.quit()
 
-    def stop(self):
-        self.ThreadActive = False
-        if hasattr(self, 'capture') and self.capture is not None:
-            self.capture.release()
-        self.quit()
+    def stop(cameraObjectsList):
+        for camera in cameraObjectsList:
+            camera.ThreadActive = False
+            if hasattr(camera, 'capture') and camera.capture is not None:
+                camera.capture.release()
+            camera.quit()
+        cv2.destroyAllWindows()
+
+

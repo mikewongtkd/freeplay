@@ -10,8 +10,7 @@ class App(QApplication):
     
     def __init__(self, sys_argv):
         super().__init__(sys_argv)
-        
-        
+
         # Create the page controller with signals
         self.controller = PageController()
 
@@ -22,7 +21,7 @@ class App(QApplication):
         self.setup = Setup(self.controller)
         self.cameras_connection = connection.Connection()
         self.overview = Overview(self.cameras_connection, self.controller)
-        self.single_camera_page = SingleCamView(self.controller) #set up single_camera_page
+        self.single_camera_page = SingleCamView(self.cameras_connection, self.controller) #set up single_camera_page
         
         
         # Add pages to the page manager
@@ -46,10 +45,13 @@ class App(QApplication):
 
         
         
-    def switch_to_singleCam(self, cam_num):
-        camera = self.overview.getCameraSlot(cam_num)
+    def switch_to_singleCam(self, cam_num): #must disconnect from feedlabel in overview, then connect to single page
+        #call overview to disconnect that slot
+        # self.overview.disconnectCameraSlot(cam_num)
+        # camera = self.overview.getCameraSlot(cam_num)
+        # connection.disconnectSlot(cam_num)
 
-        self.single_camera_page.addCamera(camera)
+        self.single_camera_page.camera_setup(cam_num) #put qlabel slot in there
         self.page_manager.setCurrentWidget(self.single_camera_page)
 
 
