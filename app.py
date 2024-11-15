@@ -27,7 +27,8 @@ class App(QApplication):
         # Add pages to the page manager
         self.page_manager.addWidget(self.setup)
         self.page_manager.addWidget(self.overview)
-        self.page_manager.addWidget(self.single_camera_page)
+        for i in range(4):
+            self.page_manager.addWidget(self.single_camera_page[i])
         
         # Show the setup page first
         self.page_manager.setCurrentWidget(self.setup)
@@ -69,6 +70,14 @@ class App(QApplication):
         self.cameras_connection.cancelFeed()
         QApplication.quit()
 
+
+    def initalize_single_pages(self):
+        single_camera_page = []
+        for i in range(1, 5):
+            camera = self.overview.getCameraSlot(i)
+            page = SingleCamView(self.controller, camera)
+            single_camera_page.append(page)
+        return single_camera_page
 
 
 if __name__ == "__main__":
