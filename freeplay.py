@@ -10,44 +10,41 @@ Updated :
 """
 
 import cv2
+from hwic.rtsp.dahua import Dahua
 
-# RTSP info -- change these 5 values according to your RTSP URL
-username = 'admin'
-password = ''
-endpoint = 'cam/realmonitor'
-ip = '192.168.1.10'
+xvim = Dahua( '192.168.1.10' );
 
 # Stream
-stream1 = cv2.VideoCapture(f'rtsp://{username}:{password}@{ip}/{endpoint}?channel=1')
-# stream1 = cv2.VideoCapture(f'rtsp://{username}:{password}@{ip}/{endpoint}?channel=1')
-# stream2 = cv2.VideoCapture(f'rtsp://{username}:{password}@{ip}/{endpoint}?channel=2')
-# stream3 = cv2.VideoCapture(f'rtsp://{username}:{password}@{ip}/{endpoint}?channel=3')
-# stream4 = cv2.VideoCapture(f'rtsp://{username}:{password}@{ip}/{endpoint}?channel=4')
+# stream1 = cv2.VideoCapture(f'rtsp://{username}:{password}@{ip}/live')
+stream1 = xvim.stream( 1 )
+stream2 = xvim.stream( 2 )
+stream3 = xvim.stream( 3 )
+stream4 = xvim.stream( 4 )
 
 try:
     while True:
         # Read the input live stream
-        ret, frame = stream1.read()
-#        ret1, frame1 = stream1.read()
-#        ret2, frame2 = stream2.read()
-#        ret3, frame3 = stream3.read()
-#        ret4, frame4 = stream4.read()
+#        ret, frame = stream1.read()
+        ret1, frame1 = stream1.read()
+        ret2, frame2 = stream2.read()
+        ret3, frame3 = stream3.read()
+        ret4, frame4 = stream4.read()
 
-        height, width, layers = frame.shape
-        frame = cv2.resize( frame, ( width * 2, height ))
-#        height, width, layers = frame1.shape
-#        frame1 = cv2.resize( frame1, ( width, height // 2 ))
-#        frame2 = cv2.resize( frame2, ( width, height // 2 ))
+#         height, width, layers = frame.shape
+#         frame = cv2.resize( frame, ( width * 2, height ))
+        height, width, layers = frame1.shape
+        frame1 = cv2.resize( frame1, ( width, height // 2 ))
+        frame2 = cv2.resize( frame2, ( width, height // 2 ))
 
 #         frame = cv2.hconcat([frame1, frame2])
-#        top = cv2.hconcat([frame1, frame2])
+        top = cv2.hconcat([frame1, frame2])
 
-#        frame3 = cv2.resize( frame3, ( width, height // 2 ))
-#        frame4 = cv2.resize( frame4, ( width, height // 2 ))
+        frame3 = cv2.resize( frame3, ( width, height // 2 ))
+        frame4 = cv2.resize( frame4, ( width, height // 2 ))
 
-#        bottom = cv2.hconcat([frame3, frame4])
+        bottom = cv2.hconcat([frame3, frame4])
 
-#        frame = cv2.vconcat([ top, bottom ])
+        frame = cv2.vconcat([ top, bottom ])
 
         # Show video frame
         cv2.imshow( 'CUTA Instant FreePlay IVR System', frame)
