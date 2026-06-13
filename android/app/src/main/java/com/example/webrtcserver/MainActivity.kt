@@ -11,7 +11,7 @@ class MainActivity: AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         val tv=findViewById<TextView>(R.id.tv)
-        tv.text="HTTP API on :8080"
+        tv.setText(R.string.server_status)
         thread {
             val server=ServerSocket(8080)
             while(true){
