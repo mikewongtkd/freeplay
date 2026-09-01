@@ -1,4 +1,0 @@
-<resources>
-    <string name="app_name">FreePlay CamTab</string>
-    <string name="server_status">HTTP API on :8080</string>
-</resources>
