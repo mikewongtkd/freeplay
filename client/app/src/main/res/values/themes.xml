@@ -1,0 +1,4 @@
+<resources>
+
+    <style name="Theme.FreePlay" parent="Theme.MaterialComponents.Light" />
+</resources>
