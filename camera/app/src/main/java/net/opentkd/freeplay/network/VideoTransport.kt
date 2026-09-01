@@ -15,4 +15,6 @@ interface VideoTransport {
     val state: StateFlow<TransportState>
     val bytesSent: StateFlow<Long>
     val currentBitrate: StateFlow<Double>
+
+    fun setEncoderName(name: String)
 }

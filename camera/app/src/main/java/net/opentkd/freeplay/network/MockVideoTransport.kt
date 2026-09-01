@@ -10,7 +10,7 @@ import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicLong
 
 class MockVideoTransport : VideoTransport {
-    private val _state = MutableStateFlow(TransportState.STOPPED)
+    private val _state = MutableStateFlow<TransportState>(TransportState.STOPPED)
     override val state: StateFlow<TransportState> = _state.asStateFlow()
 
     private val _bytesSent = MutableStateFlow(0L)
@@ -55,4 +55,6 @@ class MockVideoTransport : VideoTransport {
         _currentBitrate.value = 0.0
         Log.d("FreePlay.Network", "Mock streaming stopped")
     }
+
+    override fun setEncoderName(name: String) {}
 }

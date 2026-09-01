@@ -72,12 +72,15 @@ fun LiveScreen(
             }
 
             // Status Indicator
-            val (statusText, statusColor) = when (status.transportState) {
-                TransportState.STREAMING -> "STREAMING" to Color.Green
-                TransportState.CONNECTING -> "CONNECTING" to Color.Yellow
-                TransportState.ERROR -> "ERROR" to Color.Red
-                TransportState.WARNING -> "WARNING" to Color.Yellow
-                TransportState.STOPPED -> "STOPPED" to Color.Gray
+            val (statusText, statusColor) = when (val state = status.transportState) {
+                is TransportState.STREAMING -> "STREAMING" to Color.Green
+                is TransportState.CONNECTING -> "CONNECTING" to Color.Yellow
+                is TransportState.AWAITING_HELLO_ACK -> "WAITING ACK" to Color.Yellow
+                is TransportState.RECONNECTING -> "RECONNECT (${state.attempt})" to Color.Yellow
+                is TransportState.ERROR -> "ERROR" to Color.Red
+                is TransportState.REJECTED -> "REJECTED" to Color.Red
+                is TransportState.WARNING -> "WARNING" to Color.Yellow
+                is TransportState.STOPPED -> "STOPPED" to Color.Gray
             }
 
             Surface(
@@ -104,7 +107,9 @@ fun LiveScreen(
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                if (status.transportState == TransportState.STOPPED) {
+                if (status.transportState is TransportState.STOPPED || 
+                    status.transportState is TransportState.ERROR || 
+                    status.transportState is TransportState.REJECTED) {
                     Button(onClick = onStartStreaming, colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)) {
                         Icon(Icons.Default.PlayArrow, contentDescription = "Start")
                         Spacer(Modifier.width(8.dp))
@@ -149,7 +154,7 @@ fun LiveScreen(
         ) {
             Text("STATUS", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             Text(
-                if (status.transportState == TransportState.STREAMING) 
+                if (status.transportState is TransportState.STREAMING)
                     "Streaming to server\n${settings.serverAddress}:${settings.serverPort}"
                 else "Idle",
                 style = MaterialTheme.typography.bodySmall

@@ -3,10 +3,15 @@ package net.opentkd.freeplay.encoder
 import android.media.MediaCodec
 import android.media.MediaCodecInfo
 import android.media.MediaFormat
+import android.os.Bundle
 import android.os.Handler
 import android.os.HandlerThread
 import android.util.Log
 import android.view.Surface
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import net.opentkd.freeplay.network.VideoTransport
 import net.opentkd.freeplay.settings.AppSettings
 import net.opentkd.freeplay.status.DeviceStatusManager
@@ -20,6 +25,7 @@ class VideoEncoder(
     private var inputSurface: Surface? = null
     private var handlerThread: HandlerThread? = null
     private var handler: Handler? = null
+    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
     companion object {
         private const val TAG = "FreePlay.Encoder"
@@ -35,6 +41,8 @@ class VideoEncoder(
             isHardwareAccelerated = encoderInfo.isHardwareAccelerated,
             resolution = "${settings.resolution} @ ${settings.frameRate}fps"
         ) }
+
+        transport.setEncoderName(encoderInfo.name)
 
         val parts = settings.resolution.split("x")
         val width = parts[0].toInt()
@@ -77,6 +85,18 @@ class VideoEncoder(
         statusManager.updateStatus { it.copy(encoderReady = false) }
     }
 
+    fun requestKeyframe() {
+        try {
+            val params = Bundle().apply {
+                putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0)
+            }
+            mediaCodec?.setParameters(params)
+            Log.d(TAG, "Keyframe requested from MediaCodec")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to request keyframe", e)
+        }
+    }
+
     private fun createCallback() = object : MediaCodec.Callback() {
         override fun onInputBufferAvailable(codec: MediaCodec, index: Int) {
             // Not used for surface-based encoding
@@ -96,19 +116,19 @@ class VideoEncoder(
                 bytesTransmitted = it.bytesTransmitted + info.size
             ) }
 
-            // Send to transport
-            // Note: In a real app, we might need to copy this or use a coroutine to avoid blocking the callback
-            // For the prototype, transport.send is suspend, so we'll run it in a scope or just block for mock
-            // Actually, let's use a simple blocking call for the prototype or a coroutine scope
+            // Copy the data to allow immediate release of the MediaCodec buffer
+            val data = ByteArray(info.size)
+            outputBuffer.position(info.offset)
+            outputBuffer.get(data, 0, info.size)
             
-            // For now, let's assume MockVideoTransport.send is fast and we can block or launch.
-            // Since this is a callback, we shouldn't block.
+            val bufferCopy = ByteBuffer.wrap(data)
             
-            // Ideally VideoEncoder has its own scope
-            // For prototype simplification, we'll just handle it.
-            
-            kotlinx.coroutines.runBlocking {
-                transport.send(outputBuffer, info)
+            val infoCopy = MediaCodec.BufferInfo().apply {
+                set(0, info.size, info.presentationTimeUs, info.flags)
+            }
+
+            scope.launch {
+                transport.send(bufferCopy, infoCopy)
             }
 
             codec.releaseOutputBuffer(index, false)

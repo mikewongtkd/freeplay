@@ -23,7 +23,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.opentkd.freeplay.camera.CameraController
 import net.opentkd.freeplay.encoder.VideoEncoder
-import net.opentkd.freeplay.network.MockVideoTransport
+import net.opentkd.freeplay.network.WebSocketVideoTransport
 import net.opentkd.freeplay.network.VideoTransport
 import net.opentkd.freeplay.settings.AppSettings
 import net.opentkd.freeplay.settings.SettingsRepository
@@ -46,8 +46,14 @@ class MainActivity : ComponentActivity() {
         
         settingsRepository = SettingsRepository(this)
         statusManager = DeviceStatusManager(this)
-        videoTransport = MockVideoTransport()
+        val wsTransport = WebSocketVideoTransport()
+        videoTransport = wsTransport
         videoEncoder = VideoEncoder(videoTransport, statusManager)
+        
+        wsTransport.setKeyframeRequestListener {
+            videoEncoder.requestKeyframe()
+        }
+
         cameraController = CameraController(this, statusManager)
 
         enableEdgeToEdge()
@@ -74,7 +80,7 @@ class MainActivity : ComponentActivity() {
                 transportState = transportState,
                 bytesTransmitted = bytesSent,
                 bitrateMbps = bitrate,
-                serverConnected = transportState == net.opentkd.freeplay.network.TransportState.STREAMING
+                serverConnected = transportState is net.opentkd.freeplay.network.TransportState.STREAMING
             ) }
         }
 
@@ -160,7 +166,8 @@ class MainActivity : ComponentActivity() {
                 )
                 2 -> NetworkScreen(
                     modifier = screenModifier,
-                    settings = settings
+                    settings = settings,
+                    status = status
                 )
                 3 -> SettingsScreen(
                     modifier = screenModifier,

@@ -39,7 +39,7 @@ fun StatusScreen(
 
         SectionTitle("Stream Information")
         InfoItem("Server", "${settings.serverAddress}:${settings.serverPort}")
-        InfoItem("Protocol", "Mock (SRT Stub)")
+        InfoItem("Protocol", "UDP")
         InfoItem("Resolution", settings.resolution)
         InfoItem("Target FPS", settings.frameRate.toString())
         InfoItem("Target Bitrate", "${settings.bitrate / 1_000_000} Mbps")
