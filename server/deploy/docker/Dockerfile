@@ -1,3 +1,5 @@
 FROM php:8.5-apache
 WORKDIR /usr/local/freeplay
-CMD /bin/bash ./build.sh
+COPY build.sh /tmp
+RUN /bin/bash /tmp/build.sh
+CMD [ "make", "run" ]

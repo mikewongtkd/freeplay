@@ -18,12 +18,13 @@ import net.opentkd.freeplay.status.DeviceStatus
 @Composable
 fun StatusScreen(
     settings: AppSettings,
-    status: DeviceStatus
+    status: DeviceStatus,
+    modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
-            .padding(16.dp)
+            .padding( all=16.dp )
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {

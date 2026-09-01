@@ -12,9 +12,12 @@ import androidx.compose.ui.unit.dp
 import net.opentkd.freeplay.settings.AppSettings
 
 @Composable
-fun NetworkScreen(settings: AppSettings) {
+fun NetworkScreen(
+    settings: AppSettings,
+    modifier: Modifier = Modifier
+) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .padding(16.dp)
             .verticalScroll(rememberScrollState()),

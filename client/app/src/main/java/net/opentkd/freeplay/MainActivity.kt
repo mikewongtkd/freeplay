@@ -138,9 +138,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         ) { innerPadding ->
-            val modifier = Modifier.padding(innerPadding)
+            val screenModifier = Modifier.padding(innerPadding)
             when (selectedTab) {
                 0 -> LiveScreen(
+                    modifier = screenModifier,
                     settings = settings,
                     status = status,
                     onStartStreaming = { startStreaming(settings) },
@@ -152,9 +153,17 @@ class MainActivity : ComponentActivity() {
                         videoEncoder.start()
                     }
                 )
-                1 -> StatusScreen(settings = settings, status = status)
-                2 -> NetworkScreen(settings = settings)
+                1 -> StatusScreen(
+                    modifier = screenModifier,
+                    settings = settings,
+                    status = status
+                )
+                2 -> NetworkScreen(
+                    modifier = screenModifier,
+                    settings = settings
+                )
                 3 -> SettingsScreen(
+                    modifier = screenModifier,
                     settings = settings,
                     onSettingsChanged = { lifecycleScope.launch { settingsRepository.updateSettings(it) } }
                 )

@@ -24,9 +24,10 @@ fun LiveScreen(
     onStartStreaming: () -> Unit,
     onStopStreaming: () -> Unit,
     onSnapshot: () -> Unit,
-    onSurfaceCreated: (android.view.Surface) -> Unit
+    onSurfaceCreated: (android.view.Surface) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Row(modifier = Modifier.fillMaxSize()) {
+    Row(modifier = modifier.fillMaxSize()) {
         // Main Preview Area
         Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
             AndroidView(
@@ -144,7 +145,7 @@ fun LiveScreen(
                 .fillMaxHeight()
                 .background(MaterialTheme.colorScheme.surfaceVariant)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text("STATUS", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             Text(

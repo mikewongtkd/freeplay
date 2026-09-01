@@ -14,10 +14,11 @@ import net.opentkd.freeplay.settings.AppSettings
 @Composable
 fun SettingsScreen(
     settings: AppSettings,
-    onSettingsChanged: (AppSettings) -> Unit
+    onSettingsChanged: (AppSettings) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .padding(16.dp)
             .verticalScroll(rememberScrollState()),

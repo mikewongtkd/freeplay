@@ -8,7 +8,7 @@ const WebSocket = require('ws');
 const Database = require('better-sqlite3');
 
 const ROOT = __dirname;
-const DATA_DIR = path.join(ROOT, 'data');
+const DATA_DIR = '/data';
 const VIDEO_DIR = path.join(DATA_DIR, 'video');
 const DB_PATH = path.join(DATA_DIR, 'freeplay.sqlite');
 const SCHEMA_PATH = path.join(DATA_DIR, 'sql', 'schema.sql');
