@@ -145,7 +145,7 @@ fun LiveScreen(
                 .fillMaxHeight()
                 .background(MaterialTheme.colorScheme.surfaceVariant)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
             Text("STATUS", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             Text(
