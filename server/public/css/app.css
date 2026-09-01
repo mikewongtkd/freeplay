@@ -1,0 +1,1 @@
+body{min-height:100vh}.camera-card{transition:border-color .2s ease}.metric{display:flex;flex-direction:column}.metric span{color:var(--bs-secondary-color);font-size:.75rem;text-transform:uppercase;letter-spacing:.04em}.metric strong{font-size:1.05rem}canvas{max-height:460px}

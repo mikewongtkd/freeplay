@@ -1,0 +1,14 @@
+{
+  "name": "freeplay-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prototype FreePlay instant replay ingest and dashboard server",
+  "main": "freeplay.js",
+  "scripts": {
+    "start": "node freeplay.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "ws": "^8.18.0"
+  }
+}
