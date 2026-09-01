@@ -16,3 +16,11 @@ function fp_json($data, int $status=200): void {
     echo json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
     exit;
 }
+function fp_error(string $code, string $message, int $status=400): void {
+    fp_json(['ok'=>false,'error'=>['code'=>$code,'message'=>$message]], $status);
+}
+function fp_body(): array {
+    $body = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($body)) fp_error('invalid_json', 'Request body must be JSON');
+    return $body;
+}

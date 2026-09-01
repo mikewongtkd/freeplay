@@ -1,66 +1,20 @@
-PRAGMA journal_mode = WAL;
-PRAGMA foreign_keys = ON;
-
-CREATE TABLE IF NOT EXISTS cameras (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    stream_id TEXT NOT NULL UNIQUE,
-    ring_no INTEGER,
-    camera_no INTEGER,
-    device_model TEXT,
-    resolution TEXT,
-    fps_target REAL,
-    codec TEXT,
-    bitrate_target INTEGER,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    camera_id INTEGER NOT NULL,
-    start_time TEXT NOT NULL,
-    end_time TEXT,
-    bytes_total INTEGER NOT NULL DEFAULT 0,
-    frames_total INTEGER NOT NULL DEFAULT 0,
-    dropped_total INTEGER NOT NULL DEFAULT 0,
-    keyframes_total INTEGER NOT NULL DEFAULT 0,
-    recording_path TEXT,
-    FOREIGN KEY(camera_id) REFERENCES cameras(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS statistics (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    camera_id INTEGER NOT NULL,
-    ts TEXT NOT NULL,
-    fps REAL NOT NULL DEFAULT 0,
-    bitrate INTEGER NOT NULL DEFAULT 0,
-    frames INTEGER NOT NULL DEFAULT 0,
-    dropped INTEGER NOT NULL DEFAULT 0,
-    bytes INTEGER NOT NULL DEFAULT 0,
-    keyframes INTEGER NOT NULL DEFAULT 0,
-    reconnects INTEGER NOT NULL DEFAULT 0,
-    FOREIGN KEY(camera_id) REFERENCES cameras(id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_statistics_camera_ts
-    ON statistics(camera_id, ts);
-
-CREATE TABLE IF NOT EXISTS configuration (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    key TEXT NOT NULL UNIQUE,
-    value TEXT,
-    description TEXT
-);
-
-CREATE TABLE IF NOT EXISTS events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    camera_id INTEGER,
-    ts TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    event_type TEXT NOT NULL,
-    message TEXT,
-    FOREIGN KEY(camera_id) REFERENCES cameras(id) ON DELETE SET NULL
-);
-
-INSERT OR IGNORE INTO configuration(key, value, description) VALUES
-('stats_flush_seconds', '1', 'How often live statistics are persisted to SQLite'),
-('record_raw_h264', '0', 'Save incoming H.264 payloads to data/video when set to 1');
+PRAGMA journal_mode=WAL;
+PRAGMA foreign_keys=ON;
+PRAGMA busy_timeout=5000;
+CREATE TABLE IF NOT EXISTS cameras (id INTEGER PRIMARY KEY AUTOINCREMENT,stream_id TEXT UNIQUE NOT NULL,ring_no INTEGER,camera_no INTEGER,device_model TEXT,resolution TEXT,fps_target REAL,bitrate_target INTEGER,ring INTEGER,camera INTEGER,device TEXT,manufacturer TEXT,android_version TEXT,app_version TEXT,encoder TEXT,codec TEXT,width INTEGER,height INTEGER,fps REAL,bitrate INTEGER,keyframe_interval REAL,last_seen_at TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE INDEX IF NOT EXISTS idx_cameras_ring_camera ON cameras(ring,camera);
+CREATE TABLE IF NOT EXISTS sessions (id INTEGER PRIMARY KEY AUTOINCREMENT,camera_id INTEGER NOT NULL,stream_id TEXT,start_time TEXT,end_time TEXT,started_at TEXT,ended_at TEXT,remote_address TEXT,codec TEXT,width INTEGER,height INTEGER,fps REAL,bitrate INTEGER,keyframe_interval REAL,encoder TEXT,codec_config_version INTEGER NOT NULL DEFAULT 0,disconnect_reason TEXT,bytes_total INTEGER NOT NULL DEFAULT 0,frames_total INTEGER NOT NULL DEFAULT 0,dropped_total INTEGER NOT NULL DEFAULT 0,keyframes_total INTEGER NOT NULL DEFAULT 0,recording_path TEXT,FOREIGN KEY(camera_id) REFERENCES cameras(id) ON DELETE CASCADE);
+CREATE INDEX IF NOT EXISTS idx_sessions_camera_started ON sessions(camera_id,started_at);
+CREATE TABLE IF NOT EXISTS statistics (id INTEGER PRIMARY KEY AUTOINCREMENT,camera_id INTEGER NOT NULL,session_id INTEGER,ts TEXT,sample_time TEXT,fps REAL NOT NULL DEFAULT 0,bitrate INTEGER NOT NULL DEFAULT 0,bitrate_bps INTEGER NOT NULL DEFAULT 0,frames INTEGER NOT NULL DEFAULT 0,dropped INTEGER NOT NULL DEFAULT 0,bytes INTEGER NOT NULL DEFAULT 0,keyframes INTEGER NOT NULL DEFAULT 0,reconnects INTEGER NOT NULL DEFAULT 0,bytes_received INTEGER NOT NULL DEFAULT 0,buffers_received INTEGER NOT NULL DEFAULT 0,codec_config_buffers INTEGER NOT NULL DEFAULT 0,sequence_gaps INTEGER NOT NULL DEFAULT 0,estimated_missing_buffers INTEGER NOT NULL DEFAULT 0,ram_cache_seconds REAL NOT NULL DEFAULT 0,ram_cache_bytes INTEGER NOT NULL DEFAULT 0,FOREIGN KEY(camera_id) REFERENCES cameras(id) ON DELETE CASCADE,FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE);
+CREATE INDEX IF NOT EXISTS idx_statistics_camera_ts ON statistics(camera_id,ts);
+CREATE INDEX IF NOT EXISTS idx_statistics_session_sample ON statistics(session_id,sample_time);
+CREATE TABLE IF NOT EXISTS files (id INTEGER PRIMARY KEY AUTOINCREMENT,camera_id INTEGER NOT NULL,session_id INTEGER NOT NULL,path TEXT UNIQUE NOT NULL,started_at TEXT NOT NULL,ended_at TEXT,start_pts_us TEXT,end_pts_us TEXT,byte_size INTEGER NOT NULL DEFAULT 0,gop_count INTEGER NOT NULL DEFAULT 0,codec_config_version INTEGER,complete INTEGER NOT NULL DEFAULT 0,FOREIGN KEY(camera_id) REFERENCES cameras(id),FOREIGN KEY(session_id) REFERENCES sessions(id));
+CREATE INDEX IF NOT EXISTS idx_files_camera_started ON files(camera_id,started_at);
+CREATE TABLE IF NOT EXISTS gop_index (id INTEGER PRIMARY KEY AUTOINCREMENT,camera_id INTEGER NOT NULL,session_id INTEGER NOT NULL,file_id INTEGER,start_time_epoch_us INTEGER NOT NULL,end_time_epoch_us INTEGER NOT NULL,start_pts_us TEXT NOT NULL,end_pts_us TEXT NOT NULL,keyframe_pts_us TEXT NOT NULL,sequence_start INTEGER,sequence_end INTEGER,byte_size INTEGER NOT NULL,buffer_count INTEGER NOT NULL,file_offset INTEGER,file_length INTEGER,complete INTEGER NOT NULL DEFAULT 1,sequence_gap_count INTEGER NOT NULL DEFAULT 0,estimated_missing_buffers INTEGER NOT NULL DEFAULT 0,FOREIGN KEY(camera_id) REFERENCES cameras(id),FOREIGN KEY(session_id) REFERENCES sessions(id),FOREIGN KEY(file_id) REFERENCES files(id));
+CREATE INDEX IF NOT EXISTS idx_gop_camera_start ON gop_index(camera_id,start_time_epoch_us);
+CREATE INDEX IF NOT EXISTS idx_gop_camera_end ON gop_index(camera_id,end_time_epoch_us);
+CREATE INDEX IF NOT EXISTS idx_gop_file ON gop_index(file_id);
+CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT,camera_id INTEGER,ring INTEGER,event_time_epoch_us INTEGER,pre_roll_ms INTEGER NOT NULL DEFAULT 8000,post_roll_ms INTEGER NOT NULL DEFAULT 4000,label TEXT,notes TEXT,ts TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,event_type TEXT,message TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(camera_id) REFERENCES cameras(id) ON DELETE SET NULL);
+CREATE INDEX IF NOT EXISTS idx_events_ring_time ON events(ring,event_time_epoch_us);
+CREATE TABLE IF NOT EXISTS configuration (id INTEGER PRIMARY KEY AUTOINCREMENT,key TEXT UNIQUE NOT NULL,value TEXT,description TEXT);
+INSERT OR IGNORE INTO configuration(key,value,description) VALUES ('stats_flush_seconds','1','Statistics persistence interval'),('ram_replay_seconds','60','Completed GOP cache duration'),('ram_replay_max_bytes','67108864','Per-camera RAM safety limit'),('record_file_seconds','60','fMP4 rotation interval'),('max_rings','14','Maximum ring number'),('cameras_per_ring','3','Cameras per ring'),('request_keyframe_on_connect','1','Request keyframe after hello'),('stale_socket_seconds','15','Disconnect silent sockets');

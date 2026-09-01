@@ -1,180 +1,83 @@
 #!/usr/bin/env node
 'use strict';
 
-const fs = require('fs');
-const path = require('path');
-const http = require('http');
-const WebSocket = require('ws');
-const Database = require('better-sqlite3');
+const fs=require('fs'),path=require('path'),http=require('http'),os=require('os');
+const WebSocket=require('ws'),Database=require('better-sqlite3');
+const {parseFpv1Binary,validateHello,sequenceDelta,BUFFER_FLAG_KEY_FRAME,BUFFER_FLAG_CODEC_CONFIG,BUFFER_FLAG_END_OF_STREAM,ProtocolError}=require('./protocol');
+const {GopBuilder,GopReplayCache}=require('./gop');
+const {extractConfig,FragmentedMp4Recorder}=require('./recorder');
 
-const ROOT = __dirname;
-const DATA_DIR = '/data';
-const VIDEO_DIR = path.join(DATA_DIR, 'video');
-const DB_PATH = path.join(DATA_DIR, 'freeplay.sqlite');
-const SCHEMA_PATH = path.join(DATA_DIR, 'sql', 'schema.sql');
-const PORT = Number(process.env.FREEPLAY_WS_PORT || 9000);
+const ROOT=path.resolve(__dirname,'..');
+const DATA_DIR=path.resolve(process.env.FREEPLAY_DATA_DIR||path.join(ROOT,'data'));
+const VIDEO_DIR=path.resolve(process.env.FREEPLAY_VIDEO_DIR||path.join(DATA_DIR,'video'));
+const DB_PATH=path.resolve(process.env.FREEPLAY_DB||path.join(DATA_DIR,'freeplay.sqlite'));
+const SCHEMA_PATH=path.join(DATA_DIR,'sql','schema.sql');
+const PORT=Number(process.env.FREEPLAY_PORT||process.env.FREEPLAY_WS_PORT||9000);
+fs.mkdirSync(VIDEO_DIR,{recursive:true});
 
-fs.mkdirSync(VIDEO_DIR, { recursive: true });
-const db = new Database(DB_PATH);
-db.pragma('journal_mode = WAL');
-db.exec(fs.readFileSync(SCHEMA_PATH, 'utf8'));
+const db=new Database(DB_PATH); db.pragma('busy_timeout=5000'); db.pragma('journal_mode=WAL');
+// Non-destructive migration for databases created by the original prototype.
+const migrations={cameras:{ring:'INTEGER',camera:'INTEGER',device:'TEXT',manufacturer:'TEXT',android_version:'TEXT',app_version:'TEXT',encoder:'TEXT',width:'INTEGER',height:'INTEGER',fps:'REAL',bitrate:'INTEGER',keyframe_interval:'REAL',last_seen_at:'TEXT'},sessions:{stream_id:'TEXT',started_at:'TEXT',ended_at:'TEXT',remote_address:'TEXT',codec:'TEXT',width:'INTEGER',height:'INTEGER',fps:'REAL',bitrate:'INTEGER',keyframe_interval:'REAL',encoder:'TEXT',codec_config_version:'INTEGER NOT NULL DEFAULT 0',disconnect_reason:'TEXT'},statistics:{session_id:'INTEGER',sample_time:'TEXT',bitrate_bps:'INTEGER NOT NULL DEFAULT 0',bytes_received:'INTEGER NOT NULL DEFAULT 0',buffers_received:'INTEGER NOT NULL DEFAULT 0',codec_config_buffers:'INTEGER NOT NULL DEFAULT 0',sequence_gaps:'INTEGER NOT NULL DEFAULT 0',estimated_missing_buffers:'INTEGER NOT NULL DEFAULT 0',ram_cache_seconds:'REAL NOT NULL DEFAULT 0',ram_cache_bytes:'INTEGER NOT NULL DEFAULT 0'},events:{ring:'INTEGER',event_time_epoch_us:'INTEGER',pre_roll_ms:'INTEGER NOT NULL DEFAULT 8000',post_roll_ms:'INTEGER NOT NULL DEFAULT 4000',label:'TEXT',notes:'TEXT',created_at:'TEXT'}};
+for(const [table,columns] of Object.entries(migrations)) { const exists=db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table); if(!exists)continue; const have=new Set(db.prepare(`PRAGMA table_info(${table})`).all().map(x=>x.name)); for(const [name,type] of Object.entries(columns)) if(!have.has(name)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${type}`); }
+db.exec(fs.readFileSync(SCHEMA_PATH,'utf8')); db.pragma('foreign_keys=ON');
 
-const upsertCamera = db.prepare(`
-INSERT INTO cameras(stream_id, ring_no, camera_no, device_model, resolution, fps_target, codec, bitrate_target, updated_at)
-VALUES (@stream_id, @ring_no, @camera_no, @device_model, @resolution, @fps_target, @codec, @bitrate_target, CURRENT_TIMESTAMP)
-ON CONFLICT(stream_id) DO UPDATE SET
- ring_no=excluded.ring_no,
- camera_no=excluded.camera_no,
- device_model=excluded.device_model,
- resolution=excluded.resolution,
- fps_target=excluded.fps_target,
- codec=excluded.codec,
- bitrate_target=excluded.bitrate_target,
- updated_at=CURRENT_TIMESTAMP
-`);
-const getCamera = db.prepare('SELECT * FROM cameras WHERE stream_id = ?');
-const insertSession = db.prepare(`INSERT INTO sessions(camera_id,start_time,recording_path) VALUES (?,?,?)`);
-const closeSession = db.prepare(`UPDATE sessions SET end_time=?, bytes_total=?, frames_total=?, dropped_total=?, keyframes_total=? WHERE id=?`);
-const insertStats = db.prepare(`INSERT INTO statistics(camera_id,ts,fps,bitrate,frames,dropped,bytes,keyframes,reconnects) VALUES (?,?,?,?,?,?,?,?,?)`);
-const insertEvent = db.prepare(`INSERT INTO events(camera_id,event_type,message) VALUES (?,?,?)`);
-const getConfig = db.prepare('SELECT value FROM configuration WHERE key=?');
+const cfgStmt=db.prepare('SELECT value FROM configuration WHERE key=?');
+function cfg(key,fallback){const r=cfgStmt.get(key);return r==null?fallback:r.value;}
+const config={maxRings:Number(cfg('max_rings',14)),camerasPerRing:Number(cfg('cameras_per_ring',3)),ramSeconds:Number(process.env.FREEPLAY_RAM_REPLAY_SECONDS||cfg('ram_replay_seconds',60)),ramBytes:Number(cfg('ram_replay_max_bytes',67108864)),fileSeconds:Number(process.env.FREEPLAY_FILE_SECONDS||cfg('record_file_seconds',60)),statsSeconds:Number(cfg('stats_flush_seconds',1)),staleSeconds:Number(cfg('stale_socket_seconds',15)),requestKeyframe:String(cfg('request_keyframe_on_connect','1'))!=='0'};
+const sql={
+ upsertCamera:db.prepare(`INSERT INTO cameras(stream_id,ring_no,camera_no,device_model,resolution,fps_target,bitrate_target,ring,camera,device,manufacturer,android_version,app_version,encoder,codec,width,height,fps,bitrate,keyframe_interval,last_seen_at,updated_at) VALUES (@streamId,@ring,@camera,@device,@resolution,@fps,@bitrate,@ring,@camera,@device,@manufacturer,@androidVersion,@appVersion,@encoder,@codec,@width,@height,@fps,@bitrate,@keyframeInterval,@now,@now) ON CONFLICT(stream_id) DO UPDATE SET ring_no=excluded.ring_no,camera_no=excluded.camera_no,device_model=excluded.device_model,resolution=excluded.resolution,fps_target=excluded.fps_target,bitrate_target=excluded.bitrate_target,ring=excluded.ring,camera=excluded.camera,device=excluded.device,manufacturer=excluded.manufacturer,android_version=excluded.android_version,app_version=excluded.app_version,encoder=excluded.encoder,codec=excluded.codec,width=excluded.width,height=excluded.height,fps=excluded.fps,bitrate=excluded.bitrate,keyframe_interval=excluded.keyframe_interval,last_seen_at=excluded.last_seen_at,updated_at=excluded.updated_at`),
+ camera:db.prepare('SELECT * FROM cameras WHERE stream_id=?'),
+ session:db.prepare(`INSERT INTO sessions(camera_id,stream_id,start_time,started_at,remote_address,codec,width,height,fps,bitrate,keyframe_interval,encoder) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`),
+ closeSession:db.prepare(`UPDATE sessions SET end_time=?,ended_at=?,bytes_total=?,frames_total=?,dropped_total=?,keyframes_total=?,codec_config_version=?,disconnect_reason=? WHERE id=?`),
+ stats:db.prepare(`INSERT INTO statistics(camera_id,session_id,ts,sample_time,fps,bitrate,bitrate_bps,frames,dropped,bytes,keyframes,bytes_received,buffers_received,codec_config_buffers,sequence_gaps,estimated_missing_buffers,ram_cache_seconds,ram_cache_bytes) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`),
+ openFile:db.prepare(`INSERT INTO files(camera_id,session_id,path,started_at,start_pts_us,codec_config_version,byte_size) VALUES (?,?,?,?,?,?,?)`),
+ updateFile:db.prepare(`UPDATE files SET byte_size=?,gop_count=gop_count+1,end_pts_us=? WHERE id=?`),
+ closeFile:db.prepare(`UPDATE files SET ended_at=?,end_pts_us=COALESCE(?,end_pts_us),byte_size=?,complete=1 WHERE id=?`),
+ gop:db.prepare(`INSERT INTO gop_index(camera_id,session_id,file_id,start_time_epoch_us,end_time_epoch_us,start_pts_us,end_pts_us,keyframe_pts_us,sequence_start,sequence_end,byte_size,buffer_count,file_offset,file_length,complete,sequence_gap_count,estimated_missing_buffers) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+};
 
-const live = new Map();
+const liveStreams=new Map(); const metrics={acceptedStreams:0,rejectedStreams:0,totalBytesReceived:0,protocolErrors:0,databaseHealthy:true,writerErrors:0};
+function iso(){return new Date().toISOString();} function epochUs(){return BigInt(Date.now())*1000n;} function send(ws,o){if(ws.readyState===WebSocket.OPEN)ws.send(JSON.stringify(o));}
+function safeDb(fn){try{return fn();}catch(e){metrics.databaseHealthy=false;console.error(JSON.stringify({event:'database_error',error:e.message}));return null;}}
+function requestKeyframe(state,reason){const now=Date.now();if(now-(state.lastKeyframeRequest||0)<1000)return;state.lastKeyframeRequest=now;send(state.socket,{type:'request_keyframe',reason});}
 
-function nowIso() { return new Date().toISOString(); }
-function sanitizeStreamId(v) { return String(v || '').replace(/[^A-Za-z0-9_.-]/g, '_'); }
-function boolConfig(key, defaultValue=false) {
-  const row = getConfig.get(key);
-  return row ? ['1','true','yes','on'].includes(String(row.value).toLowerCase()) : defaultValue;
+function finalizeGop(state,gop) {
+ if(!gop)return; state.cache.add(gop); let fileId=null,offset=null,length=null;
+ if(state.codecConfig&&state.writerHealthy){try{state.recorder.codecConfig=state.codecConfig;const result=state.recorder.write(gop);fileId=result.fileId;offset=result.offset;length=result.length;state.activeFile=result.path;}catch(e){state.writerHealthy=false;state.lastError=e.message;metrics.writerErrors++;gop.complete=false;console.error(JSON.stringify({event:'writer_error',streamId:state.streamId,error:e.message}));}}
+ safeDb(()=>sql.gop.run(state.cameraId,state.sessionId,fileId,Number(gop.startServerEpochUs),Number(gop.endServerEpochUs),String(gop.startPtsUs),String(gop.endPtsUs),String(gop.keyframePtsUs),gop.sequenceStart,gop.sequenceEnd,gop.byteLength,gop.encodedBufferCount,offset,length,gop.complete?1:0,gop.sequenceGapCount,gop.estimatedMissingBuffers));
 }
+function liveView(s){const c=s.cache.getStats();return {streamId:s.streamId,stream_id:s.streamId,ring:s.hello.ring,camera:s.hello.camera,connected:true,healthy:s.writerHealthy&&!s.lastError,device:s.hello.device,device_model:s.hello.device,manufacturer:s.hello.manufacturer,encoder:s.hello.encoder,resolution:`${s.hello.width}x${s.hello.height}`,fpsTarget:s.hello.fps,fps_target:s.hello.fps,fps:s.measuredFps,bitrateTarget:s.hello.bitrate,bitrate_target:s.hello.bitrate,bitrate:s.measuredBitrate,bytes:s.bytes,buffers:s.buffers,frames:s.buffers,keyframes:s.keyframes,codecConfigVersion:s.codecConfigVersion,codecConfigReady:!!s.codecConfig,sequenceGaps:s.sequenceGaps,dropped:s.missing,lastSequence:s.lastSequence,ramCacheSeconds:c.seconds,ramCacheBytes:c.bytes,currentGopBuffers:s.gop.current?.encodedBufferCount||0,recording:s.writerHealthy&&!!s.activeFile,currentFile:s.activeFile,sessionId:s.sessionId,uptimeSeconds:Math.floor((Date.now()-s.connectedAt)/1000),uptime_seconds:Math.floor((Date.now()-s.connectedAt)/1000),lastMessageAt:new Date(s.lastMessageAt).toISOString(),last_frame_ms:Date.now()-s.lastMessageAt,lastError:s.lastError,peer:s.peer,status:s.status};}
 
-function createRawFile(streamId) {
-  if (!boolConfig('record_raw_h264', false)) return { file: null, path: null };
-  const dir = path.join(VIDEO_DIR, sanitizeStreamId(streamId));
-  fs.mkdirSync(dir, { recursive: true });
-  const stamp = new Date().toISOString().replace(/[:.]/g,'-');
-  const full = path.join(dir, `${stamp}.h264`);
-  return { file: fs.createWriteStream(full, { flags: 'a' }), path: path.relative(ROOT, full) };
-}
-
-function parseHello(msg) {
-  const o = JSON.parse(msg.toString());
-  if (o.type !== 'hello') throw new Error('First message must be JSON hello');
-  if (!o.streamId) throw new Error('hello.streamId is required');
-  return {
-    stream_id: String(o.streamId),
-    ring_no: Number(o.ring ?? o.ringNumber ?? 0) || null,
-    camera_no: Number(o.camera ?? o.cameraNumber ?? 0) || null,
-    device_model: String(o.device ?? o.deviceModel ?? 'Unknown'),
-    resolution: String(o.resolution ?? `${o.width || 0}x${o.height || 0}`),
-    fps_target: Number(o.fps ?? 0),
-    codec: String(o.codec ?? 'h264'),
-    bitrate_target: Number(o.bitrate ?? 0)
-  };
-}
-
-// Prototype binary format expected from Android per message:
-// bytes 0..7   : int64 BE presentation timestamp (microseconds)
-// bytes 8..11  : uint32 BE sequence
-// bytes 12..15 : uint32 BE MediaCodec flags
-// bytes 16..19 : uint32 BE payload length
-// bytes 20..   : H.264 payload
-function parseBinary(buf) {
-  if (buf.length < 20) throw new Error('Binary message shorter than 20-byte frame header');
-  const ptsUs = Number(buf.readBigInt64BE(0));
-  const sequence = buf.readUInt32BE(8);
-  const flags = buf.readUInt32BE(12);
-  const payloadLength = buf.readUInt32BE(16);
-  if (payloadLength > buf.length - 20) throw new Error('Invalid payload length');
-  return { ptsUs, sequence, flags, payload: buf.subarray(20, 20 + payloadLength) };
-}
-
-const server = http.createServer((req, res) => {
-  if (req.url === '/health') {
-    res.writeHead(200, {'Content-Type':'application/json'});
-    return res.end(JSON.stringify({ok:true, cameras:live.size, time:nowIso()}));
+const server=http.createServer((req,res)=>{
+ res.setHeader('Content-Type','application/json');res.setHeader('Cache-Control','no-store');
+ if(req.method==='GET'&&req.url==='/health'){let free=null;try{free=fs.statfsSync(VIDEO_DIR).bavail*fs.statfsSync(VIDEO_DIR).bsize;}catch(_){} const cacheBytes=[...liveStreams.values()].reduce((n,s)=>n+s.cache.bytes,0);return res.end(JSON.stringify({ok:metrics.databaseHealthy&&metrics.writerErrors===0,service:'freeplay',version:1,activeStreams:liveStreams.size,uptimeSeconds:Math.floor(process.uptime()),...metrics,aggregateBitrate:[...liveStreams.values()].reduce((n,s)=>n+s.measuredBitrate,0),ramReplayCacheBytes:cacheBytes,diskFreeBytes:free,hostname:os.hostname()}));}
+ if(req.method==='GET'&&req.url==='/api/live')return res.end(JSON.stringify({ok:true,updatedAt:iso(),streams:[...liveStreams.values()].map(liveView)}));
+ const u=new URL(req.url,'http://localhost');
+ if(req.method==='GET'&&u.pathname==='/api/replay'){const ring=Number(u.searchParams.get('ring')),time=BigInt(u.searchParams.get('time')||Date.now()*1000),before=Number(u.searchParams.get('before')||8),after=Number(u.searchParams.get('after')||4),start=time-BigInt(Math.round(before*1e6)),end=time+BigInt(Math.round(after*1e6));const cameras=[];for(let camera=1;camera<=config.camerasPerRing;camera++){const id=`ring${ring}_cam${camera}`,s=liveStreams.get(id),gops=s?s.cache.query(start,end):[];cameras.push({streamId:id,source:gops.length?'ram':'disk',available:gops.length>0,startTimeEpochUs:gops.length?String(gops[0].startServerEpochUs):null,endTimeEpochUs:gops.length?String(gops[gops.length-1].endServerEpochUs):null,fragments:gops.map(g=>({startTimeEpochUs:String(g.startServerEpochUs),endTimeEpochUs:String(g.endServerEpochUs),complete:g.complete,sequenceGapCount:g.sequenceGapCount,estimatedMissingBuffers:g.estimatedMissingBuffers}))});}return res.end(JSON.stringify({ok:true,ring,requestedTimeEpochUs:String(time),beforeSeconds:before,afterSeconds:after,cameras}));}
+ res.statusCode=404;res.end(JSON.stringify({ok:false,error:{code:'not_found',message:'Not found'}}));
+});
+const wss=new WebSocket.Server({server,maxPayload:32*1024*1024});
+wss.on('connection',(ws,req)=>{let state=null;ws.isAlive=true;ws.on('pong',()=>{ws.isAlive=true;if(state)state.lastPongAt=Date.now();});
+ ws.on('message',(data,isBinary)=>{try{
+  if(!state){if(isBinary)throw new ProtocolError('hello_required','Binary video is not accepted before hello');let parsed;try{parsed=JSON.parse(data.toString('utf8'));}catch(_){throw new ProtocolError('invalid_json','Control message is not valid JSON');}const hello=validateHello(parsed,config);if(liveStreams.has(hello.streamId)){metrics.rejectedStreams++;send(ws,{type:'hello_ack',accepted:false,reason:'duplicate_stream'});return setTimeout(()=>ws.close(1008,'duplicate_stream'),100);}
+   const now=iso();safeDb(()=>sql.upsertCamera.run({...hello,resolution:`${hello.width}x${hello.height}`,now}));const camera=sql.camera.get(hello.streamId);if(!camera)throw new Error('Unable to register camera');const session=safeDb(()=>sql.session.run(camera.id,hello.streamId,now,now,req.socket.remoteAddress||'',hello.codec,hello.width,hello.height,hello.fps,hello.bitrate,hello.keyframeInterval,hello.encoder));if(!session)throw new Error('Unable to create session');
+   state={socket:ws,streamId:hello.streamId,hello,cameraId:camera.id,sessionId:Number(session.lastInsertRowid),peer:req.socket.remoteAddress,connectedAt:Date.now(),lastMessageAt:Date.now(),lastPongAt:Date.now(),lastSequence:null,buffers:0,bytes:0,keyframes:0,codecConfigBuffers:0,codecConfig:null,codecConfigVersion:0,sequenceGaps:0,missing:0,gop:new GopBuilder(hello.streamId),cache:new GopReplayCache(config.ramSeconds,config.ramBytes),writerHealthy:true,activeFile:null,lastError:null,status:null,measuredFps:0,measuredBitrate:0,sampleAt:Date.now(),sampleBuffers:0,sampleBytes:0};
+   state.recorder=new FragmentedMp4Recorder({videoDir:VIDEO_DIR,hello,fileSeconds:config.fileSeconds,onOpen:(file,gop,size)=>{const rel=path.relative(ROOT,file);const x=sql.openFile.run(state.cameraId,state.sessionId,rel,iso(),String(gop.startPtsUs),state.codecConfigVersion,size);return Number(x.lastInsertRowid);},onFragment:(id,gop,o,l,size)=>sql.updateFile.run(size,String(gop.endPtsUs),id),onClose:(id,gop,size)=>sql.closeFile.run(iso(),gop?String(gop.endPtsUs):null,size,id)});
+   liveStreams.set(state.streamId,state);metrics.acceptedStreams++;send(ws,{type:'hello_ack',accepted:true,streamId:state.streamId,serverTime:Date.now()/1000});if(config.requestKeyframe)requestKeyframe(state,'connect');console.log(JSON.stringify({event:'hello_accepted',streamId:state.streamId,peer:state.peer}));return;
   }
-  res.writeHead(404); res.end('Not found');
+  state.lastMessageAt=Date.now();
+  if(!isBinary){let msg;try{msg=JSON.parse(data.toString('utf8'));}catch(_){throw new ProtocolError('invalid_json','Control message is not valid JSON');}if(msg.type==='ping')return send(ws,{type:'pong',id:msg.id});if(msg.type==='pong'){state.lastPongAt=Date.now();return;}if(msg.type==='status'){state.status=msg;return;}throw new ProtocolError('unknown_message','Unknown control message type');}
+  const received={epochUs:epochUs(),monotonicNs:process.hrtime.bigint()},frame=parseFpv1Binary(Buffer.from(data));state.buffers++;state.bytes+=frame.payloadLength;metrics.totalBytesReceived+=frame.payloadLength;
+  let missing=0;if(state.lastSequence!==null){const delta=sequenceDelta(state.lastSequence,frame.sequence);if(delta!==1){state.sequenceGaps++;missing=delta===0?0:delta-1;state.missing+=missing;requestKeyframe(state,'sequence_gap');}}state.lastSequence=frame.sequence;
+  if(frame.flags&BUFFER_FLAG_CODEC_CONFIG){state.codecConfigBuffers++;const next=extractConfig(frame.payload);if(!next)throw new ProtocolError('invalid_codec_config','Codec config does not contain SPS and PPS');const changed=!state.codecConfig||!state.codecConfig.avcC.equals(next.avcC);if(changed){finalizeGop(state,state.gop.finalize(false));state.recorder.close();state.codecConfig=next;state.codecConfigVersion++;safeDb(()=>db.prepare('UPDATE sessions SET codec_config_version=? WHERE id=?').run(state.codecConfigVersion,state.sessionId));requestKeyframe(state,'codec_config_changed');}return;}
+  if(frame.flags&BUFFER_FLAG_KEY_FRAME)state.keyframes++;const result=state.gop.add(frame,received,state.codecConfigVersion,missing);finalizeGop(state,result.finalized);if(!result.accepted)requestKeyframe(state,'waiting_for_keyframe');if(frame.flags&BUFFER_FLAG_END_OF_STREAM){finalizeGop(state,state.gop.finalize(true));ws.close(1000,'end_of_stream');}
+ }catch(e){metrics.protocolErrors++;if(state){state.lastError=e.message;}console.warn(JSON.stringify({event:'protocol_error',streamId:state?.streamId,code:e.code||'internal_error',error:e.message}));send(ws,{type:'error',error:{code:e.code||'internal_error',message:e.message}});if(!state||['invalid_magic','frame_too_short','payload_length_mismatch','hello_required'].includes(e.code))ws.close(1008,e.code||'protocol_error');}});
+ ws.on('close',(code,reason)=>{if(!state)return;finalizeGop(state,state.gop.finalize(false));try{state.recorder.close();}catch(e){state.lastError=e.message;}const why=reason.toString()||`websocket_${code}`;safeDb(()=>sql.closeSession.run(iso(),iso(),state.bytes,state.buffers,state.missing,state.keyframes,state.codecConfigVersion,why,state.sessionId));if(liveStreams.get(state.streamId)===state)liveStreams.delete(state.streamId);console.log(JSON.stringify({event:'stream_disconnected',streamId:state.streamId,reason:why}));});
 });
 
-const wss = new WebSocket.Server({ server, maxPayload: 16 * 1024 * 1024 });
+const statsTimer=setInterval(()=>{const now=Date.now(),snapshot={};for(const s of liveStreams.values()){const seconds=Math.max((now-s.sampleAt)/1000,.001),dbuf=s.buffers-s.sampleBuffers,dbytes=s.bytes-s.sampleBytes;s.measuredFps=dbuf/seconds;s.measuredBitrate=Math.round(dbytes*8/seconds);s.sampleAt=now;s.sampleBuffers=s.buffers;s.sampleBytes=s.bytes;const c=s.cache.getStats();safeDb(()=>sql.stats.run(s.cameraId,s.sessionId,iso(),iso(),s.measuredFps,s.measuredBitrate,s.measuredBitrate,s.buffers,s.missing,s.bytes,s.keyframes,s.bytes,s.buffers,s.codecConfigBuffers,s.sequenceGaps,s.missing,c.seconds,c.bytes));snapshot[s.streamId]=liveView(s);}try{fs.writeFileSync(path.join(DATA_DIR,'live-status.json'),JSON.stringify({updated_at:iso(),cameras:snapshot},null,2));}catch(e){console.error(JSON.stringify({event:'status_write_error',error:e.message}));}},config.statsSeconds*1000);statsTimer.unref();
+const heartbeat=setInterval(()=>{for(const ws of wss.clients){const s=[...liveStreams.values()].find(x=>x.socket===ws);if(ws.isAlive===false||(s&&Date.now()-s.lastMessageAt>config.staleSeconds*1000)){ws.terminate();continue;}ws.isAlive=false;ws.ping();}},Math.min(5000,config.staleSeconds*500));heartbeat.unref();
+let shuttingDown=false;function shutdown(signal){if(shuttingDown)return;shuttingDown=true;console.log(JSON.stringify({event:'shutdown',signal}));clearInterval(statsTimer);clearInterval(heartbeat);wss.close();for(const s of liveStreams.values())s.socket.close(1001,'server_shutdown');server.close(()=>{try{db.close();}finally{process.exit(0);}});setTimeout(()=>process.exit(1),5000).unref();}process.on('SIGINT',()=>shutdown('SIGINT'));process.on('SIGTERM',()=>shutdown('SIGTERM'));
+server.listen(PORT,'0.0.0.0',()=>console.log(JSON.stringify({event:'server_start',port:PORT,database:DB_PATH,videoDir:VIDEO_DIR})));
 
-wss.on('connection', (ws, req) => {
-  let state = null;
-  let helloReceived = false;
-
-  ws.on('message', (data, isBinary) => {
-    try {
-      if (!helloReceived) {
-        if (isBinary) throw new Error('Expected hello JSON before binary video');
-        const hello = parseHello(data);
-        upsertCamera.run(hello);
-        const camera = getCamera.get(hello.stream_id);
-        const raw = createRawFile(hello.stream_id);
-        const sessionInfo = insertSession.run(camera.id, nowIso(), raw.path);
-
-        state = {
-          streamId: hello.stream_id, cameraId: camera.id, sessionId: Number(sessionInfo.lastInsertRowid),
-          hello, connectedAt: Date.now(), frames:0, bytes:0, dropped:0, keyframes:0, reconnects:0,
-          lastSeq:null, lastFrameAt:null, prevSampleAt:Date.now(), prevFrames:0, prevBytes:0,
-          fps:0, bitrate:0, rawFile: raw.file, peer:req.socket.remoteAddress
-        };
-        live.set(state.streamId, state);
-        helloReceived = true;
-        insertEvent.run(camera.id, 'connect', `Connected from ${state.peer || 'unknown'}`);
-        console.log(`[connect] ${state.streamId} ${state.peer || ''}`);
-        ws.send(JSON.stringify({type:'hello_ack', streamId:state.streamId, serverTime:nowIso()}));
-        return;
-      }
-
-      if (!isBinary) return; // ignore non-binary control messages for prototype
-      const frame = parseBinary(Buffer.from(data));
-      state.frames++;
-      state.bytes += frame.payload.length;
-      state.lastFrameAt = Date.now();
-      if (state.lastSeq !== null && frame.sequence > state.lastSeq + 1) state.dropped += (frame.sequence - state.lastSeq - 1);
-      state.lastSeq = frame.sequence;
-      if ((frame.flags & 1) !== 0) state.keyframes++; // MediaCodec BUFFER_FLAG_KEY_FRAME = 1
-      if (state.rawFile && frame.payload.length) state.rawFile.write(frame.payload);
-    } catch (e) {
-      console.error('[ingest error]', e.message);
-      try { ws.send(JSON.stringify({type:'error', message:e.message})); } catch (_) {}
-    }
-  });
-
-  ws.on('close', () => {
-    if (!state) return;
-    try { if (state.rawFile) state.rawFile.end(); } catch (_) {}
-    closeSession.run(nowIso(), state.bytes, state.frames, state.dropped, state.keyframes, state.sessionId);
-    insertEvent.run(state.cameraId, 'disconnect', `Disconnected after ${Math.round((Date.now()-state.connectedAt)/1000)}s`);
-    live.delete(state.streamId);
-    console.log(`[disconnect] ${state.streamId}`);
-  });
-});
-
-setInterval(() => {
-  const t = Date.now();
-  for (const state of live.values()) {
-    const seconds = Math.max((t - state.prevSampleAt) / 1000, 0.001);
-    const df = state.frames - state.prevFrames;
-    const dbt = state.bytes - state.prevBytes;
-    state.fps = df / seconds;
-    state.bitrate = Math.round((dbt * 8) / seconds);
-    state.prevSampleAt = t; state.prevFrames = state.frames; state.prevBytes = state.bytes;
-    insertStats.run(state.cameraId, nowIso(), state.fps, state.bitrate, state.frames, state.dropped, state.bytes, state.keyframes, state.reconnects);
-  }
-  const snapshot = {};
-  for (const [id,s] of live.entries()) snapshot[id] = {
-    stream_id:id, connected:true, device_model:s.hello.device_model, resolution:s.hello.resolution,
-    fps_target:s.hello.fps_target, fps:s.fps, bitrate_target:s.hello.bitrate_target, bitrate:s.bitrate,
-    codec:s.hello.codec, frames:s.frames, dropped:s.dropped, bytes:s.bytes, keyframes:s.keyframes,
-    uptime_seconds:Math.floor((Date.now()-s.connectedAt)/1000), last_frame_ms:s.lastFrameAt ? Date.now()-s.lastFrameAt : null,
-    peer:s.peer
-  };
-  fs.writeFileSync(path.join(DATA_DIR, 'live-status.json'), JSON.stringify({updated_at:nowIso(), cameras:snapshot}, null, 2));
-}, 1000).unref();
-
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`FreePlay ingest listening on ws://0.0.0.0:${PORT}`);
-  console.log(`Health endpoint: http://127.0.0.1:${PORT}/health`);
-});
+module.exports={server,wss,liveStreams};

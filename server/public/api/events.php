@@ -1,0 +1,4 @@
+<?php
+require __DIR__ . '/common.php';$db=fp_db();
+if($_SERVER['REQUEST_METHOD']==='POST'){$b=fp_body();$ring=intval($b['ring']??0);$time=$b['eventTimeEpochUs']??round(microtime(true)*1000000);if($ring<1||$ring>14||!is_numeric($time))fp_error('invalid_request','Valid ring and eventTimeEpochUs are required');$q=$db->prepare('INSERT INTO events(ring,event_time_epoch_us,pre_roll_ms,post_roll_ms,label,notes,created_at) VALUES (?,?,?,?,?,?,?)');$q->execute([$ring,(int)$time,intval($b['preRollMs']??8000),intval($b['postRollMs']??4000),$b['label']??null,$b['notes']??null,gmdate('c')]);fp_json(['ok'=>true,'data'=>['id'=>(int)$db->lastInsertId()]],201);}
+$q=$db->query('SELECT * FROM events WHERE ring IS NOT NULL ORDER BY event_time_epoch_us DESC LIMIT 200');fp_json(['ok'=>true,'data'=>['events'=>$q->fetchAll(PDO::FETCH_ASSOC)]]);

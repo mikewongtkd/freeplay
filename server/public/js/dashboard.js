@@ -4,10 +4,11 @@
   function fmtTime(s){ s=Number(s||0); const h=Math.floor(s/3600),m=Math.floor((s%3600)/60),x=Math.floor(s%60); return [h,m,x].map(v=>String(v).padStart(2,'0')).join(':'); }
   function esc(s){ return $('<div>').text(s==null?'':s).html(); }
   function card(c){
-    const live=!!c.connected, cls=live?'success':'secondary';
+    const live=!!c.connected, degraded=live&&(!c.healthy||Number(c.sequenceGaps||0)>0), cls=!live?'secondary':degraded?'warning':'success';
     return `<div class="col-12 col-md-6 col-xl-4"><div class="card shadow-sm h-100 camera-card border-${cls}"><div class="card-body">
       <div class="d-flex justify-content-between"><div><h2 class="h5 mb-0">${esc(c.stream_id)}</h2><div class="small text-secondary">${esc(c.device_model||'Unknown')} · ${esc(c.resolution||'')}</div></div><span class="badge text-bg-${cls}">${live?'STREAMING':'OFFLINE'}</span></div>
-      <hr><div class="row g-2 small"><div class="col-6 metric"><span>FPS</span><strong>${Number(c.fps||0).toFixed(2)}</strong></div><div class="col-6 metric"><span>Bitrate</span><strong>${fmtBits(c.bitrate)}</strong></div><div class="col-6 metric"><span>Frames</span><strong>${Number(c.frames||0).toLocaleString()}</strong></div><div class="col-6 metric"><span>Dropped</span><strong>${Number(c.dropped||0).toLocaleString()}</strong></div><div class="col-6 metric"><span>Sent</span><strong>${fmtBytes(c.bytes)}</strong></div><div class="col-6 metric"><span>Uptime</span><strong>${fmtTime(c.uptime_seconds)}</strong></div></div>
+      <hr><div class="row g-2 small"><div class="col-6 metric"><span>FPS</span><strong>${Number(c.fps||0).toFixed(2)} / ${Number(c.fps_target||0)}</strong></div><div class="col-6 metric"><span>Bitrate</span><strong>${fmtBits(c.bitrate)}</strong></div><div class="col-6 metric"><span>Buffers</span><strong>${Number(c.buffers||c.frames||0).toLocaleString()}</strong></div><div class="col-6 metric"><span>Sequence gaps</span><strong>${Number(c.sequenceGaps||0).toLocaleString()}</strong></div><div class="col-6 metric"><span>RAM replay</span><strong>${Number(c.ramCacheSeconds||0).toFixed(1)}s</strong></div><div class="col-6 metric"><span>Recording</span><strong>${c.recording?'ACTIVE':'IDLE'}</strong></div><div class="col-6 metric"><span>Received</span><strong>${fmtBytes(c.bytes)}</strong></div><div class="col-6 metric"><span>Uptime</span><strong>${fmtTime(c.uptime_seconds)}</strong></div></div>
+      <div class="small text-secondary text-truncate mt-2" title="${esc(c.currentFile||'')}">${esc(c.currentFile||'No active file')}</div>
       <div class="mt-3"><a class="btn btn-sm btn-outline-primary" href="camera.php?stream_id=${encodeURIComponent(c.stream_id)}">History</a></div>
     </div></div></div>`;
   }

@@ -1,0 +1,2 @@
+<?php
+require __DIR__ . '/common.php';$url=getenv('FREEPLAY_NODE_URL')?:'http://127.0.0.1:9000/health';$ctx=stream_context_create(['http'=>['timeout'=>1,'ignore_errors'=>true]]);$raw=@file_get_contents($url,false,$ctx);if($raw===false)fp_error('ingest_unavailable','Ingestion server unavailable',503);$data=json_decode($raw,true);if(!is_array($data))fp_error('invalid_upstream','Invalid ingestion health response',502);fp_json(['ok'=>true,'data'=>$data]);

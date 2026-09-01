@@ -1,0 +1,4 @@
+<?php
+require __DIR__ . '/common.php';$db=fp_db();
+if($_SERVER['REQUEST_METHOD']==='POST'){$b=fp_body();$allowed=['stats_flush_seconds','ram_replay_seconds','ram_replay_max_bytes','record_file_seconds','max_rings','cameras_per_ring','request_keyframe_on_connect','stale_socket_seconds'];$q=$db->prepare('INSERT INTO configuration(key,value) VALUES (?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value');foreach($b as $k=>$v){if(!in_array($k,$allowed,true))fp_error('invalid_configuration','Unsupported key '.$k);$q->execute([$k,(string)$v]);}}
+$rows=$db->query('SELECT key,value,description FROM configuration ORDER BY key')->fetchAll(PDO::FETCH_ASSOC);$out=[];foreach($rows as $r)$out[$r['key']]=['value'=>$r['value'],'description'=>$r['description']];fp_json(['ok'=>true,'data'=>['configuration'=>$out]]);

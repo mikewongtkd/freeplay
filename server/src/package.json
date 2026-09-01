@@ -5,7 +5,8 @@
   "description": "Prototype FreePlay instant replay ingest and dashboard server",
   "main": "freeplay.js",
   "scripts": {
-    "start": "node freeplay.js"
+    "start": "node freeplay.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.7.0",
