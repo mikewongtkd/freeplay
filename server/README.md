@@ -21,6 +21,18 @@ php -S 0.0.0.0:8080 -t public
 
 Cameras connect to `ws://SERVER_IP:9000`. Node endpoints include `GET /health`, `GET /api/live`, and `GET /api/replay`. PHP APIs live under `/api/*.php`.
 
+## Ingestion validation
+
+Open `http://SERVER_IP:8080/tests.php` for the persistent ingestion test report. It provides protocol, codec/GOP, timing, recording, replay/cache, resilience, synchronization, endurance, backpressure, and capacity tests. Automatic tests use production parsers and indexes; live tests observe the real ingest event stream.
+
+Fault-injection, backpressure, and capacity controls are disabled by default. Explicitly enable them only on a test server:
+
+```bash
+FREEPLAY_TEST_MODE=1 npm start
+```
+
+Test API routes are under `/api/tests`, including run, stop, evaluate, operator action, live status, historical runs, and JSON results. Long-running state belongs to the Node process and completed results are retained in SQLite.
+
 ## FPV1
 
 The first frame must be the version-1 `freeplay-ingest` JSON `hello` described in [docs/server-protocol.md](docs/server-protocol.md). Accepted clients receive `hello_ack` followed by `request_keyframe`. Binary messages contain the exact 32-byte, big-endian `FPV1` header followed by the declared H.264 payload. Video before registration, malformed frames, unsupported clients, and duplicate stream ownership are rejected.

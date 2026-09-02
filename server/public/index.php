@@ -10,7 +10,7 @@
 </head>
 <body class="bg-body-tertiary">
 <nav class="navbar navbar-dark bg-dark shadow-sm">
-  <div class="container-fluid"><span class="navbar-brand mb-0 h1">FreePlay Video Server</span><span id="liveCount" class="badge text-bg-secondary">0 LIVE</span></div>
+  <div class="container-fluid"><span class="navbar-brand mb-0 h1">FreePlay Video Server</span><div><a href="tests.php" class="btn btn-sm btn-outline-light me-2">Test Report</a><span id="liveCount" class="badge text-bg-secondary">0 LIVE</span></div></div>
 </nav>
 <main class="container-fluid py-3">
   <div class="d-flex justify-content-between align-items-center mb-3">

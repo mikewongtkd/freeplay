@@ -18,3 +18,9 @@ CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT,camera_i
 CREATE INDEX IF NOT EXISTS idx_events_ring_time ON events(ring,event_time_epoch_us);
 CREATE TABLE IF NOT EXISTS configuration (id INTEGER PRIMARY KEY AUTOINCREMENT,key TEXT UNIQUE NOT NULL,value TEXT,description TEXT);
 INSERT OR IGNORE INTO configuration(key,value,description) VALUES ('stats_flush_seconds','1','Statistics persistence interval'),('ram_replay_seconds','60','Completed GOP cache duration'),('ram_replay_max_bytes','67108864','Per-camera RAM safety limit'),('record_file_seconds','60','fMP4 rotation interval'),('max_rings','14','Maximum ring number'),('cameras_per_ring','3','Cameras per ring'),('request_keyframe_on_connect','1','Request keyframe after hello'),('stale_socket_seconds','15','Disconnect silent sockets');
+CREATE TABLE IF NOT EXISTS test_runs (id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT NOT NULL,started_at TEXT NOT NULL,completed_at TEXT,status TEXT NOT NULL,config_snapshot_json TEXT,notes TEXT);
+CREATE TABLE IF NOT EXISTS test_results (id INTEGER PRIMARY KEY AUTOINCREMENT,test_run_id INTEGER NOT NULL,test_id TEXT NOT NULL,category TEXT NOT NULL,name TEXT NOT NULL,description TEXT,status TEXT NOT NULL,severity TEXT,test_type TEXT,started_at TEXT,completed_at TEXT,duration_ms INTEGER,expected_json TEXT,actual_json TEXT,metrics_json TEXT,observations_json TEXT,recommendation TEXT,FOREIGN KEY(test_run_id) REFERENCES test_runs(id) ON DELETE CASCADE);
+CREATE INDEX IF NOT EXISTS idx_test_results_run ON test_results(test_run_id);
+CREATE INDEX IF NOT EXISTS idx_test_results_test ON test_results(test_id);
+CREATE INDEX IF NOT EXISTS idx_test_results_category ON test_results(category);
+CREATE INDEX IF NOT EXISTS idx_test_results_status ON test_results(status);
