@@ -26,12 +26,12 @@ fun NetworkScreen(
     ) {
         SectionTitle("Network Interface")
         InfoItem("Connection State", if (status.networkReady) "Active" else "Inactive")
-        InfoItem("Link Type", "UDP Streaming")
+        InfoItem("Link Type", "WebSocket")
 
         HorizontalDivider()
 
-        SectionTitle("Streaming Configuration (UDP)")
-        InfoItem("Protocol", "UDP")
+        SectionTitle("Streaming Configuration")
+        InfoItem("Protocol", "TCP/IP")
         InfoItem("Destination Address", settings.serverAddress)
         InfoItem("Destination Port", settings.serverPort.toString())
         

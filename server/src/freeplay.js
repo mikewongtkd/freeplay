@@ -8,7 +8,7 @@ const {GopBuilder,GopReplayCache}=require('./gop');
 const {extractConfig,FragmentedMp4Recorder}=require('./recorder');
 
 const ROOT=path.resolve(__dirname,'..');
-const DATA_DIR=path.resolve(process.env.FREEPLAY_DATA_DIR||path.join(ROOT,'data'));
+const DATA_DIR='/data';
 const VIDEO_DIR=path.resolve(process.env.FREEPLAY_VIDEO_DIR||path.join(DATA_DIR,'video'));
 const DB_PATH=path.resolve(process.env.FREEPLAY_DB||path.join(DATA_DIR,'freeplay.sqlite'));
 const SCHEMA_PATH=path.join(DATA_DIR,'sql','schema.sql');
@@ -58,7 +58,10 @@ const server=http.createServer((req,res)=>{
 });
 const wss=new WebSocket.Server({server,maxPayload:32*1024*1024});
 wss.on('connection',(ws,req)=>{let state=null;ws.isAlive=true;ws.on('pong',()=>{ws.isAlive=true;if(state)state.lastPongAt=Date.now();});
- ws.on('message',(data,isBinary)=>{try{
+ console.log( JSON.stringify({event:'stream_connected',peer:req.socket.remoteAddress,headers:req.headers})); // MW
+ ws.on('message',(data,isBinary)=>{
+  console.log(JSON.stringify({event:'message_received',peer:req.socket.remoteAddress,length:data.length,isBinary})); // MW
+  try{
   if(!state){if(isBinary)throw new ProtocolError('hello_required','Binary video is not accepted before hello');let parsed;try{parsed=JSON.parse(data.toString('utf8'));}catch(_){throw new ProtocolError('invalid_json','Control message is not valid JSON');}const hello=validateHello(parsed,config);if(liveStreams.has(hello.streamId)){metrics.rejectedStreams++;send(ws,{type:'hello_ack',accepted:false,reason:'duplicate_stream'});return setTimeout(()=>ws.close(1008,'duplicate_stream'),100);}
    const now=iso();safeDb(()=>sql.upsertCamera.run({...hello,resolution:`${hello.width}x${hello.height}`,now}));const camera=sql.camera.get(hello.streamId);if(!camera)throw new Error('Unable to register camera');const session=safeDb(()=>sql.session.run(camera.id,hello.streamId,now,now,req.socket.remoteAddress||'',hello.codec,hello.width,hello.height,hello.fps,hello.bitrate,hello.keyframeInterval,hello.encoder));if(!session)throw new Error('Unable to create session');
    state={socket:ws,streamId:hello.streamId,hello,cameraId:camera.id,sessionId:Number(session.lastInsertRowid),peer:req.socket.remoteAddress,connectedAt:Date.now(),lastMessageAt:Date.now(),lastPongAt:Date.now(),lastSequence:null,buffers:0,bytes:0,keyframes:0,codecConfigBuffers:0,codecConfig:null,codecConfigVersion:0,sequenceGaps:0,missing:0,gop:new GopBuilder(hello.streamId),cache:new GopReplayCache(config.ramSeconds,config.ramBytes),writerHealthy:true,activeFile:null,lastError:null,status:null,measuredFps:0,measuredBitrate:0,sampleAt:Date.now(),sampleBuffers:0,sampleBytes:0};
