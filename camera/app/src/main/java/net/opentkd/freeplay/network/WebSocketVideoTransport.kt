@@ -52,12 +52,17 @@ class WebSocketVideoTransport : VideoTransport {
     private val videoQueue = Channel<VideoPacket>(MAX_QUEUED_VIDEO_MESSAGES)
     private var queueBytes = AtomicLong(0)
     
+    private var streamingReady = CompletableDeferred<Unit>()
+    
     private var lastFpsCalcTime = SystemClock.elapsedRealtime()
     private var framesSinceLastFpsCalc = 0
 
     private var onKeyframeRequested: (() -> Unit)? = null
 
-    private val json = Json { ignoreUnknownKeys = true }
+    private val json = Json { 
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     companion object {
         private const val MAX_QUEUED_VIDEO_MESSAGES = 100
@@ -151,6 +156,8 @@ class WebSocketVideoTransport : VideoTransport {
             Log.d(TAG, "WebSocket Opened")
             _state.value = TransportState.AWAITING_HELLO_ACK
             _stats.value = _stats.value.copy(connectionStartTime = System.currentTimeMillis())
+            // Reset the ready signal for a new session
+            streamingReady = CompletableDeferred()
             sendHello(webSocket)
         }
 
@@ -212,9 +219,11 @@ class WebSocketVideoTransport : VideoTransport {
                     Log.d(TAG, "Hello accepted")
                     _state.value = TransportState.STREAMING
                     sequenceNumber = 0u
+                    streamingReady.complete(Unit)
                 } else {
                     Log.e(TAG, "Hello rejected: ${message.reason}")
                     _state.value = TransportState.REJECTED(message.reason ?: "Unknown reason")
+                    streamingReady.completeExceptionally(Exception("Handshake rejected: ${message.reason}"))
                 }
             }
             is FreePlayControlMessage.RequestKeyframe -> {
@@ -231,6 +240,15 @@ class WebSocketVideoTransport : VideoTransport {
     private fun startSenderLoop() {
         scope.launch {
             for (packet in videoQueue) {
+                try {
+                    // Wait until streaming is ready (hello_ack received)
+                    streamingReady.await()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Sender loop: streaming not ready, skipping packet", e)
+                    queueBytes.addAndGet(-packet.payload.size.toLong())
+                    continue
+                }
+
                 if (_state.value !is TransportState.STREAMING) {
                     queueBytes.addAndGet(-packet.payload.size.toLong())
                     continue
@@ -262,6 +280,14 @@ class WebSocketVideoTransport : VideoTransport {
             
             while (isActive) {
                 delay(1000)
+                
+                try {
+                    // Only send status if handshake is complete
+                    streamingReady.await()
+                } catch (e: Exception) {
+                    continue
+                }
+
                 if (_state.value !is TransportState.STREAMING) continue
                 
                 val now = System.currentTimeMillis()
@@ -300,7 +326,11 @@ class WebSocketVideoTransport : VideoTransport {
                     network = "ethernet",
                     encoder = _stats.value.encoder
                 )
-                webSocket?.send(json.encodeToString(status))
+                
+                // Final check before sending status to avoid race condition
+                if (_state.value is TransportState.STREAMING) {
+                    webSocket?.send(json.encodeToString(status))
+                }
                 
                 lastTime = now
                 lastBytes = currentBytes
