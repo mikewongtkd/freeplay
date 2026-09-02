@@ -6,6 +6,7 @@ build:
 
 run: build
 	npm start
+	apachectl graceful
 
 update-request:
 	touch node_modules/update

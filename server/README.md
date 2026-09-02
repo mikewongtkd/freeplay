@@ -16,14 +16,14 @@ npm start
 From the repository root, serve the dashboard separately:
 
 ```bash
-php -S 0.0.0.0:8080 -t public
+php -S 0.0.0.0:80 -t public
 ```
 
 Cameras connect to `ws://SERVER_IP:9000`. Node endpoints include `GET /health`, `GET /api/live`, and `GET /api/replay`. PHP APIs live under `/api/*.php`.
 
 ## Ingestion validation
 
-Open `http://SERVER_IP:8080/tests.php` for the persistent ingestion test report. It provides protocol, codec/GOP, timing, recording, replay/cache, resilience, synchronization, endurance, backpressure, and capacity tests. Automatic tests use production parsers and indexes; live tests observe the real ingest event stream.
+Open `http://SERVER_IP:80/tests.php` for the persistent ingestion test report. It provides protocol, codec/GOP, timing, recording, replay/cache, resilience, synchronization, endurance, backpressure, and capacity tests. Automatic tests use production parsers and indexes; live tests observe the real ingest event stream.
 
 Fault-injection, backpressure, and capacity controls are disabled by default. Explicitly enable them only on a test server:
 
