@@ -3,7 +3,7 @@ header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
 function fp_root(): string { return dirname(__DIR__, 2); }
-function fp_data_dir(): string { return fp_root() . DIRECTORY_SEPARATOR . 'data'; }
+function fp_data_dir(): string { return '/data'; }
 function fp_db(): PDO {
     static $pdo = null;
     if ($pdo instanceof PDO) return $pdo;
