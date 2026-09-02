@@ -101,15 +101,25 @@ class WebSocketVideoTransport : VideoTransport {
 
     private fun startConnectionLoop() {
         scope.launch {
+            Log.d(TAG, "Starting connection loop")
             while (isActive) {
-                val config = currentConfig ?: break
+                val config = currentConfig ?: run {
+                    Log.e(TAG, "No config available, exiting connection loop")
+                    break
+                }
                 val url = "ws://${config.serverAddress}:${config.serverPort}"
                 
                 Log.d(TAG, "Connecting to $url")
                 _state.value = TransportState.CONNECTING
                 
-                val request = Request.Builder().url(url).build()
-                webSocket = client.newWebSocket(request, createWebSocketListener())
+                try {
+                    val request = Request.Builder().url(url).build()
+                    webSocket = client.newWebSocket(request, createWebSocketListener())
+                    Log.d(TAG, "WebSocket connection request initiated")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error initiating WebSocket connection", e)
+                    _state.value = TransportState.ERROR(e.message ?: "Unknown init error")
+                }
                 
                 // Wait until disconnected or stopped
                 while (isActive && _state.value !is TransportState.STOPPED && _state.value !is TransportState.ERROR && _state.value !is TransportState.REJECTED) {
