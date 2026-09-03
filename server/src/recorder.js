@@ -19,12 +19,35 @@ function splitAnnexB(data) {
   if (!starts.length) return data.length ? [data] : [];
   return starts.map((s,n)=>data.subarray(s[0]+s[1], n+1<starts.length?starts[n+1][0]:data.length)).filter(n=>n.length);
 }
-function avccPayload(data){ return Buffer.concat(splitAnnexB(data).map(n=>Buffer.concat([u32(n.length),n]))); }
-function extractConfig(data) {
-  const nals=splitAnnexB(data), sps=nals.find(n=>(n[0]&31)===7), pps=nals.find(n=>(n[0]&31)===8);
+function splitLengthPrefixed(data) {
+  const nals=[];let offset=0;
+  while(offset+4<=data.length){const size=data.readUInt32BE(offset);offset+=4;if(!size||offset+size>data.length)return [];nals.push(data.subarray(offset,offset+size));offset+=size;}
+  return offset===data.length?nals:[];
+}
+function parseAvcDecoderConfig(data) {
+  if(data.length<7||data[0]!==1)return [];
+  const nals=[];let offset=5;const spsCount=data[offset++]&31;
+  for(let i=0;i<spsCount;i++){if(offset+2>data.length)return [];const size=data.readUInt16BE(offset);offset+=2;if(offset+size>data.length)return [];nals.push(data.subarray(offset,offset+size));offset+=size;}
+  if(offset>=data.length)return nals;const ppsCount=data[offset++];
+  for(let i=0;i<ppsCount;i++){if(offset+2>data.length)return [];const size=data.readUInt16BE(offset);offset+=2;if(offset+size>data.length)return [];nals.push(data.subarray(offset,offset+size));offset+=size;}
+  return nals;
+}
+function codecNals(data) {
+  if(!data?.length)return [];
+  const decoderConfig=parseAvcDecoderConfig(data);if(decoderConfig.length)return decoderConfig;
+  const annexB=splitAnnexB(data);if(annexB.length>1||annexB.length===1&&annexB[0].length!==data.length)return annexB;
+  const lengthPrefixed=splitLengthPrefixed(data);return lengthPrefixed.length?lengthPrefixed:annexB;
+}
+function avccPayload(data){ return Buffer.concat(codecNals(data).map(n=>Buffer.concat([u32(n.length),n]))); }
+function makeConfig(sps,pps) {
   if(!sps||!pps||sps.length<4) return null;
   const avcC=Buffer.concat([u8(1,sps[1],sps[2],sps[3],0xff,0xe1),u16(sps.length),sps,u8(1),u16(pps.length),pps]);
   return {sps:Buffer.from(sps),pps:Buffer.from(pps),avcC};
+}
+function extractConfig(data) {const nals=codecNals(data);return makeConfig(nals.find(n=>(n[0]&31)===7),nals.find(n=>(n[0]&31)===8));}
+class CodecConfigTracker {
+  constructor(){this.sps=null;this.pps=null;}
+  add(data){for(const nal of codecNals(data)){const type=nal[0]&31;if(type===7)this.sps=Buffer.from(nal);else if(type===8)this.pps=Buffer.from(nal);}return makeConfig(this.sps,this.pps);}
 }
 
 function initSegment(width,height,avcC,timescale=1000000) {
@@ -79,4 +102,4 @@ class FragmentedMp4Recorder {
   close(lastGop=null) { if(this.fd===null)return; try{fs.fsyncSync(this.fd);}finally{fs.closeSync(this.fd);this.fd=null;} this.onClose(this.fileId,lastGop,this.offset); this.file=null;this.fileId=null; }
 }
 
-module.exports={splitAnnexB,extractConfig,initSegment,fragment,FragmentedMp4Recorder};
+module.exports={splitAnnexB,splitLengthPrefixed,parseAvcDecoderConfig,codecNals,extractConfig,CodecConfigTracker,initSegment,fragment,FragmentedMp4Recorder};
