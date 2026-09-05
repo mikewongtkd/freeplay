@@ -12,6 +12,7 @@ data class TransportStats(
     val reconnectCount: Int = 0,
     val queueBytes: Long = 0,
     val queueDepth: Int = 0,
+    val droppedFrames: Long = 0,
     val lastSendTime: Long = 0,
     val lastServerMessageTime: Long = 0,
     val lastError: String? = null,

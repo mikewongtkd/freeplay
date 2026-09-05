@@ -76,6 +76,7 @@ fun LiveScreen(
                 is TransportState.STREAMING -> "STREAMING" to Color.Green
                 is TransportState.CONNECTING -> "CONNECTING" to Color.Yellow
                 is TransportState.AWAITING_HELLO_ACK -> "WAITING ACK" to Color.Yellow
+                is TransportState.AWAITING_CODEC_CONFIG -> "CONFIG WAIT" to Color.Yellow
                 is TransportState.RECONNECTING -> "RECONNECT (${state.attempt})" to Color.Yellow
                 is TransportState.ERROR -> "ERROR" to Color.Red
                 is TransportState.REJECTED -> "REJECTED" to Color.Red

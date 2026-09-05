@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import net.opentkd.freeplay.encoder.AvcCodecConfig
 import net.opentkd.freeplay.network.protocol.FreePlayBinaryHeader
 import net.opentkd.freeplay.network.protocol.FreePlayControlMessage
 import net.opentkd.freeplay.network.protocol.FreePlayProtocol
@@ -48,6 +49,7 @@ class WebSocketVideoTransport : VideoTransport {
     private var reconnectCount = 0
     private var isActive = false
     private var currentConfig: AppSettings? = null
+    private val latestCodecConfig = AtomicReference<AvcCodecConfig?>()
     
     private val videoQueue = Channel<VideoPacket>(MAX_QUEUED_VIDEO_MESSAGES)
     private var queueBytes = AtomicLong(0)
@@ -89,6 +91,19 @@ class WebSocketVideoTransport : VideoTransport {
 
     override fun setEncoderName(name: String) {
         _stats.value = _stats.value.copy(encoder = name)
+    }
+
+    override fun updateCodecConfig(config: AvcCodecConfig) {
+        latestCodecConfig.set(config)
+        // If we were waiting for config to start streaming, send it now
+        if (_state.value is TransportState.AWAITING_CODEC_CONFIG) {
+            scope.launch {
+                sendCodecConfig(config)
+                _state.value = TransportState.STREAMING
+                streamingReady.complete(Unit)
+                onKeyframeRequested?.invoke()
+            }
+        }
     }
 
     fun setKeyframeRequestListener(listener: () -> Unit) {
@@ -158,6 +173,13 @@ class WebSocketVideoTransport : VideoTransport {
             _stats.value = _stats.value.copy(connectionStartTime = System.currentTimeMillis())
             // Reset the ready signal for a new session
             streamingReady = CompletableDeferred()
+            
+            // Clear old packets to ensure they don't precede new config
+            while (videoQueue.tryReceive().isSuccess) {
+                // Drain the queue
+            }
+            queueBytes.set(0)
+
             sendHello(webSocket)
         }
 
@@ -217,9 +239,19 @@ class WebSocketVideoTransport : VideoTransport {
             is FreePlayControlMessage.HelloAck -> {
                 if (message.accepted) {
                     Log.d(TAG, "Hello accepted")
-                    _state.value = TransportState.STREAMING
                     sequenceNumber = 0u
-                    streamingReady.complete(Unit)
+                    
+                    // Send latest codec config immediately if available
+                    val config = latestCodecConfig.get()
+                    if (config != null) {
+                        sendCodecConfig(config)
+                        _state.value = TransportState.STREAMING
+                        streamingReady.complete(Unit)
+                        onKeyframeRequested?.invoke()
+                    } else {
+                        Log.d(TAG, "Hello accepted but awaiting codec configuration")
+                        _state.value = TransportState.AWAITING_CODEC_CONFIG
+                    }
                 } else {
                     Log.e(TAG, "Hello rejected: ${message.reason}")
                     _state.value = TransportState.REJECTED(message.reason ?: "Unknown reason")
@@ -234,6 +266,32 @@ class WebSocketVideoTransport : VideoTransport {
                 webSocket?.send(json.encodeToString(FreePlayControlMessage.Pong(id = message.id)))
             }
             else -> {}
+        }
+    }
+
+    private fun sendCodecConfig(config: AvcCodecConfig) {
+        val payload = config.toAnnexBPayload()
+        val header = FreePlayBinaryHeader(
+            presentationTimeUs = config.presentationTimeUs,
+            sequenceNumber = sequenceNumber++,
+            flags = MediaCodec.BUFFER_FLAG_CODEC_CONFIG,
+            payloadLength = payload.size,
+            tabletMonotonicTimestampNs = SystemClock.elapsedRealtimeNanos()
+        )
+        
+        val headerBytes = header.serialize()
+        val message = ByteBuffer.allocate(headerBytes.size + payload.size)
+        message.put(headerBytes)
+        message.put(payload)
+        
+        val sent = webSocket?.send(message.array().toByteString()) ?: false
+        if (sent) {
+            _bytesSent.value += payload.size
+            _stats.value = _stats.value.copy(
+                bytesTransmitted = _stats.value.bytesTransmitted + payload.size,
+                lastSendTime = System.currentTimeMillis()
+            )
+            Log.d(TAG, "Sent codec configuration (${payload.size} bytes)")
         }
     }
 
@@ -295,8 +353,8 @@ class WebSocketVideoTransport : VideoTransport {
                 val currentBytes = _bytesSent.value
                 val bytesDiff = currentBytes - lastBytes
                 
-                val bitrate = (bytesDiff * 8.0) / (elapsed / 1000.0) / 1_000_000.0
-                _currentBitrate.value = bitrate
+                val bitrate = (bytesDiff * 8.0) / (elapsed / 1000.0) // Report in bps
+                _currentBitrate.value = bitrate / 1_000_000.0 // Keep internal flow in Mbps for UI compatibility if needed
 
                 // Calculate measured FPS
                 val elapsedFps = SystemClock.elapsedRealtime() - lastFpsCalcTime
@@ -305,7 +363,7 @@ class WebSocketVideoTransport : VideoTransport {
                 lastFpsCalcTime = SystemClock.elapsedRealtime()
                 
                 _stats.value = _stats.value.copy(
-                    currentBitrate = bitrate,
+                    currentBitrate = bitrate / 1_000_000.0,
                     measuredFps = fps,
                     queueBytes = queueBytes.get(),
                     queueDepth = 0 // Channel doesn't expose depth easily without custom tracking
@@ -320,7 +378,7 @@ class WebSocketVideoTransport : VideoTransport {
                     currentBitrate = bitrate,
                     averageBitrate = bitrate,
                     measuredFps = fps,
-                    droppedFrames = 0,
+                    droppedFrames = _stats.value.droppedFrames.toInt(),
                     transportQueueBytes = queueBytes.get(),
                     reconnectCount = reconnectCount,
                     network = "ethernet",
@@ -358,12 +416,18 @@ class WebSocketVideoTransport : VideoTransport {
         // Backpressure check
         if (queueBytes.get() > MAX_QUEUED_VIDEO_BYTES) {
             Log.w(TAG, "Queue full, dropping frame")
+            _stats.value = _stats.value.copy(droppedFrames = _stats.value.droppedFrames + 1)
             return
         }
         
-        queueBytes.addAndGet(payload.size.toLong())
-        videoQueue.trySend(VideoPacket(header, payload))
-        framesSinceLastFpsCalc++
+        val packet = VideoPacket(header, payload)
+        if (videoQueue.trySend(packet).isSuccess) {
+            queueBytes.addAndGet(payload.size.toLong())
+            framesSinceLastFpsCalc++
+        } else {
+            Log.w(TAG, "Queue send failed, dropping frame")
+            _stats.value = _stats.value.copy(droppedFrames = _stats.value.droppedFrames + 1)
+        }
         
         if ((info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0) {
             _stats.value = _stats.value.copy(keyframeCount = _stats.value.keyframeCount + 1)

@@ -12,7 +12,7 @@ data class DeviceStatus(
     val uptimeMillis: Long = 0,
     val bitrateMbps: Double = 0.0,
     val fps: Double = 0.0,
-    val droppedFrames: Int = 0,
+    val droppedFrames: Long = 0,
     val bytesTransmitted: Long = 0,
     val encoderName: String = "None",
     val isHardwareAccelerated: Boolean = false,

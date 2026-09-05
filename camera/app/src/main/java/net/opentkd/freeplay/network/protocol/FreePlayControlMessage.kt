@@ -34,7 +34,7 @@ sealed class FreePlayControlMessage {
     data class HelloAck(
         override val type: String = "hello_ack",
         val accepted: Boolean,
-        val streamId: String,
+        val streamId: String? = null,
         val serverTime: Double? = null,
         val reason: String? = null
     ) : FreePlayControlMessage()

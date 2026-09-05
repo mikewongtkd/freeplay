@@ -27,6 +27,8 @@ class VideoEncoder(
     private var handler: Handler? = null
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
+    private var currentCodecConfig: AvcCodecConfig? = null
+
     companion object {
         private const val TAG = "FreePlay.Encoder"
         private const val MIME_TYPE = "video/avc"
@@ -104,6 +106,23 @@ class VideoEncoder(
 
         override fun onOutputBufferAvailable(codec: MediaCodec, index: Int, info: MediaCodec.BufferInfo) {
             val outputBuffer = codec.getOutputBuffer(index) ?: return
+
+            if ((info.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0) {
+                val data = ByteArray(info.size)
+                outputBuffer.position(info.offset)
+                outputBuffer.get(data)
+                
+                AvcNormalization.parseCombined(data)?.let { (sps, pps) ->
+                    val config = AvcCodecConfig(sps, pps, info.presentationTimeUs)
+                    if (config != currentCodecConfig) {
+                        currentCodecConfig = config
+                        transport.updateCodecConfig(config)
+                        Log.d(TAG, "Cached new codec config from output buffer (SPS: ${sps.size}, PPS: ${pps.size})")
+                    }
+                }
+                codec.releaseOutputBuffer(index, false)
+                return
+            }
             
             // Handle keyframe count
             if ((info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0) {
@@ -141,6 +160,27 @@ class VideoEncoder(
 
         override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {
             Log.d(TAG, "Output Format Changed: $format")
+            
+            val spsBuffer = format.getByteBuffer("csd-0")
+            val ppsBuffer = format.getByteBuffer("csd-1")
+            
+            if (spsBuffer != null && ppsBuffer != null) {
+                val sps = ByteArray(spsBuffer.remaining())
+                spsBuffer.get(sps)
+                val pps = ByteArray(ppsBuffer.remaining())
+                ppsBuffer.get(pps)
+                
+                val config = AvcCodecConfig(
+                    AvcNormalization.stripStartCode(sps),
+                    AvcNormalization.stripStartCode(pps)
+                )
+                
+                if (config != currentCodecConfig) {
+                    currentCodecConfig = config
+                    transport.updateCodecConfig(config)
+                    Log.d(TAG, "Cached new codec config from format change")
+                }
+            }
         }
     }
 }

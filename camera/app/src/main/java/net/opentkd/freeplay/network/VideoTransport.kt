@@ -2,6 +2,7 @@ package net.opentkd.freeplay.network
 
 import android.media.MediaCodec
 import kotlinx.coroutines.flow.StateFlow
+import net.opentkd.freeplay.encoder.AvcCodecConfig
 import net.opentkd.freeplay.settings.AppSettings
 import java.nio.ByteBuffer
 
@@ -17,4 +18,5 @@ interface VideoTransport {
     val currentBitrate: StateFlow<Double>
 
     fun setEncoderName(name: String)
+    fun updateCodecConfig(config: AvcCodecConfig)
 }

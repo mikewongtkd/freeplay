@@ -23,6 +23,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.opentkd.freeplay.camera.CameraController
 import net.opentkd.freeplay.encoder.VideoEncoder
+import net.opentkd.freeplay.network.TransportState
 import net.opentkd.freeplay.network.WebSocketVideoTransport
 import net.opentkd.freeplay.network.VideoTransport
 import net.opentkd.freeplay.settings.AppSettings
@@ -55,6 +56,26 @@ class MainActivity : ComponentActivity() {
         }
 
         cameraController = CameraController(this, statusManager)
+
+        // Observe transport stats and state
+        lifecycleScope.launch {
+            wsTransport.stats.collect { stats ->
+                statusManager.updateStatus { it.copy(
+                    bytesTransmitted = stats.bytesTransmitted,
+                    bitrateMbps = stats.currentBitrate,
+                    fps = stats.measuredFps,
+                    droppedFrames = stats.droppedFrames
+                ) }
+            }
+        }
+        lifecycleScope.launch {
+            wsTransport.state.collect { state ->
+                statusManager.updateStatus { it.copy(
+                    transportState = state,
+                    serverConnected = state is TransportState.STREAMING
+                ) }
+            }
+        }
 
         enableEdgeToEdge()
         setContent {
