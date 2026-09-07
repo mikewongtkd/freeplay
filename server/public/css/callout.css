@@ -1,0 +1,31 @@
+/* Base callout styling */
+.bd-callout {
+  padding: 1.25rem;
+  margin-top: 1.25rem;
+  margin-bottom: 1.25rem;
+  background-color: var(--bs-gray-100);
+  border: 1px solid var(--bs-gray-200);
+  border-left-width: .25rem;
+  border-radius: var(--bs-border-radius);
+}
+.bd-callout h4 {
+  margin-top: 0;
+  margin-bottom: .25rem;
+}
+.bd-callout p:last-child {
+  margin-bottom: 0;
+}
+
+/* Modifier color variants */
+.bd-callout-success {
+  border-left-color: var(--bs-success);
+}
+.bd-callout-info {
+  border-left-color: var(--bs-info);
+}
+.bd-callout-warning {
+  border-left-color: var(--bs-warning);
+}
+.bd-callout-danger {
+  border-left-color: var(--bs-danger);
+}
