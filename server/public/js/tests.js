@@ -19,6 +19,7 @@
   function post(url,data){return $.ajax({url,type:'POST',contentType:'application/json',data:JSON.stringify(data)}).done(refresh).fail(x=>alert(x.responseJSON?.error?.message||'Request failed'));}
   function showDetail(t){
     const steps=(t.instructions||[]).map(x=>`<li>${esc(x)}</li>`).join('');
+    $( '#detailModal' ).find('.modal-title').html( `<b>${t.category} Test:</b> ${t.name}` );
     $('#detail').html(`<p>${esc(t.description)}</p><h3 class="h6">How to conduct this test</h3><ol>${steps||'<li>No operator steps are required.</li>'}</ol><h3 class="h6">Expected</h3><pre>${esc(JSON.stringify(t.expected||{},null,2))}</pre><h3 class="h6">Actual / metrics</h3><pre>${esc(JSON.stringify({actual:t.actual,metrics:t.metrics},null,2))}</pre><h3 class="h6">Observations</h3><ul>${(t.observations||[]).map(x=>`<li>${esc(typeof x==='string'?x:JSON.stringify(x))}</li>`).join('')}</ul><p><strong>Recommendation:</strong> ${esc(t.recommendation||'None')}</p>`);
     bootstrap.Modal.getOrCreateInstance(document.getElementById('detailModal')).show();
   }
