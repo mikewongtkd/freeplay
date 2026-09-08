@@ -23,7 +23,7 @@ Cameras connect to `ws://SERVER_IP:9000`. Node endpoints include `GET /health`, 
 
 ## Ingestion validation
 
-Open `http://SERVER_IP:80/tests.php` for the persistent ingestion test report. It provides protocol, codec/GOP, timing, recording, replay/cache, resilience, synchronization, endurance, backpressure, and capacity tests. Automatic tests use production parsers and indexes; live tests observe the real ingest event stream.
+Open `http://SERVER_IP:80/tests/` for the test-suite index, then select **Ingestion Tests**. The ingestion report provides protocol, codec/GOP, timing, recording, replay/cache, resilience, synchronization, endurance, backpressure, and capacity tests. Automatic tests use production parsers and indexes; live tests observe the real ingest event stream.
 
 Fault-injection, backpressure, and capacity controls are disabled by default. Explicitly enable them only on a test server:
 

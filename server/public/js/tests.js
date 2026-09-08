@@ -15,7 +15,7 @@
     $('#testRows').html(state.latestResults.map(t=>`<tr class="detail-row" data-id="${esc(t.id)}"><td><strong>${esc(t.name)}</strong><div class="small text-secondary">${esc(t.description)}</div></td><td>${esc(t.category)}</td><td>${badge(t.status)}</td><td>${t.completed_at?new Date(t.completed_at).toLocaleString():'—'}</td><td><button class="btn btn-sm btn-outline-primary run" data-id="${esc(t.id)}">Start</button></td></tr>`).join(''));
     $('#runRows').html(state.runs.map(x=>`<tr><td>#${x.id}</td><td>${new Date(x.started_at).toLocaleString()}</td><td>${badge(x.status)}</td><td>${Number(x.pass_count||0)}</td><td>${Number(x.warn_count||0)}</td><td>${Number(x.fail_count||0)}</td></tr>`).join(''));
   }
-  function refresh(){$.getJSON('api/tests.php').done(render).fail(x=>$('#activeTests').text(x.responseJSON?.error?.message||'Test service unavailable'));}
+  function refresh(){$.getJSON('../api/tests.php').done(render).fail(x=>$('#activeTests').text(x.responseJSON?.error?.message||'Test service unavailable'));}
   function post(url,data){return $.ajax({url,type:'POST',contentType:'application/json',data:JSON.stringify(data)}).done(refresh).fail(x=>alert(x.responseJSON?.error?.message||'Request failed'));}
   function number(value,digits=2){const n=Number(value);return Number.isFinite(n)?n.toLocaleString(undefined,{maximumFractionDigits:digits}):'—';}
   function measurementSummary(t){
@@ -49,13 +49,13 @@
     bootstrap.Modal.getOrCreateInstance(document.getElementById('detailModal')).show();
   }
 
-  $(document).on('click','.run',function(e){e.stopPropagation();post('api/test-run.php',{testId:$(this).data('id'),options:options()});})
-    .on('click','.suite',function(){post('api/test-run.php',{suiteId:$(this).data('suite'),options:options()});})
-    .on('click','.evaluate',function(){post('api/test-control.php',{command:'evaluate',testId:$(this).data('id')});})
-    .on('click','.stop',function(){post('api/test-control.php',{command:'stop',testId:$(this).data('id')});})
-    .on('click','.throttle',function(){post('api/test-control.php',{command:'action',testId:$(this).data('id'),action:'throttle',streamId:options().streamId});})
-    .on('click','.mark',function(){post('api/test-control.php',{command:'action',testId:$(this).data('id'),action:'mark_event',ring:options().ring});})
-    .on('click','.positions',function(){const raw=prompt('Enter cam1, cam2, cam3 event epoch times in microseconds (comma separated):');if(!raw)return;const v=raw.split(',').map(x=>x.trim());if(v.length!==3||v.some(x=>!/^\d+$/.test(x)))return alert('Enter exactly three integer epoch-microsecond values.');post('api/test-control.php',{command:'action',testId:$(this).data('id'),action:'set_sync_positions',positions:{cam1:v[0],cam2:v[1],cam3:v[2]}});})
+  $(document).on('click','.run',function(e){e.stopPropagation();post('../api/test-run.php',{testId:$(this).data('id'),options:options()});})
+    .on('click','.suite',function(){post('../api/test-run.php',{suiteId:$(this).data('suite'),options:options()});})
+    .on('click','.evaluate',function(){post('../api/test-control.php',{command:'evaluate',testId:$(this).data('id')});})
+    .on('click','.stop',function(){post('../api/test-control.php',{command:'stop',testId:$(this).data('id')});})
+    .on('click','.throttle',function(){post('../api/test-control.php',{command:'action',testId:$(this).data('id'),action:'throttle',streamId:options().streamId});})
+    .on('click','.mark',function(){post('../api/test-control.php',{command:'action',testId:$(this).data('id'),action:'mark_event',ring:options().ring});})
+    .on('click','.positions',function(){const raw=prompt('Enter cam1, cam2, cam3 event epoch times in microseconds (comma separated):');if(!raw)return;const v=raw.split(',').map(x=>x.trim());if(v.length!==3||v.some(x=>!/^\d+$/.test(x)))return alert('Enter exactly three integer epoch-microsecond values.');post('../api/test-control.php',{command:'action',testId:$(this).data('id'),action:'set_sync_positions',positions:{cam1:v[0],cam2:v[1],cam3:v[2]}});})
     .on('click','.detail-row',function(){const t=state.latestResults.find(x=>x.id===$(this).data('id'));if(t)showDetail(t);});
   $('#refresh').on('click',refresh);refresh();setInterval(refresh,3000);
 })();

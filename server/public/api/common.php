@@ -29,7 +29,7 @@ function fp_node_request(string $path, string $method='GET', ?array $body=null):
     $options=['http'=>['method'=>$method,'timeout'=>5,'ignore_errors'=>true,'header'=>"Content-Type: application/json\r\n"]];
     if ($body !== null) $options['http']['content']=json_encode($body);
     $raw=@file_get_contents($base.$path,false,stream_context_create($options));
-    if ($raw===false) fp_error('ingest_unavailable','Ingestion test service unavailable',503);
+    if ($raw===false) fp_error('ingest_unavailable','Ingestion test service unavailable; run "make run" in the Docker Execute tab in the freeplay-local container in Docker Dashboard',503);
     $decoded=json_decode($raw,true);
     if (!is_array($decoded)) fp_error('invalid_upstream','Invalid ingestion test response',502);
     return $decoded;
