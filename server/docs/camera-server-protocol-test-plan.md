@@ -846,7 +846,7 @@ protocol errors
 dropped connections
 ```
 
-Do not start a 42-stream test automatically.
+Do not start a high-volume (e.g. 42 camera) stream test automatically.
 
 Require explicit operator action.
 
@@ -1086,7 +1086,7 @@ Playable fMP4            PASS      10:26:11     5/5 files valid
 RAM Replay Cache         PASS      10:28:14     59.8 sec
 Reconnect                PASS      10:31:42     recovery 2.2 sec
 3-Camera Sync            WARN      10:42:18     max offset 67 ms
-42-Stream Load           NOT RUN   —            —
+High-Volume Stream Load  NOT RUN   —            —
 ```
 
 Clicking a test should show details.
