@@ -14,10 +14,24 @@
 </nav>
 <main class="container-fluid py-3">
   <div class="d-flex justify-content-between align-items-center mb-3">
-    <div><h1 class="h4 mb-1">Camera Dashboard</h1><div class="text-secondary small">Node.js ingest + PHP/Bootstrap dashboard + SQLite history</div></div>
+    <div><h1 class="h4 mb-1">Ring Dashboard</h1><div class="text-secondary small">Tournament IVR System status monitor</div></div>
     <div id="updatedAt" class="small text-secondary"></div>
   </div>
-  <div id="cameraGrid" class="row g-3"></div>
+  <div class="row g-3 align-items-start">
+    <section class="col-12 col-lg-8" aria-labelledby="ringsHeading">
+      <div id="ringGrid" class="row g-3"></div>
+    </section>
+    <aside class="col-12 col-lg-4" aria-labelledby="cameraDetailsHeading">
+      <div id="cameraDetails" class="camera-details-panel sticky-lg-top">
+        <div class="card shadow-sm border-secondary">
+          <div class="card-body">
+            <h2 id="cameraDetailsHeading" class="h5">Camera details</h2>
+            <p class="text-secondary mb-0">Select a camera status badge to view its live metrics and history link.</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
 </main>
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
