@@ -5,7 +5,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title><?= htmlspecialchars($title) ?></title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="../vendor/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
   <link href="../css/app.css" rel="stylesheet">
   <link href="../css/callout.css" rel="stylesheet">
 </head>
@@ -35,8 +35,8 @@
     <section><h2 class="h5 mt-4">Historical runs</h2><div class="table-responsive"><table class="table table-sm"><thead><tr><th>Run</th><th>Started</th><th>Status</th><th>Pass</th><th>Warn</th><th>Fail</th></tr></thead><tbody id="runRows"></tbody></table></div></section>
     <div class="modal fade" id="detailModal" tabindex="-1"><div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h2 class="modal-title h5">Test details</h2><button class="btn-close" data-bs-dismiss="modal"></button></div><div id="detail" class="modal-body"></div></div></div></div>
   </main>
-  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../vendor/jquery/3.7.1/jquery.min.js"></script>
+  <script src="../vendor/bootstrap/5.3.3/js/bootstrap.bundle.min.js"></script>
   <script src="../js/tests.js"></script>
 </body>
 </html>
