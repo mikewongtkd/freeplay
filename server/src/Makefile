@@ -1,3 +1,5 @@
+.PHONY: build run update-request test
+
 build:
 	@if [ ! -f "node_modules/update" ]; then \
 		npm install; \
@@ -10,3 +12,7 @@ run: build
 
 update-request:
 	touch node_modules/update
+
+test:
+	@echo "Running server in test mode..."
+	FREEPLAY_TEST_MODE=1 npm start
