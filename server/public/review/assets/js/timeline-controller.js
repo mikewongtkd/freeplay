@@ -24,7 +24,7 @@ export const timelineController = {
       if (review.aur != null) html += marker(review, 'aur', review.aur, 'AUR', `aur-mark ${review.aurOutsideWindow ? 'outside' : ''}`);
       return html;
     }).join(''));
-    $('#psselEvents').html(state.psselEvents.map(event => `<button class="pssel-marker pssel-${event.type} ${event.side || ''}" style="left:${pct(event.time)}%" data-pssel-id="${event.id}" title="${event.label} · ${timeLabel(event.time, true)}${event.score ? ` · ${event.score}` : ''}"><i class="bi ${event.type === 'score' ? 'bi-lightning-fill' : event.type === 'penalty' ? 'bi-square-fill' : event.type === 'pause' ? 'bi-pause-fill' : event.type === 'resume' ? 'bi-play-fill' : 'bi-flag-fill'}"></i></button>`).join(''));
+    $('#psselEvents').html(state.psselEvents.map(event => `<button class="pssel-marker pssel-${event.type} ${event.side || ''}" style="left:${pct(event.time)}%" data-pssel-id="${event.id}" title="${event.label} · ${timeLabel(event.time, true)}${event.score ? ` · ${event.score}` : ''}"><i class="fa-solid ${event.type === 'score' ? 'fa-bolt' : event.type === 'penalty' ? 'fa-square' : event.type === 'pause' ? 'fa-pause' : event.type === 'resume' ? 'fa-play' : 'fa-flag'}"></i></button>`).join(''));
     $('#playbackCursor').css('left', `${pct(state.playbackCursor)}%`); $('#liveEdge').css('left', `${pct(state.liveEdge)}%`);
     $('#timeline').attr('aria-valuenow', pct(state.playbackCursor).toFixed(1));
     const tickCount = 7, ticks = [];

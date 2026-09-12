@@ -6,7 +6,7 @@
           <div class="camera-label"><strong>CAM <?= $camera ?></strong><span data-camera-name="<?= $camera ?>">Camera <?= $camera ?></span></div>
           <span class="camera-state badge" data-camera-state="<?= $camera ?>">LOADING</span>
           <div class="camera-action"><span class="fighter fighter-hong"></span><span class="fighter fighter-chung"></span></div>
-          <div class="unavailable-overlay" data-camera-unavailable="<?= $camera ?>"><i class="bi bi-camera-video-off"></i><strong>No video available</strong><span>Camera unavailable at this time</span></div>
+          <div class="unavailable-overlay" data-camera-unavailable="<?= $camera ?>"><i class="fa-solid fa-video-slash"></i><strong>No video available</strong><span>Camera unavailable at this time</span></div>
           <div class="video-timecode" data-video-time="<?= $camera ?>">--:--:--.---</div>
         </div>
       </article>

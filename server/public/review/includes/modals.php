@@ -54,7 +54,7 @@
   <div class="offcanvas-body">
     <div id="scenarioList" class="d-grid gap-2"></div>
     <hr>
-    <button class="btn btn-outline-danger w-100" data-action="reset-prototype"><i class="bi bi-arrow-counterclockwise"></i> Reset prototype session</button>
+    <button class="btn btn-outline-danger w-100" data-action="reset-prototype"><i class="fa-solid fa-rotate-left"></i> Reset prototype session</button>
     <div class="alert alert-info mt-3 small mb-0"><strong>Prototype only.</strong> Video, playback, PSSEL data, server timestamps, persistence, and result APIs are simulated. No adjudication is automated.</div>
   </div>
 </div>

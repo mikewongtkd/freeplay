@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><?= htmlspecialchars($config['name']) ?> · Prototype</title>
   <link rel="stylesheet" href="/vendor/bootstrap/5.3.3/css/bootstrap.min.css">
-  <link rel="stylesheet" href="/vendor/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="/vendor/fontawesome-free/7.3.0/css/all.min.css">
   <link rel="stylesheet" href="/review/assets/css/app.css">
   <link rel="stylesheet" href="/review/assets/css/timeline.css">
   <link rel="stylesheet" href="/review/assets/css/responsive.css">
@@ -41,6 +41,6 @@
         <li><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#shortcutsModal">Keyboard Shortcuts</button></li>
       </ul>
     </div>
-    <button class="btn btn-sm btn-header" type="button" data-bs-toggle="offcanvas" data-bs-target="#developerPanel" aria-label="Open prototype settings"><i class="bi bi-gear-fill"></i></button>
+    <button class="btn btn-sm btn-header" type="button" data-bs-toggle="offcanvas" data-bs-target="#developerPanel" aria-label="Open prototype settings"><i class="fa-solid fa-gear"></i></button>
   </div>
 </header>

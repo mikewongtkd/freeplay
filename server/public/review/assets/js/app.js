@@ -52,7 +52,7 @@ function renderReview() {
   $('.request-actions').toggleClass('d-none', active);
   $('#startReviewButton').prop('disabled', !pending).toggleClass('d-none', active || final);
   $('#resolveButton').toggleClass('d-none', !pending); $('#formalResults').toggleClass('d-none', !active); $('#annotationSection').toggleClass('d-none', !final);
-  const linkedEligible = final && ['chung', 'hong'].includes(review?.origin); $('#secondReviewButton').toggleClass('d-none', !linkedEligible).html(linkedEligible ? `<i class="bi bi-link-45deg"></i> Create linked ${review.origin === 'chung' ? 'Hong' : 'Chung'} second review` : 'Create linked second review');
+  const linkedEligible = final && ['chung', 'hong'].includes(review?.origin); $('#secondReviewButton').toggleClass('d-none', !linkedEligible).html(linkedEligible ? `<i class="fa-solid fa-link"></i> Create linked ${review.origin === 'chung' ? 'Hong' : 'Chung'} second review` : 'Create linked second review');
   $('#reviewClock').toggleClass('d-none', !active); renderClock(review);
 }
 
@@ -68,17 +68,17 @@ function renderViews() {
 }
 
 function renderPlayback() {
-  const icon = state.isPlaying ? 'pause-fill' : 'play-fill'; $('#playPauseButton').html(`<i class="bi bi-${icon}"></i> ${state.isPlaying ? 'Pause' : 'Play'}`);
+  const icon = state.isPlaying ? 'pause' : 'play'; $('#playPauseButton').html(`<i class="fa-solid fa-${icon}"></i> ${state.isPlaying ? 'Pause' : 'Play'}`);
   $('[data-action="set-rate"]').removeClass('active'); $(`[data-action="set-rate"][data-rate="${state.playbackRate}"]`).addClass('active');
   $('#playbackState').text(state.playbackState.toUpperCase()); $('#cursorReadout').text(formatTime(state.playbackCursor));
 }
 
 function renderStatus() {
   const review = selectedReview(), pieces = [];
-  if (state.scenario) pieces.push(`<span class="status-pill"><i class="bi bi-bezier2"></i> Scenario ${state.scenario}</span>`);
+  if (state.scenario) pieces.push(`<span class="status-pill"><i class="fa-solid fa-diagram-project"></i> Scenario ${state.scenario}</span>`);
   if (review) pieces.push(`<span class="status-pill ${review.origin}">${originLabels[review.origin]} · ${review.id}</span>`);
-  if (state.syncWarning) pieces.push(`<span class="status-pill warning"><i class="bi bi-exclamation-triangle-fill"></i> ${state.syncWarning}</span>`);
-  if (state.lastError) pieces.push(`<span class="status-pill error"><i class="bi bi-x-octagon-fill"></i> ${state.lastError}</span>`);
+  if (state.syncWarning) pieces.push(`<span class="status-pill warning"><i class="fa-solid fa-triangle-exclamation"></i> ${state.syncWarning}</span>`);
+  if (state.lastError) pieces.push(`<span class="status-pill error"><i class="fa-solid fa-circle-xmark"></i> ${state.lastError}</span>`);
   $('#statusStrip').html(pieces.join('')).toggleClass('empty', !pieces.length);
 }
 
