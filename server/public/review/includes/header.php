@@ -24,7 +24,7 @@
   </div>
   <div class="d-flex align-items-center gap-2">
     <time id="headerClock" class="d-none d-md-inline small"></time>
-    <span id="liveStatus" class="live-status"><span class="live-dot"></span> Live</span>
+    <span id="liveStatus" class="live-status"><span class="live-dot"></span><span id="liveStatusText">Live</span></span>
     <div class="dropdown">
       <button class="btn btn-sm btn-header dropdown-toggle" data-bs-toggle="dropdown" type="button">Views</button>
       <ul class="dropdown-menu dropdown-menu-end">

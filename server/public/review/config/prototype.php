@@ -9,4 +9,5 @@ return [
     'reviewWindowSeconds' => 5,
     'initialContextSeconds' => 10,
     'defaultRing' => 1,
+    'notificationUrl' => null,
 ];

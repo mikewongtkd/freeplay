@@ -7,7 +7,7 @@ const commands = {
   'Space': () => playbackController.playPause(), 'ArrowLeft': () => playbackController.stepFrame(-1), 'ArrowRight': () => playbackController.stepFrame(1),
   '1': () => cameraController.showCamera(1), '2': () => cameraController.showCamera(2), '3': () => cameraController.showCamera(3),
   'm': () => cameraController.showMCV(), 'a': () => reviewController.markAUR(), 'l': () => playbackController.goLive(),
-  'c': () => reviewController.createCoachRequest('chung'), 'h': () => reviewController.createCoachRequest('hong'), 's': () => reviewController.startReview(),
+  'c': () => document.querySelector('[data-action="create-request"][data-side="chung"]')?.click(), 'h': () => document.querySelector('[data-action="create-request"][data-side="hong"]')?.click(), 's': () => reviewController.startReview(),
   'w': () => reviewController.jumpWindow(), 'r': () => reviewController.jumpAur()
 };
 

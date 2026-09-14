@@ -12,7 +12,11 @@ export const state = {
 
 export function subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); }
 export function notify(reason = 'state-change') { listeners.forEach(listener => listener(state, reason)); }
-export function update(patch, reason) { Object.assign(state, patch); notify(reason); }
+export function update(patch, reason) {
+  const changed = Object.entries(patch).some(([key, value]) => state[key] !== value);
+  if (!changed) return false;
+  Object.assign(state, patch); notify(reason); return true;
+}
 export function selectedReview() { return state.reviewHistory.find(review => review.id === state.currentRequest) || null; }
 export function replaceReviews(reviews, selectedId = state.currentRequest) {
   state.reviewHistory = reviews;

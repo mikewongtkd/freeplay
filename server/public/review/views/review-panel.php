@@ -64,6 +64,6 @@
   <div id="annotationSection" class="panel-section annotation-section d-none">
     <div class="d-flex justify-content-between align-items-center"><h2 class="panel-title mb-0">Post-review annotation</h2><span class="badge text-bg-light">Not timed</span></div>
     <button class="btn btn-sm btn-outline-primary mt-2" data-bs-toggle="modal" data-bs-target="#annotationModal"><i class="fa-solid fa-pen-to-square"></i> Complete IVR Sheet</button>
-    <button id="secondReviewButton" class="btn btn-sm btn-outline-secondary mt-2 d-none" data-action="second-review"><i class="fa-solid fa-link"></i> Create linked second review</button>
+    <button id="secondReviewButton" class="btn btn-sm btn-outline-secondary mt-2 d-none" data-action="second-review"><i class="fa-solid fa-link"></i><span id="secondReviewLabel">Create linked second review</span></button>
   </div>
 </aside>

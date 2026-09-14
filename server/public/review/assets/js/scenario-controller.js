@@ -22,5 +22,5 @@ export const scenarioController = {
     }
     notify('scenario-loaded');
   },
-  reset: clean
+  async reset() { await clean(); notify('scenario-loaded'); }
 };

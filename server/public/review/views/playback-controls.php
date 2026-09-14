@@ -6,7 +6,7 @@
   </div>
   <div class="toolbar-group" role="group" aria-label="Frame and play controls">
     <button class="btn btn-control" data-action="step-frame" data-direction="-1" title="Previous frame"><i class="fa-solid fa-backward-step"></i> Frame</button>
-    <button id="playPauseButton" class="btn btn-primary btn-control primary-control" data-action="play-pause"><i class="fa-solid fa-play"></i> Play</button>
+    <button id="playPauseButton" class="btn btn-primary btn-control primary-control" data-action="play-pause"><i id="playPauseIcon" class="fa-solid fa-play"></i><span id="playPauseLabel">Play</span></button>
     <button class="btn btn-control" data-action="step-frame" data-direction="1" title="Next frame">Frame <i class="fa-solid fa-forward-step"></i></button>
   </div>
   <div class="toolbar-group rate-group" role="group" aria-label="Playback speed">

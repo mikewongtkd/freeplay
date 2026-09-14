@@ -1,4 +1,4 @@
-import {state, subscribe, update, replaceReviews, selectedReview, notify} from './state.js';
+import {state, subscribe, replaceReviews, selectedReview, notify} from './state.js';
 import {mockServer} from './mock-server.js';
 import {reviewController} from './review-controller.js';
 import {playbackController} from './playback-controller.js';
@@ -7,37 +7,64 @@ import {timelineController} from './timeline-controller.js';
 import {psselController} from './pssel-controller.js';
 import {scenarioController} from './scenario-controller.js';
 import {installKeyboard} from './keyboard-controller.js';
+import {serverClock} from './server-clock.js';
+import {notificationController} from './notification-controller.js';
 
 const $ = window.jQuery;
-let lastTick = performance.now();
 const resultLabels = {accepted: 'Accepted', rejected: 'Rejected', ivr_issue: 'Rejected: IVR Issue', resolved_without_review: 'Resolved without Review'};
 const originLabels = {coach: 'Coach', referee: 'Referee'};
 const issueTypeLabels = {nontechnical: 'Non-Technical (Red or Blue Card)', technical: 'Technical (Green Card)'};
+let animationFrame = null;
+let lastFrameMs = 0;
+let renderedPlaybackRate = null;
+let renderedPlaying = null;
+let renderedClockClass = null;
 
+function setText(selector, value) { const node = document.querySelector(selector); if (node && node.textContent !== String(value)) node.textContent = String(value); }
+function setClass(selector, value) { const node = document.querySelector(selector); if (node && node.className !== value) node.className = value; }
 function formatTime(time, ms = true) { return time == null ? '—' : timelineController.format(time, ms); }
 function cameraAtCursor(camera) { return camera.available && !(camera.gaps || []).some(gap => state.playbackCursor >= gap.start && state.playbackCursor <= gap.end); }
 function statusClass(camera) { return cameraAtCursor(camera) ? 'text-bg-success' : camera.available ? 'text-bg-warning' : 'text-bg-secondary'; }
 function statusLabel(camera) { return cameraAtCursor(camera) ? 'AVAILABLE' : camera.available ? 'GAP' : 'UNAVAILABLE'; }
 function toast(message, tone = 'primary') { const id = `toast-${Date.now()}`; $('#toastRegion').append(`<div id="${id}" class="toast show border-${tone}" role="status"><div class="toast-body d-flex justify-content-between gap-3"><span>${$('<div>').text(message).html()}</span><button class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button></div></div>`); setTimeout(() => $(`#${id}`).remove(), 4500); }
 
-function renderHeader() {
-  $('#headerRing').text(`Ring ${state.ring}`); $('#headerDivision').text(state.match?.division || 'Prototype match'); $('#headerStage').text(state.match?.stage || '');
-  $('#headerClock').text(new Date().toLocaleString([], {month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'}));
-  const usable = state.cameras.some(cameraAtCursor); $('#liveStatus').toggleClass('offline', !usable).html(`<span class="live-dot"></span> ${usable ? 'Live' : 'Video unavailable'}`);
+function renderHeaderStructure() {
+  setText('#headerRing', `Ring ${state.ring}`); setText('#headerDivision', state.match?.division || 'Prototype match'); setText('#headerStage', state.match?.stage || '');
 }
 
-function renderCameras() {
+function updateHeaderClock() {
+  setText('#headerClock', new Date(serverClock.now() * 1000).toLocaleString([], {month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit'}));
+}
+
+function updateLiveStatus() {
+  const usable = state.cameras.some(cameraAtCursor);
+  $('#liveStatus').toggleClass('offline', !usable); setText('#liveStatusText', usable ? 'Live' : 'Video unavailable');
+}
+
+function renderCameraOptions() {
+  const selected = state.cameras.find(camera => camera.id === state.selectedCamera) || state.cameras[0];
+  if (!selected) return;
+  $('#cameraSelect').html(state.cameras.map(camera => `<option value="${camera.id}" ${camera.id === selected.id ? 'selected' : ''} ${camera.available ? '' : 'disabled'}>CAM ${camera.id} · ${camera.name}${camera.available ? '' : ' · unavailable'}</option>`).join(''));
+  state.cameras.forEach(camera => setText(`[data-camera-name="${camera.id}"]`, camera.name));
+}
+
+function updateCameraValues() {
   state.cameras.forEach(camera => {
-    $(`[data-camera-name="${camera.id}"]`).text(camera.name);
-    $(`[data-camera-state="${camera.id}"]`).attr('class', `camera-state badge ${statusClass(camera)}`).text(statusLabel(camera));
+    setClass(`[data-camera-state="${camera.id}"]`, `camera-state badge ${statusClass(camera)}`); setText(`[data-camera-state="${camera.id}"]`, statusLabel(camera));
     $(`[data-camera-unavailable="${camera.id}"]`).toggleClass('visible', !cameraAtCursor(camera));
-    $(`[data-video-time="${camera.id}"]`).text(formatTime(state.playbackCursor));
+    setText(`[data-video-time="${camera.id}"]`, formatTime(state.playbackCursor));
     $(`[data-camera-tile="${camera.id}"]`).attr('aria-disabled', camera.available ? 'false' : 'true').toggleClass('unavailable', !cameraAtCursor(camera));
   });
-  const selected = state.cameras.find(camera => camera.id === state.selectedCamera) || state.cameras[0]; if (!selected) return;
-  $('#cameraSelect').html(state.cameras.map(camera => `<option value="${camera.id}" ${camera.id === selected.id ? 'selected' : ''} ${camera.available ? '' : 'disabled'}>CAM ${camera.id} · ${camera.name}${camera.available ? '' : ' · unavailable'}</option>`).join(''));
-  $('#scvCameraLabel').text(`CAM ${selected.id}`); $('#scvCameraName').text(selected.name); $('#scvCameraState').attr('class', `camera-state badge ${statusClass(selected)}`).text(statusLabel(selected));
-  $('#scvUnavailable').toggleClass('visible', !cameraAtCursor(selected)); $('#scvTimecode').text(formatTime(state.playbackCursor));
+  const selected = state.cameras.find(camera => camera.id === state.selectedCamera) || state.cameras[0];
+  if (!selected) return;
+  setText('#scvCameraLabel', `CAM ${selected.id}`); setText('#scvCameraName', selected.name);
+  setClass('#scvCameraState', `camera-state badge ${statusClass(selected)}`); setText('#scvCameraState', statusLabel(selected));
+  $('#scvUnavailable').toggleClass('visible', !cameraAtCursor(selected)); setText('#scvTimecode', formatTime(state.playbackCursor));
+}
+
+function updateScvTransform() {
+  const selected = state.cameras.find(camera => camera.id === state.selectedCamera) || state.cameras[0];
+  if (!selected) return;
   $('#scvScene').attr('class', `simulated-video camera-scene camera-scene-${selected.id}`).css('--zoom', state.zoom).css('--pan-x', `${state.pan.x}%`).css('--pan-y', `${state.pan.y}%`);
 }
 
@@ -46,32 +73,40 @@ function renderReview() {
   $('#reviewEmpty').toggleClass('d-none', has); $('#reviewMetadata').toggleClass('d-none', !has);
   $('#reviewStatusBadge').attr('class', `badge ${active ? 'text-bg-primary' : pending ? 'text-bg-warning' : final ? 'text-bg-success' : 'text-bg-secondary'}`).text(has ? review.status.toUpperCase() : 'NO REQUEST');
   if (has) {
-    $('#metaOrigin').text(originLabels[review.origin] || review.origin); $('#metaIssueType').text(issueTypeLabels[review.issueType] || review.issueType); $('#metaRm').text(formatTime(review.rm)); $('#metaWindow').text(`${formatTime(review.windowStart)} – ${formatTime(review.windowEnd)}`);
-    $('#metaAur').text(review.aur == null ? 'Not marked' : formatTime(review.aur)); $('#metaRst').text(review.rst == null ? 'Not started' : formatTime(review.rst));
+    setText('#metaOrigin', originLabels[review.origin] || review.origin); setText('#metaIssueType', issueTypeLabels[review.issueType] || review.issueType);
+    setText('#metaRm', formatTime(review.rm)); setText('#metaWindow', `${formatTime(review.windowStart)} – ${formatTime(review.windowEnd)}`);
+    setText('#metaAur', review.aur == null ? 'Not marked' : formatTime(review.aur)); setText('#metaRst', review.rst == null ? 'Not started' : formatTime(review.rst));
   }
-  $('#aurWarning').toggleClass('d-none', !review?.aurOutsideWindow);
-  $('.request-actions').toggleClass('d-none', active);
-  $('#startReviewButton').prop('disabled', !pending).toggleClass('d-none', active || final);
-  $('#resolveButton').toggleClass('d-none', !pending); $('#formalResults').toggleClass('d-none', !active); $('#annotationSection').toggleClass('d-none', !final);
-  const linkedEligible = final && ['chung', 'hong'].includes(review?.side); $('#secondReviewButton').toggleClass('d-none', !linkedEligible).html(linkedEligible ? `<i class="fa-solid fa-link"></i> Create linked ${review.side === 'chung' ? 'Hong' : 'Chung'} second review` : 'Create linked second review');
-  $('#reviewClock').toggleClass('d-none', !active); renderClock(review);
+  $('#aurWarning').toggleClass('d-none', !review?.aurOutsideWindow); $('.request-actions').toggleClass('d-none', active);
+  $('#startReviewButton').prop('disabled', !pending).toggleClass('d-none', active || final); $('#resolveButton').toggleClass('d-none', !pending);
+  $('#formalResults').toggleClass('d-none', !active); $('#annotationSection').toggleClass('d-none', !final);
+  const linkedEligible = final && ['chung', 'hong'].includes(review?.side);
+  $('#secondReviewButton').toggleClass('d-none', !linkedEligible); setText('#secondReviewLabel', linkedEligible ? `Create linked ${review.side === 'chung' ? 'Hong' : 'Chung'} second review` : 'Create linked second review');
+  $('#reviewClock').toggleClass('d-none', !active); updateReviewClock();
 }
 
-function renderClock(review = selectedReview()) {
-  if (!review?.rst) return; const elapsed = review.status === 'active' ? Date.now() / 1000 - review.rst : (review.reviewDurationSeconds || 0); state.reviewClockSeconds = elapsed;
+function updateReviewClock() {
+  const review = selectedReview(); if (!review?.rst) return;
+  const elapsed = review.status === 'active' ? serverClock.now() - review.rst : (review.reviewDurationSeconds || 0); state.reviewClockSeconds = elapsed;
   const tone = elapsed < 10 ? 'clock-blue' : elapsed < 20 ? 'clock-green' : elapsed < 30 ? 'clock-yellow' : 'clock-red';
-  $('#reviewClock').attr('class', `review-clock ${review.status === 'active' ? '' : 'stopped'} ${tone}`); $('#reviewClockValue').text(`00:${elapsed.toFixed(1).padStart(4, '0')}`);
+  const clockClass = `review-clock ${review.status === 'active' ? '' : 'stopped'} ${tone}`;
+  if (clockClass !== renderedClockClass) {
+    $('#reviewClock').removeClass('stopped clock-blue clock-green clock-yellow clock-red').toggleClass('stopped', review.status !== 'active').addClass(tone);
+    renderedClockClass = clockClass;
+  }
+  setText('#reviewClockValue', `00:${elapsed.toFixed(1).padStart(4, '0')}`);
 }
 
 function renderViews() {
   const mcv = state.currentView === 'MCV'; $('#mcvView').toggleClass('d-none', !mcv); $('#scvView').toggleClass('d-none', mcv); $('#scvTools').toggleClass('d-none', mcv);
-  const panel = document.getElementById('reviewPanel'); if (mcv) document.querySelector('#mcvView .mcv-grid').append(panel); else document.getElementById('scvReviewPanel').append(panel);
+  const panel = document.getElementById('reviewPanel'), destination = mcv ? document.querySelector('#mcvView .mcv-grid') : document.getElementById('scvReviewPanel');
+  if (panel.parentElement !== destination) destination.append(panel);
 }
 
-function renderPlayback() {
-  const icon = state.isPlaying ? 'pause' : 'play'; $('#playPauseButton').html(`<i class="fa-solid fa-${icon}"></i> ${state.isPlaying ? 'Pause' : 'Play'}`);
-  $('[data-action="set-rate"]').removeClass('active'); $(`[data-action="set-rate"][data-rate="${state.playbackRate}"]`).addClass('active');
-  $('#playbackState').text(state.playbackState.toUpperCase()); $('#cursorReadout').text(formatTime(state.playbackCursor));
+function updatePlaybackValues() {
+  if (renderedPlaying !== state.isPlaying) { setClass('#playPauseIcon', `fa-solid fa-${state.isPlaying ? 'pause' : 'play'}`); setText('#playPauseLabel', state.isPlaying ? 'Pause' : 'Play'); renderedPlaying = state.isPlaying; }
+  if (renderedPlaybackRate !== state.playbackRate) { $('[data-action="set-rate"]').removeClass('active'); $(`[data-action="set-rate"][data-rate="${state.playbackRate}"]`).addClass('active'); renderedPlaybackRate = state.playbackRate; }
+  setText('#playbackState', state.playbackState.toUpperCase()); setText('#cursorReadout', formatTime(state.playbackCursor));
 }
 
 function renderStatus() {
@@ -84,7 +119,41 @@ function renderStatus() {
 }
 
 function renderScenarios() { $('#scenarioList').html(state.scenarios.map(item => `<button class="btn btn-outline-primary text-start scenario-button" data-action="load-scenario" data-scenario="${item.id}"><strong>${item.id} · ${item.name}</strong><span>${item.summary}</span></button>`).join('')); }
-function renderAll() { renderHeader(); renderViews(); renderCameras(); renderReview(); renderPlayback(); renderStatus(); timelineController.render(); }
+function updateTimeSensitiveValues() { updateHeaderClock(); updateLiveStatus(); updateCameraValues(); updatePlaybackValues(); updateReviewClock(); timelineController.updateDynamic(); }
+
+function renderInitial() {
+  renderHeaderStructure(); renderViews(); renderCameraOptions(); updateScvTransform(); renderReview(); renderStatus(); renderScenarios(); timelineController.initialize(); updateTimeSensitiveValues();
+}
+
+function renderForChange(_currentState, reason) {
+  if (reason.startsWith('server-')) playbackController.syncServerTime(serverClock.now());
+  if (['seek', 'frame-step', 'play-pause', 'rate', 'go-live'].includes(reason)) updateTimeSensitiveValues();
+  else if (['show-mcv', 'show-camera'].includes(reason)) { renderViews(); renderCameraOptions(); updateScvTransform(); updateCameraValues(); timelineController.updateTrackState(); timelineController.updateDynamic(); }
+  else if (['camera-availability', 'server-camera-event'].includes(reason)) { renderCameraOptions(); updateCameraValues(); updateLiveStatus(); timelineController.renderTracks(); renderStatus(); }
+  else if (reason === 'server-pssel-event') { timelineController.renderPsselEvents(); updateTimeSensitiveValues(); }
+  else if (reason === 'server-time-anchor') updateTimeSensitiveValues();
+  else if (['review-updated', 'request-created', 'review-started', 'review-selected'].includes(reason)) { renderReview(); renderStatus(); timelineController.renderAnnotations(); updateTimeSensitiveValues(); }
+  else if (['fit', 'zoom', 'pan', 'focal-point'].includes(reason)) updateScvTransform();
+  else if (reason === 'scenario-loaded') { renderViews(); renderCameraOptions(); updateScvTransform(); renderReview(); renderStatus(); timelineController.renderTracks(); timelineController.renderAnnotations(); updateTimeSensitiveValues(); }
+  else if (reason === 'error') renderStatus();
+  syncAnimationLoop();
+}
+
+function animationStep(nowMs) {
+  const delta = Math.min(.25, (nowMs - lastFrameMs) / 1000); lastFrameMs = nowMs;
+  playbackController.advance(delta); updateTimeSensitiveValues();
+  if (state.isPlaying && state.playbackState !== 'live') animationFrame = requestAnimationFrame(animationStep); else animationFrame = null;
+}
+
+function syncAnimationLoop() {
+  if (state.isPlaying && state.playbackState !== 'live' && animationFrame == null) { lastFrameMs = performance.now(); animationFrame = requestAnimationFrame(animationStep); }
+  if ((!state.isPlaying || state.playbackState === 'live') && animationFrame != null) { cancelAnimationFrame(animationFrame); animationFrame = null; }
+}
+
+function clockPulse() {
+  playbackController.syncServerTime(serverClock.now());
+  if (animationFrame == null) updateTimeSensitiveValues(); else { updateHeaderClock(); updateReviewClock(); }
+}
 
 async function dispatch(action, element) {
   switch (action) {
@@ -110,10 +179,11 @@ async function dispatch(action, element) {
 async function bootstrapApp() {
   try {
     const data = await mockServer.bootstrap(window.FREEPLAY_IVR?.ring || 1), model = data.match;
+    serverClock.anchor(model.timeline.liveEdge, 'bootstrap');
     state.ring = model.ring; state.match = model.match; state.round = model.match.round; state.cameras = model.cameras;
     state.timelineRange = {start: model.timeline.start, end: model.timeline.end}; state.timelineStartSource = model.timeline.startSource; state.liveEdge = model.timeline.liveEdge; state.playbackCursor = model.timeline.liveEdge;
     state.psselEvents = data.psselEvents; state.scenarios = data.scenarios; replaceReviews(data.reviews); state.syncWarning = Math.max(...model.cameras.map(camera => camera.syncOffsetMs)) - Math.min(...model.cameras.map(camera => camera.syncOffsetMs)) > 33 ? 'Camera synchronization exceeds one frame.' : null;
-    subscribe(renderAll); renderScenarios(); renderAll(); installKeyboard();
+    subscribe(renderForChange); notificationController.install(); renderInitial(); installKeyboard();
     $(document).on('click', '[data-action]', async function(event) { if (this.dataset.action === 'cursor') return; event.preventDefault(); try { await dispatch(this.dataset.action, this); } catch (error) { toast(error.message, 'danger'); } });
     $('[data-camera-tile]').on('click keydown', function(event) { if (event.type === 'keydown' && !['Enter', ' '].includes(event.key)) return; event.preventDefault(); if (!cameraController.showCamera(Number(this.dataset.cameraTile))) toast('That camera is unavailable.', 'warning'); });
     $('#cameraSelect').on('change', function() { cameraController.showCamera(Number(this.value)); });
@@ -122,12 +192,11 @@ async function bootstrapApp() {
     $('#timeline').on('click', '.pssel-marker', function(event) { event.stopPropagation(); psselController.goTo(this.dataset.psselId); });
     $('#annotationModal').on('show.bs.modal', fillAnnotation); $('#annotationForm').on('submit', saveAnnotation);
     $('#scvScene').on('click', function(event) { if (state.currentView === 'MCV' || $(event.target).closest('button').length) return; const rect = this.getBoundingClientRect(); state.pan = {x: ((event.clientX - rect.left) / rect.width - .5) * -40, y: ((event.clientY - rect.top) / rect.height - .5) * -40}; notify('focal-point'); });
-    lastTick = performance.now(); setInterval(tick, 100);
+    setInterval(clockPulse, 100); syncAnimationLoop();
   } catch (error) { $('#statusStrip').removeClass('empty').html(`<div class="alert alert-danger m-2"><strong>Prototype failed to initialize:</strong> ${$('<div>').text(error.message).html()}</div>`); }
 }
 
 function fillAnnotation() { const review = selectedReview(); if (!review) return; $('#annotationMatch').val(state.match.number); $('#annotationRound').val(state.round); $('#annotationActionTime').val(formatTime(review.aur ?? review.rm)); $('#annotationIdentity').val(`${review.side === 'chung' ? 'Chung' : 'Hong'} · ${originLabels[review.origin]}`); $('#annotationJury').val(review.annotation?.reviewJury || 'Prototype Operator'); $('#annotationResult').val(resultLabels[review.result] || 'Pending'); $('#annotationReason').val(review.annotation?.reason || review.issues?.[0] || 'Other / official correction'); $('#annotationGamjeom').val(review.annotation?.gamJeomType || ''); $('#annotationExplanation').val(review.annotation?.explanation || ''); $('#annotationNotes').val(review.annotation?.notes || $('#workingNotes').val() || ''); }
 async function saveAnnotation(event) { event.preventDefault(); const annotation = Object.fromEntries(new FormData(event.currentTarget).entries()); await reviewController.annotate(annotation); bootstrap.Modal.getInstance(document.getElementById('annotationModal'))?.hide(); toast('Post-review annotation saved.', 'success'); }
-function tick() { const now = performance.now(), delta = Math.min(.25, (now - lastTick) / 1000); lastTick = now; playbackController.tick(delta); renderClock(); }
 
 bootstrapApp();

@@ -1,8 +1,8 @@
-# FreePlay System Requirements
+# FreePlay IVR Review System Requirements
 
 by Mike Wong, assisted by AI (ChatGPT), September 2026
 
-**Contents:** This document entails the functional and non-functional system requirement specification for the FreePlay Instant Video Replay software system.
+**Contents:** This document entails the functional and non-functional system requirement specification for the FreePlay Instant Video Replay Review software system.
 
 **Revision note:** Revised after requirements and UI/UX review to clarify the continuous-timeline model, Request Mark/AUR semantics, PSSEL scope, playback speeds, adjacent-media retrieval, timeline bounds, review-window selection, appeal-quota behavior, Review Start Time (RST), Multi Camera View (MCV), Single Camera View (SCV), review-clock behavior, and camera-feed timeline semantics.
 
@@ -525,6 +525,16 @@ Review windows shall be selectable by mouse interaction and by semantic keyboard
 Each review window shall support one active Action Under Review (AUR) mark. The operator shall be able to create or replace the AUR using mouse interaction or a semantic keyboard/HID command at the current playback-cursor time.
 
 If an AUR is created for a window that already has an AUR, the new mark shall replace the previous active AUR. The operator shall be able to return playback to the AUR by mouse interaction or keyboard/HID command. For coach-requested reviews, an AUR outside the Review Window shall be visibly flagged to the operator.
+
+### FR-053 --- Live Time Approximation
+
+The ingestion server shall notify the IVR Review system on the following events:
+
+- camera start recording
+- camera stop recording
+- any PSSEL event
+
+These notifications shall carry the server timestamp, which shall be used to update the IVR Review system clock. Between server notifications, the IVR Review System shall approximate the server clock by noting the time delta between the last notification and the current time and reporting the sum of the last server notification timestamp and the delta. This sum shall be the IVR Review system's current time.
 
 ------------------------------------------------------------------------
 
