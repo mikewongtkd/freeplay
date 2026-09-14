@@ -4,6 +4,8 @@ declare(strict_types=1);
 function ivr_mock_match(int $ring): array
 {
     $now = microtime(true);
+    $recordingStart = $now - 70;
+    $roundStart = $now - 40;
     return [
         'ring' => $ring,
         'match' => [
@@ -15,9 +17,13 @@ function ivr_mock_match(int $ring): array
             'hong' => ['name' => 'A. KIM', 'team' => 'TIGER TKD', 'quota' => 1],
         ],
         'timeline' => [
-            'start' => $now - 70,
+            'start' => max($recordingStart, $roundStart - 30),
             'end' => $now,
             'liveEdge' => $now,
+            'recordingStart' => $recordingStart,
+            'roundStart' => $roundStart,
+            'pageOpened' => $now,
+            'startSource' => '30s before round start',
         ],
         'cameras' => [
             ['id' => 1, 'streamId' => "ring{$ring}_cam1", 'name' => 'Wide (Center)', 'available' => true, 'status' => 'streaming', 'syncOffsetMs' => 0, 'gaps' => []],

@@ -1,7 +1,7 @@
 import {state, notify, update} from './state.js';
 
 const frame = 1 / 30;
-function clamp(time) { return Math.max(state.timelineRange.start, Math.min(state.liveEdge, time)); }
+function clamp(time) { return Math.max(state.timelineRange.start, Math.min(state.timelineRange.end, time)); }
 
 export const playbackController = {
   seekTo(time) { state.playbackCursor = clamp(Number(time)); state.isPlaying = false; state.playbackState = Math.abs(state.liveEdge - state.playbackCursor) < .05 ? 'live' : 'paused'; notify('seek'); },
@@ -11,7 +11,8 @@ export const playbackController = {
   setRate(rate) { state.playbackRate = Number(rate); state.isPlaying = true; state.playbackState = state.playbackRate < 0 ? 'reverse review' : 'playing'; notify('rate'); },
   goLive() { state.playbackCursor = state.liveEdge; state.isPlaying = true; state.playbackRate = 1; state.playbackState = 'live'; notify('go-live'); },
   tick(deltaSeconds) {
-    state.liveEdge += deltaSeconds; state.timelineRange.end = state.liveEdge;
+    state.liveEdge += deltaSeconds;
+    if (!state.reviewHistory.find(review => review.id === state.currentRequest)?.rst) state.timelineRange.end = state.liveEdge;
     if (state.playbackState === 'live') state.playbackCursor = state.liveEdge;
     else if (state.isPlaying) {
       state.playbackCursor = clamp(state.playbackCursor + deltaSeconds * state.playbackRate);

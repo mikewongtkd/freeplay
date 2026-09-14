@@ -16,7 +16,7 @@ export const timelineController = {
     }).join('');
     $('#timelineTracks').html(tracks);
     $('#timelineAnnotations').html(state.reviewHistory.map(review => {
-      const className = review.origin === 'chung' ? 'chung' : review.origin === 'hong' ? 'hong' : 'official';
+      const className = `${review.side || 'chung'} ${review.issueType === 'technical' ? 'technical' : ''} ${review.origin === 'referee' ? 'referee' : ''}`;
       const width = Math.max(.7, pct(review.windowEnd) - pct(review.windowStart));
       let html = `<button class="review-window ${className} ${review.id === state.currentRequest ? 'selected' : ''}" style="left:${pct(review.windowStart)}%;width:${width}%" data-review-id="${review.id}" title="Select ${review.id}"><span>${review.id}</span></button>`;
       html += marker(review, 'rm', review.rm, 'RM', `request-mark ${className}`);
@@ -30,7 +30,8 @@ export const timelineController = {
     const tickCount = 7, ticks = [];
     for (let i = 0; i < tickCount; i++) { const time = state.timelineRange.start + (state.timelineRange.end - state.timelineRange.start) * i / (tickCount - 1); ticks.push(`<span style="left:${i * 100 / (tickCount - 1)}%">${timeLabel(time)}</span>`); }
     $('#timelineTicks').html(ticks.join(''));
-    $('#timelineRangeLabel').text(`${timeLabel(state.timelineRange.start)} – ${timeLabel(state.timelineRange.end)} · server timeline`);
+    const endSource = state.reviewHistory.find(review => review.id === state.currentRequest)?.rst ? 'review start' : 'current time';
+    $('#timelineRangeLabel').text(`${timeLabel(state.timelineRange.start)} (${state.timelineStartSource}) – ${timeLabel(state.timelineRange.end)} (${endSource})`);
   },
   positionFromEvent(event) { const rect = document.getElementById('timeline').getBoundingClientRect(); const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)); return state.timelineRange.start + ratio * (state.timelineRange.end - state.timelineRange.start); },
   seekFromEvent(event) { const time = this.positionFromEvent(event); const camera = state.cameras.find(item => item.id === state.selectedCamera); if (state.currentView !== 'MCV' && gapAt(camera, time)) return false; playbackController.seekTo(time); return true; },

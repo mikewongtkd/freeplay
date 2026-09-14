@@ -1,9 +1,26 @@
 <aside id="reviewPanel" class="review-panel" aria-label="Request and review controls">
   <div class="panel-section request-actions" data-visible-when="monitoring">
     <h2 class="panel-title">Request / Review</h2>
-    <button class="btn btn-chung w-100 action-button" data-action="create-request" data-origin="chung"><i class="fa-solid fa-flag"></i> Chung Review Request <kbd>C</kbd></button>
-    <button class="btn btn-hong w-100 action-button" data-action="create-request" data-origin="hong"><i class="fa-solid fa-flag"></i> Hong Review Request <kbd>H</kbd></button>
-    <button class="btn btn-official w-100 action-button" data-action="create-request" data-origin="official"><i class="fa-solid fa-user-shield"></i> Official / Referee Request</button>
+    <fieldset class="request-option-group">
+      <legend>Origin</legend>
+      <div class="btn-group w-100" role="radiogroup" aria-label="Request origin">
+        <input class="btn-check" type="radio" name="requestOrigin" id="requestOriginCoach" value="coach" checked>
+        <label class="btn btn-outline-primary" for="requestOriginCoach"><i class="fa-solid fa-user"></i> Coach</label>
+        <input class="btn-check" type="radio" name="requestOrigin" id="requestOriginReferee" value="referee">
+        <label class="btn btn-outline-primary" for="requestOriginReferee"><i class="fa-solid fa-user-shield"></i> Referee</label>
+      </div>
+    </fieldset>
+    <fieldset class="request-option-group">
+      <legend>Issue Type</legend>
+      <div class="btn-group w-100" role="radiogroup" aria-label="Issue type">
+        <input class="btn-check" type="radio" name="requestIssueType" id="requestNonTechnical" value="nontechnical" checked>
+        <label class="btn btn-outline-secondary" for="requestNonTechnical">Non-Technical <small>Red or Blue Card</small></label>
+        <input class="btn-check" type="radio" name="requestIssueType" id="requestTechnical" value="technical">
+        <label class="btn btn-outline-success" for="requestTechnical">Technical <small>Green Card</small></label>
+      </div>
+    </fieldset>
+    <button class="btn btn-chung w-100 action-button" data-action="create-request" data-side="chung"><i class="fa-solid fa-flag"></i> Chung Review Request <kbd>C</kbd></button>
+    <button class="btn btn-hong w-100 action-button" data-action="create-request" data-side="hong"><i class="fa-solid fa-flag"></i> Hong Review Request <kbd>H</kbd></button>
   </div>
   <div class="panel-section review-summary">
     <div class="d-flex justify-content-between align-items-center gap-2">
@@ -13,6 +30,7 @@
     <div id="reviewEmpty" class="empty-copy">Create or select a Request Mark to begin.</div>
     <dl id="reviewMetadata" class="review-metadata d-none">
       <div><dt>Origin</dt><dd id="metaOrigin">—</dd></div>
+      <div><dt>Issue Type</dt><dd id="metaIssueType">—</dd></div>
       <div><dt>Request Mark (RM)</dt><dd id="metaRm">—</dd></div>
       <div><dt>Review Window</dt><dd id="metaWindow">—</dd></div>
       <div><dt>Action (AUR)</dt><dd id="metaAur">Not marked</dd></div>

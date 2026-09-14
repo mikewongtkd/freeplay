@@ -5,7 +5,7 @@ export const state = {
   playbackCursor: 0, liveEdge: 0, playbackRate: 1, isPlaying: false,
   currentRequest: null, pendingRequests: [], reviewHistory: [], reviewWindow: null,
   aur: null, rst: null, reviewClockSeconds: 0, reviewStatus: 'monitoring', reviewResult: null,
-  psselEvents: [], timelineRange: {start: 0, end: 0}, selectedCamera: 1,
+  psselEvents: [], timelineRange: {start: 0, end: 0}, timelineStartSource: 'page opened', selectedCamera: 1,
   playbackState: 'live', zoom: 1, pan: {x: 0, y: 0}, scenarios: [], scenario: null,
   syncWarning: null, lastError: null
 };

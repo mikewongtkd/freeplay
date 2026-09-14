@@ -3,6 +3,17 @@ declare(strict_types=1);
 require __DIR__ . '/../includes/api-common.php';
 ivr_session_start();
 
+foreach ($_SESSION['ivr_reviews'] as &$storedReview) {
+    if (!isset($storedReview['side'])) {
+        $legacyOrigin = (string) ($storedReview['origin'] ?? 'chung');
+        $storedReview['side'] = in_array($legacyOrigin, ['chung', 'hong'], true) ? $legacyOrigin : 'chung';
+        $storedReview['origin'] = $legacyOrigin === 'official' ? 'referee' : 'coach';
+        $storedReview['issueType'] = $legacyOrigin === 'technical' ? 'technical' : 'nontechnical';
+        $storedReview['isCoachRequest'] = $storedReview['origin'] === 'coach';
+    }
+}
+unset($storedReview);
+
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     ivr_json(['ok' => true, 'data' => ['reviews' => array_values($_SESSION['ivr_reviews'])]]);
 }
@@ -26,15 +37,17 @@ if ($action === 'reset') {
 }
 
 if ($action === 'create-request') {
-    $origin = in_array($body['origin'] ?? '', ['chung', 'hong', 'official', 'technical'], true) ? $body['origin'] : 'official';
+    $side = in_array($body['side'] ?? '', ['chung', 'hong'], true) ? $body['side'] : 'chung';
+    $origin = in_array($body['origin'] ?? '', ['coach', 'referee'], true) ? $body['origin'] : 'coach';
+    $issueType = ($body['issueType'] ?? '') === 'technical' ? 'technical' : 'nontechnical';
     $now = ivr_now();
     $id = 'R' . str_pad((string) (count($reviews) + 1), 3, '0', STR_PAD_LEFT) . '-' . substr($now['epochUs'], -6);
-    $isCoach = in_array($origin, ['chung', 'hong'], true);
+    $isCoach = $origin === 'coach';
     $issues = array_values(array_slice(array_filter((array) ($body['issues'] ?? []), 'is_string'), 0, 2));
     $review = [
-        'id' => $id, 'ring' => $ring, 'origin' => $origin, 'isCoachRequest' => $isCoach,
+        'id' => $id, 'ring' => $ring, 'side' => $side, 'origin' => $origin, 'issueType' => $issueType, 'isCoachRequest' => $isCoach,
         'rm' => $now['epochSeconds'], 'rmEpochUs' => $now['epochUs'],
-        'windowStart' => $now['epochSeconds'] - ($isCoach ? 5 : 8), 'windowEnd' => $now['epochSeconds'],
+        'windowStart' => $now['epochSeconds'] - ($isCoach ? 5 : 10), 'windowEnd' => $now['epochSeconds'],
         'aur' => null, 'rst' => null, 'decisionAt' => null, 'result' => null,
         'status' => 'pending', 'issues' => $issues ?: ['Reason pending'],
         'linkedReviewId' => $body['linkedReviewId'] ?? null, 'annotation' => [],
