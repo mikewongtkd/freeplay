@@ -27,7 +27,7 @@
     const live=cameras.filter(c=>c.connected).length;
     const badges=cameras.map(c=>{ const parts=cameraParts(c), state=status(c); return `<div><div class="text-center"><label class="small" for="camera-${esc(c.stream_id)}" class="form-label">Camera ${esc(parts.camera)}</label></div><button type="button" class="badge camera-status-badge text-bg-${state.cls}" data-stream-id="${esc(c.stream_id)}" aria-pressed="false" title="Show details for ${esc(c.stream_id)}">${state.label}</button></div></div>`; }).join('');
     return `<div class="col-12"><div class="card shadow-sm h-100 ring-card"><div class="card-body d-flex flex-column">
-      <div class="d-flex justify-content-between align-items-start gap-3"><div><h3 class="h5 mb-1">Ring ${esc(ring)}</h3><div class="small text-secondary">${live} of ${cameras.length} cameras live</div></div><a class="btn btn-primary btn-sm text-nowrap" href="review.php?ring=${encodeURIComponent(ring)}">Ring ${esc(ring)} IVR</a></div>
+      <div class="d-flex justify-content-between align-items-start gap-3"><div><h3 class="h5 mb-1">Ring ${esc(ring)}</h3><div class="small text-secondary">${live} of ${cameras.length} cameras live</div></div><a class="btn btn-primary btn-sm text-nowrap" href="review/index.php?ring=${encodeURIComponent(ring)}">Ring ${esc(ring)} IVR</a></div>
       <div class="d-flex flex-wrap gap-2 mt-3">${badges}</div>
     </div></div></div>`;
   }

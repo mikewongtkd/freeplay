@@ -483,7 +483,11 @@ If known synchronization quality between cameras is outside the accepted toleran
 
 ### FR-050 --- Indicating the time
 
-Time shall be displayed as a common timeline. The left bound shall represent the beginning of the current match's retained recording and the right bound shall represent the latest video available from the ingestion server.
+Time shall be displayed as a common timeline, which shall be visible in all views and at all times. 
+
+The left bound shall be, in order of preference and depending on the availability of metadata and video: (1) up to 30 seconds prior to the start of the current round for the current match; (2) the most recent start of video recording; or (3) if there are no video available, the time the review page was first opened for a given ring, match, and round.
+
+The right bound shall represent, in order of preference, (1) the time when a review is started; or (2) the current time.
 
 The beginning of the current match may be established, in order of preference, by: (1) explicit match-start metadata received from an integrated scoring/tournament system; or (2) an operator-created match-start action when such integration is unavailable. Camera recording may begin before match start, but pre-match video is not required to be shown on the normal match timeline unless the operator explicitly navigates to retained earlier media. If the start is not established by the scoring system or the operator, the start of the recording shall be the default value for the match start.
 
@@ -503,7 +507,7 @@ The operator shall be able to click a valid point on the timeline to move the pl
 
 ### FR-051 --- Annotating the timeline with review windows
 
-At any time, the operator shall be able to create a Request Mark for the chung coach, hong coach, or an authorized official/referee. For coach requests, the Request Mark indicates the end of the Review Window and the beginning is five seconds earlier.
+At any time, the operator shall be able to create a Request Mark for chung or hong. The request can originate from either coach, or from the referee. For coach requests, the Request Mark indicates the end of the Review Window and the beginning is five seconds earlier. For referee requests, the Request Mark indicates the end of the Review Window and the beginning is ten seconds earlier. The system shall present a button for **Chung Review Request** and **Hong Review Request** to create the Request Mark. A radio toggle button group labelled **Origin** with two buttons labelled **Coach** and **Referee** shall indicate the request origin, and a switch labelled **Issue Type** with two states: (default) **Non-Technical (Red or Blue Card)** and **Technical (Green Card)** shall indicate if the request is for technical issues.
 
 The chung review window shall be shown by default in a shade of blue above the timeline, and the hong review window shall be shown by default in a shade of red below the timeline. If a request is designated as a technical issue, its window shall be shown by default in a shade of green. Referee/official requests shall be visually distinguishable from coach requests.
 
@@ -513,7 +517,9 @@ Clicking a review-window annotation shall select that window without changing it
 
 At most one review window shall be designated as selected in a single IVR client session at a time. If no review window is selected, commands that refer to the "current or latest" review window shall operate on the most recently created review window.
 
+
 Review windows shall be selectable by mouse interaction and by semantic keyboard/HID commands.
+
 ### FR-052 --- Annotating the timeline with action under review
 
 Each review window shall support one active Action Under Review (AUR) mark. The operator shall be able to create or replace the AUR using mouse interaction or a semantic keyboard/HID command at the current playback-cursor time.
