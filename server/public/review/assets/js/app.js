@@ -81,7 +81,6 @@ function renderReview() {
   $('#startReviewButton').prop('disabled', !pending).toggleClass('d-none', active || final); $('#resolveButton').toggleClass('d-none', !pending);
   $('#formalResults').toggleClass('d-none', !active); $('#annotationSection').toggleClass('d-none', !final);
   const linkedEligible = final && ['chung', 'hong'].includes(review?.side);
-  $('#secondReviewButton').toggleClass('d-none', !linkedEligible); setText('#secondReviewLabel', linkedEligible ? `Create linked ${review.side === 'chung' ? 'Hong' : 'Chung'} second review` : 'Create linked second review');
   $('#reviewClock').toggleClass('d-none', !active); updateReviewClock();
 }
 

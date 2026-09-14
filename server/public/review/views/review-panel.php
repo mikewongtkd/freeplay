@@ -47,23 +47,5 @@
   <div id="annotationSection" class="panel-section annotation-section d-none">
     <div class="d-flex justify-content-between align-items-center"><h2 class="panel-title mb-0">Post-review annotation</h2><span class="badge text-bg-light">Not timed</span></div>
     <button class="btn btn-sm btn-outline-primary mt-2" data-bs-toggle="modal" data-bs-target="#annotationModal"><i class="fa-solid fa-pen-to-square"></i> Complete IVR Sheet</button>
-    <button id="secondReviewButton" class="btn btn-sm btn-outline-secondary mt-2 d-none" data-action="second-review"><i class="fa-solid fa-link"></i><span id="secondReviewLabel">Create linked second review</span></button>
-  </div>
-  <div class="panel-section review-summary">
-    <div class="d-flex justify-content-between align-items-center gap-2">
-      <h2 class="panel-title mb-0">Selected Request</h2>
-      <span id="reviewStatusBadge" class="badge text-bg-secondary">NO REQUEST</span>
-    </div>
-    <div id="reviewEmpty" class="empty-copy">Create or select a Request Mark to begin.</div>
-    <dl id="reviewMetadata" class="review-metadata d-none">
-      <div><dt>Origin</dt><dd id="metaOrigin">—</dd></div>
-      <div><dt>Issue Type</dt><dd id="metaIssueType">—</dd></div>
-      <div><dt>Request Mark (RM)</dt><dd id="metaRm">—</dd></div>
-      <div><dt>Review Window</dt><dd id="metaWindow">—</dd></div>
-      <div><dt>Action (AUR)</dt><dd id="metaAur">Not marked</dd></div>
-      <div><dt>Review Start (RST)</dt><dd id="metaRst">Not started</dd></div>
-    </dl>
-    <div id="aurWarning" class="alert alert-warning py-2 px-3 d-none" role="alert"><i class="fa-solid fa-triangle-exclamation"></i> AUR is outside the coach Review Window. Marker preserved for audit.</div>
-    <div id="reviewClock" class="review-clock d-none"><span>Review Response Time</span><strong id="reviewClockValue">00:00.0</strong></div>
   </div>
 </aside>
