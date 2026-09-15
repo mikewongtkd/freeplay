@@ -2,7 +2,7 @@
   <div class="scv-layout">
     <div class="scv-video-column">
       <article class="video-tile scv-video">
-        <div id="scvScene" class="simulated-video camera-scene camera-scene-1">
+        <div id="scvScene" class="simulated-video camera-scene camera-scene-1" title="Drag: pan · Wheel: zoom · Shift+wheel: pan horizontally · Alt+wheel: pan vertically">
           <div class="camera-label"><strong id="scvCameraLabel">CAM 1</strong><span id="scvCameraName">Wide (Center)</span></div>
           <span id="scvCameraState" class="camera-state badge">STREAMING</span>
           <button class="camera-nav camera-nav-prev" data-action="previous-camera" aria-label="Previous camera"><i class="fa-solid fa-chevron-left"></i></button>

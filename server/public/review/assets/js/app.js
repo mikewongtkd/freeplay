@@ -65,7 +65,7 @@ function updateCameraValues() {
 function updateScvTransform() {
   const selected = state.cameras.find(camera => camera.id === state.selectedCamera) || state.cameras[0];
   if (!selected) return;
-  $('#scvScene').attr('class', `simulated-video camera-scene camera-scene-${selected.id}`).css('--zoom', state.zoom).css('--pan-x', `${state.pan.x}%`).css('--pan-y', `${state.pan.y}%`);
+  $('#scvScene').removeClass('camera-scene-1 camera-scene-2 camera-scene-3').addClass(`camera-scene-${selected.id}`).css('--zoom', state.zoom).css('--pan-x', `${state.pan.x}%`).css('--pan-y', `${state.pan.y}%`);
 }
 
 function renderReview() {
@@ -150,6 +150,65 @@ function syncAnimationLoop() {
   if ((!state.isPlaying || state.playbackState === 'live') && animationFrame != null) { cancelAnimationFrame(animationFrame); animationFrame = null; }
 }
 
+function installScvWheelControls() {
+  const scene = document.getElementById('scvScene');
+  if (!scene) return;
+  scene.addEventListener('wheel', event => {
+    if (state.currentView === 'MCV') return;
+    event.preventDefault();
+
+    const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? scene.clientHeight : 1;
+    const deltaX = event.deltaX * unit;
+    const deltaY = event.deltaY * unit;
+    const panStep = value => Math.max(-10, Math.min(10, value / 8));
+
+    if (event.shiftKey || Math.abs(deltaX) > Math.abs(deltaY)) {
+      playbackController.pan(panStep(event.shiftKey && !deltaX ? deltaY : deltaX), 0);
+      return;
+    }
+    if (event.altKey) {
+      playbackController.pan(0, panStep(deltaY));
+      return;
+    }
+
+    const zoomDelta = Math.max(-.25, Math.min(.25, -deltaY / 400));
+    if (zoomDelta) playbackController.zoom(zoomDelta);
+  }, {passive: false});
+}
+
+let scvDragMoved = false;
+function installScvDragControls() {
+  const scene = document.getElementById('scvScene');
+  if (!scene) return;
+  let drag = null;
+
+  scene.addEventListener('pointerdown', event => {
+    if (state.currentView === 'MCV' || event.button !== 0 || event.target.closest('button')) return;
+    scvDragMoved = false;
+    drag = {pointerId: event.pointerId, x: event.clientX, y: event.clientY, originX: event.clientX, originY: event.clientY};
+    scene.setPointerCapture(event.pointerId);
+    scene.classList.add('is-panning');
+  });
+  scene.addEventListener('pointermove', event => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    const rect = scene.getBoundingClientRect();
+    if (Math.hypot(event.clientX - drag.originX, event.clientY - drag.originY) >= 3) scvDragMoved = true;
+    if (!scvDragMoved || !rect.width || !rect.height) return;
+    event.preventDefault();
+    playbackController.pan((event.clientX - drag.x) / rect.width * 100, (event.clientY - drag.y) / rect.height * 100);
+    drag.x = event.clientX;
+    drag.y = event.clientY;
+  });
+  const finishDrag = event => {
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    if (scene.hasPointerCapture(event.pointerId)) scene.releasePointerCapture(event.pointerId);
+    scene.classList.remove('is-panning');
+    drag = null;
+  };
+  scene.addEventListener('pointerup', finishDrag);
+  scene.addEventListener('pointercancel', event => { finishDrag(event); scvDragMoved = false; });
+}
+
 function clockPulse() {
   playbackController.syncServerTime(serverClock.now());
   if (animationFrame == null) updateTimeSensitiveValues(); else { updateHeaderClock(); updateReviewClock(); }
@@ -183,7 +242,7 @@ async function bootstrapApp() {
     state.ring = model.ring; state.match = model.match; state.round = model.match.round; state.cameras = model.cameras;
     state.timelineRange = {start: model.timeline.start, end: model.timeline.end}; state.timelineStartSource = model.timeline.startSource; state.liveEdge = model.timeline.liveEdge; state.playbackCursor = model.timeline.liveEdge;
     state.psselEvents = data.psselEvents; state.scenarios = data.scenarios; replaceReviews(data.reviews); state.syncWarning = Math.max(...model.cameras.map(camera => camera.syncOffsetMs)) - Math.min(...model.cameras.map(camera => camera.syncOffsetMs)) > 33 ? 'Camera synchronization exceeds one frame.' : null;
-    subscribe(renderForChange); notificationController.install(); renderInitial(); installKeyboard();
+    subscribe(renderForChange); notificationController.install(); renderInitial(); installKeyboard(); installScvWheelControls(); installScvDragControls();
     $(document).on('click', '[data-action]', async function(event) { if (this.dataset.action === 'cursor') return; event.preventDefault(); try { await dispatch(this.dataset.action, this); } catch (error) { toast(error.message, 'danger'); } });
     $('[data-camera-tile]').on('click keydown', function(event) { if (event.type === 'keydown' && !['Enter', ' '].includes(event.key)) return; event.preventDefault(); if (!cameraController.showCamera(Number(this.dataset.cameraTile))) toast('That camera is unavailable.', 'warning'); });
     $('#cameraSelect').on('change', function() { cameraController.showCamera(Number(this.value)); });
@@ -191,7 +250,7 @@ async function bootstrapApp() {
     $('#timeline').on('click', '.review-window,.annotation-marker', function(event) { event.stopPropagation(); reviewController.selectReview(this.dataset.reviewId, this.dataset.time == null); if (this.dataset.time) playbackController.seekTo(Number(this.dataset.time)); });
     $('#timeline').on('click', '.pssel-marker', function(event) { event.stopPropagation(); psselController.goTo(this.dataset.psselId); });
     $('#annotationModal').on('show.bs.modal', fillAnnotation); $('#annotationForm').on('submit', saveAnnotation);
-    $('#scvScene').on('click', function(event) { if (state.currentView === 'MCV' || $(event.target).closest('button').length) return; const rect = this.getBoundingClientRect(); state.pan = {x: ((event.clientX - rect.left) / rect.width - .5) * -40, y: ((event.clientY - rect.top) / rect.height - .5) * -40}; notify('focal-point'); });
+    $('#scvScene').on('click', function(event) { if (scvDragMoved) { scvDragMoved = false; return; } if (state.currentView === 'MCV' || $(event.target).closest('button').length) return; const rect = this.getBoundingClientRect(); state.pan = {x: ((event.clientX - rect.left) / rect.width - .5) * -40, y: ((event.clientY - rect.top) / rect.height - .5) * -40}; notify('focal-point'); });
     setInterval(clockPulse, 100); syncAnimationLoop();
   } catch (error) { $('#statusStrip').removeClass('empty').html(`<div class="alert alert-danger m-2"><strong>Prototype failed to initialize:</strong> ${$('<div>').text(error.message).html()}</div>`); }
 }

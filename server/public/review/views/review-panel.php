@@ -29,10 +29,8 @@
       </fieldset>
     </div>
   </div>
-  <div class="panel-section review-navigation">
-    <div class="d-flex gap-2">
-      <button class="btn btn-outline-secondary flex-fill" data-action="previous-review"><i class="fa-solid fa-backward-step"></i> Previous Review</button>
-      <button class="btn btn-outline-secondary flex-fill" data-action="next-review">Next Review <i class="fa-solid fa-forward-step"></i></button>
-    </div>
+  <div class="btn-group w-100" role="group" aria-label="Review navigation">
+    <button class="btn btn-outline-secondary flex-fill" data-action="first-review"><i class="fa-solid fa-backward-fast"></i> First Review</button>
+    <button class="btn btn-outline-secondary flex-fill" data-action="last-review">Last Review <i class="fa-solid fa-forward-fast"></i></button>
   </div>
 </aside>
