@@ -16,11 +16,12 @@
     <aside class="scv-side-panel">
       <div class="camera-switcher panel-section">
         <span class="panel-kicker">Camera</span>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 mb-2">
           <button class="btn btn-outline-secondary" data-action="previous-camera" aria-label="Previous camera"><i class="fa-solid fa-chevron-left"></i></button>
           <select id="cameraSelect" class="form-select" aria-label="Selected camera"></select>
           <button class="btn btn-outline-secondary" data-action="next-camera" aria-label="Next camera"><i class="fa-solid fa-chevron-right"></i></button>
         </div>
+        <button class="btn btn-outline-primary w-100" data-action="show-mcv" aria-label="Multi-Camera View"><i class="fa-solid fa-columns"></i> Multi-Camera View</button>
       </div>
       <div id="scvReviewPanel"></div>
       <div class="panel-section scv-working-notes">
