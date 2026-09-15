@@ -5,6 +5,8 @@
 
 /* Fixed replay dock: the toolbar owns the bottom edge and the timeline sits above it. */
 .ivr-shell{--dock-toolbar-height:63px;--dock-timeline-height:170px;grid-template-rows:auto minmax(0,1fr);padding-bottom:calc(var(--dock-toolbar-height) + var(--dock-timeline-height) + 15px)}
+.status-strip{grid-row:1}
+.view-panel{grid-row:2;min-height:0;align-self:stretch}
 .playback-toolbar{position:fixed;z-index:900;left:5px;right:5px;bottom:5px;height:var(--dock-toolbar-height);min-height:0}
 .timeline-panel{position:fixed;z-index:890;left:5px;right:5px;bottom:calc(var(--dock-toolbar-height) + 10px);height:var(--dock-timeline-height)}
 
@@ -16,5 +18,8 @@
 .scv-side-panel{position:absolute;z-index:8;top:0;right:0;bottom:0;width:245px;overflow:auto;background:#f8fafcee;backdrop-filter:blur(5px);box-shadow:0 2px 10px #00152a33}
 .scv-active .timeline-panel{height:var(--dock-timeline-height)}
 .scv-active .playback-toolbar{height:var(--dock-toolbar-height);min-height:0}
+.scv-active #scvView{position:relative;height:auto;min-height:0;align-self:stretch;overflow:hidden}
+.scv-active .scv-layout{position:absolute;inset:0;height:auto;min-height:0}
+.scv-active .scv-video-column{position:absolute;inset:0;width:auto;height:auto}
 
-@media (max-width:900px){.scv-video-column{padding-right:0}.scv-side-panel{position:relative;top:auto;right:auto;bottom:auto;width:100%;margin-top:5px;backdrop-filter:none}}
+@media (max-width:900px){.scv-video-column{padding-right:0}.scv-side-panel{width:min(245px,45vw);margin-top:0;backdrop-filter:blur(5px)}}
