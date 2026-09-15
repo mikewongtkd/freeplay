@@ -8,7 +8,7 @@ foreach ($_SESSION['ivr_reviews'] as &$storedReview) {
         $legacyOrigin = (string) ($storedReview['origin'] ?? 'chung');
         $storedReview['side'] = in_array($legacyOrigin, ['chung', 'hong'], true) ? $legacyOrigin : 'chung';
         $storedReview['origin'] = $legacyOrigin === 'official' ? 'referee' : 'coach';
-        $storedReview['issueType'] = $legacyOrigin === 'technical' ? 'technical' : 'nontechnical';
+        $storedReview['issueType'] = $legacyOrigin === 'technical' ? 'technical' : 'standard';
         $storedReview['isCoachRequest'] = $storedReview['origin'] === 'coach';
     }
 }
@@ -39,7 +39,7 @@ if ($action === 'reset') {
 if ($action === 'create-request') {
     $side = in_array($body['side'] ?? '', ['chung', 'hong'], true) ? $body['side'] : 'chung';
     $origin = in_array($body['origin'] ?? '', ['coach', 'referee'], true) ? $body['origin'] : 'coach';
-    $issueType = ($body['issueType'] ?? '') === 'technical' ? 'technical' : 'nontechnical';
+    $issueType = ($body['issueType'] ?? '') === 'technical' ? 'technical' : 'standard';
     $now = ivr_now();
     $id = 'R' . str_pad((string) (count($reviews) + 1), 3, '0', STR_PAD_LEFT) . '-' . substr($now['epochUs'], -6);
     $isCoach = $origin === 'coach';

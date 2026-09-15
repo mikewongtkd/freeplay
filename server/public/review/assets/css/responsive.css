@@ -1,4 +1,20 @@
-@media (max-width:1100px){.ivr-title{display:none}.scv-layout{grid-template-columns:minmax(0,1fr) 285px}.btn-control{min-width:54px}.timeline-legend-inline{display:none}}
-@media (max-width:900px){.ivr-body{height:100vh;height:100dvh;min-height:0;overflow:hidden}.ivr-header{position:relative;z-index:1000}.ivr-shell{height:calc(100vh - 58px);height:calc(100dvh - 58px);min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr) 170px auto}.view-panel{height:auto;min-height:0;overflow:auto}.mcv-layout{height:auto;min-height:100%;overflow:visible}.mcv-grid{height:auto;min-height:100%;grid-template-columns:1fr}.mcv-summary-column{height:auto;overflow:visible}.camera-tile{aspect-ratio:16/9}.review-panel{max-height:none}.scv-layout{display:block;height:auto;min-height:100%}.scv-video{aspect-ratio:16/9}.scv-side-panel{margin-top:5px}.timeline-panel{height:170px;min-height:0}.playback-readout{position:sticky;right:0;background:#f8fafc;padding-left:.5rem}}
+@media (max-width:1100px){.ivr-title{display:none}.scv-layout{grid-template-columns:minmax(0,1fr) 250px}.btn-control{min-width:54px}.timeline-legend-inline{display:none}}
+@media (max-width:900px){.ivr-body{height:100vh;height:100dvh;min-height:0;overflow:hidden}.ivr-header{position:relative;z-index:1000}.ivr-shell{height:calc(100vh - 58px);height:calc(100dvh - 58px);min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr) 170px auto}.ivr-shell.scv-active{grid-template-rows:auto minmax(0,1fr) 122px 56px}.view-panel{height:auto;min-height:0;overflow:auto}.mcv-layout{height:auto;min-height:100%;overflow:visible}.mcv-grid{height:auto;min-height:100%;grid-template-columns:1fr}.mcv-summary-column{height:auto;overflow:visible}.camera-tile{aspect-ratio:16/9}.review-panel{max-height:none}.scv-layout{display:block;height:auto;min-height:100%}.scv-video{width:100%;height:auto;aspect-ratio:16/9}.scv-side-panel{margin-top:5px}.timeline-panel{height:170px;min-height:0}.scv-active .timeline-panel{height:122px}.playback-readout{position:sticky;right:0;background:#f8fafc;padding-left:.5rem}}
 @media (max-width:600px){.ivr-header{padding-left:.5rem!important;padding-right:.5rem!important}.navbar-brand{font-size:1.15rem}.live-status{font-size:.75rem}.mcv-grid{gap:4px}.camera-label span{display:none}.playback-toolbar{flex-wrap:nowrap}.result-grid{grid-template-columns:1fr}.shortcut-grid{grid-template-columns:max-content 1fr}.timeline{margin-left:2.9rem}.toolbar-group{flex:0 0 auto}}
 @media (min-width:1800px){.ivr-shell{grid-template-rows:auto minmax(0,1fr) 170px auto}.scv-layout{grid-template-columns:minmax(0,1fr) 390px}.review-metadata{font-size:.82rem}.panel-title{font-size:1rem}.timeline{height:135px}.timeline-track{height:24px}.timeline-marker,.annotation-marker{height:106px}}
+
+/* Fixed replay dock: the toolbar owns the bottom edge and the timeline sits above it. */
+.ivr-shell{--dock-toolbar-height:63px;--dock-timeline-height:170px;grid-template-rows:auto minmax(0,1fr);padding-bottom:calc(var(--dock-toolbar-height) + var(--dock-timeline-height) + 15px)}
+.playback-toolbar{position:fixed;z-index:900;left:5px;right:5px;bottom:5px;height:var(--dock-toolbar-height);min-height:0}
+.timeline-panel{position:fixed;z-index:890;left:5px;right:5px;bottom:calc(var(--dock-toolbar-height) + 10px);height:var(--dock-timeline-height)}
+
+/* SCV gives the video the full content width and floats the controls over its right edge. */
+.ivr-shell.scv-active{--dock-toolbar-height:56px;--dock-timeline-height:122px;grid-template-rows:auto minmax(0,1fr)}
+.scv-layout{position:relative;display:block;height:100%}
+.scv-video-column{width:100%;height:100%;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;padding-right:0;container-type:normal}
+.scv-video{display:block;width:auto;height:100%;max-width:100%;max-height:100%;aspect-ratio:16/9;flex:0 1 auto}
+.scv-side-panel{position:absolute;z-index:8;top:0;right:0;bottom:0;width:245px;overflow:auto;background:#f8fafcee;backdrop-filter:blur(5px);box-shadow:0 2px 10px #00152a33}
+.scv-active .timeline-panel{height:var(--dock-timeline-height)}
+.scv-active .playback-toolbar{height:var(--dock-toolbar-height);min-height:0}
+
+@media (max-width:900px){.scv-video-column{padding-right:0}.scv-side-panel{position:relative;top:auto;right:auto;bottom:auto;width:100%;margin-top:5px;backdrop-filter:none}}

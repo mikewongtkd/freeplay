@@ -44,8 +44,4 @@
       <button class="btn btn-outline-secondary flex-fill" data-action="next-review">Next Review <i class="fa-solid fa-forward-step"></i></button>
     </div>
   </div>
-  <div id="annotationSection" class="panel-section annotation-section d-none">
-    <div class="d-flex justify-content-between align-items-center"><h2 class="panel-title mb-0">Post-review annotation</h2><span class="badge text-bg-light">Not timed</span></div>
-    <button class="btn btn-sm btn-outline-primary mt-2" data-bs-toggle="modal" data-bs-target="#annotationModal"><i class="fa-solid fa-pen-to-square"></i> Complete IVR Sheet</button>
-  </div>
 </aside>

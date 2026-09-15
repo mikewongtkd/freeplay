@@ -16,7 +16,7 @@ export const reviewController = {
   async createCoachRequest(side, options = {}) { return this.createRequest(side, {origin: 'coach', ...options}); },
   async createRequest(side, options = {}) {
     return execute(async () => {
-      const response = await mockServer.createRequest({ring: state.ring, side, origin: options.origin || 'coach', issueType: options.issueType || 'nontechnical', issues: options.issues || [], linkedReviewId: options.linkedReviewId || null});
+      const response = await mockServer.createRequest({ring: state.ring, side, origin: options.origin || 'coach', issueType: options.issueType || 'standard', issues: options.issues || [], linkedReviewId: options.linkedReviewId || null});
       const review = useResponse(response); state.playbackCursor = review.rm; state.playbackState = 'paused'; state.isPlaying = false; notify('request-created'); return review;
     });
   },

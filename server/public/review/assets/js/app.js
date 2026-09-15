@@ -13,7 +13,7 @@ import {notificationController} from './notification-controller.js';
 const $ = window.jQuery;
 const resultLabels = {accepted: 'Accepted', rejected: 'Rejected', ivr_issue: 'Rejected: IVR Issue', resolved_without_review: 'Resolved without Review'};
 const originLabels = {coach: 'Coach', referee: 'Referee'};
-const issueTypeLabels = {nontechnical: 'Non-Technical (Red or Blue Card)', technical: 'Technical (Green Card)'};
+const issueTypeLabels = {standard: 'Standard', technical: 'Technical'};
 let animationFrame = null;
 let lastFrameMs = 0;
 let renderedPlaybackRate = null;
@@ -98,6 +98,7 @@ function updateReviewClock() {
 
 function renderViews() {
   const mcv = state.currentView === 'MCV'; $('#mcvView').toggleClass('d-none', !mcv); $('#scvView').toggleClass('d-none', mcv); $('#scvTools').toggleClass('d-none', mcv);
+  $('#ivrMain').toggleClass('scv-active', !mcv);
   const panel = document.getElementById('reviewPanel'), destination = mcv ? document.querySelector('#mcvView .mcv-grid') : document.getElementById('scvReviewPanel');
   if (panel.parentElement !== destination) destination.append(panel);
 }

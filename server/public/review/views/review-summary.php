@@ -14,4 +14,8 @@
     <div id="aurWarning" class="alert alert-warning py-2 px-3 d-none" role="alert"><i class="fa-solid fa-triangle-exclamation"></i> AUR is outside the coach Review Window. Marker preserved for audit.</div>
     <div id="reviewClock" class="review-clock d-none"><span>Review Response Time</span><strong id="reviewClockValue">00:00.0</strong></div>
   </div>
+  <div id="annotationSection" class="panel-section annotation-section d-none">
+    <div class="d-flex justify-content-between align-items-center"><h2 class="panel-title mb-0">Post-review annotation</h2><span class="badge text-bg-light">Not timed</span></div>
+    <button class="btn btn-sm btn-outline-primary mt-2" data-bs-toggle="modal" data-bs-target="#annotationModal"><i class="fa-solid fa-pen-to-square"></i> Complete IVR Sheet</button>
+  </div>
 </div>
