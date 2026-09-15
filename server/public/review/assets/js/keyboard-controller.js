@@ -4,9 +4,9 @@ import {playbackController} from './playback-controller.js';
 import {state} from './state.js';
 
 const commands = {
-  'Space': () => playbackController.playPause(), 'ArrowLeft': () => playbackController.stepFrame(-1), 'ArrowRight': () => playbackController.stepFrame(1),
+  ' ': /* Space */ () => playbackController.playPause(), 'ArrowLeft': () => playbackController.stepFrame(-1), 'ArrowRight': () => playbackController.stepFrame(1),
   '1': () => cameraController.showCamera(1), '2': () => cameraController.showCamera(2), '3': () => cameraController.showCamera(3),
-  'm': () => cameraController.showMCV(), 'a': () => reviewController.markAUR(), 'l': () => playbackController.goLive(),
+  'm': () => cameraController.showMCV(), 'a': () => reviewController.markAUR(), 'b': () => reviewController.jumpAur(), 'l': () => playbackController.goLive(),
   'c': () => document.querySelector('[data-action="create-request"][data-side="chung"]')?.click(), 'h': () => document.querySelector('[data-action="create-request"][data-side="hong"]')?.click(), 's': () => reviewController.startReview(),
   'w': () => reviewController.jumpWindow(), 'r': () => reviewController.jumpAur()
 };

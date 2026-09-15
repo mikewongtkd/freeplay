@@ -18,7 +18,7 @@
   </div>
   <div class="toolbar-group review-nav-group" role="group" aria-label="Review navigation">
     <button class="btn btn-control" data-action="jump-window" title="Go to beginning of Review Window"><i class="fa-solid fa-backward-step"></i> Window</button>
-    <button class="btn btn-control" data-action="jump-aur" title="Go to Action Under Review"><i class="fa-solid fa-crosshairs"></i> AUR</button>
+    <button class="btn btn-control" data-action="jump-aur" title="Go to Action Under Review"><i class="fa-solid fa-crosshairs"></i> AUR <kbd>B</kbd></button>
     <button class="btn btn-aur btn-control" data-action="mark-aur"><i class="fa-solid fa-thumbtack"></i> Mark AUR <kbd>A</kbd></button>
     <button class="btn btn-live btn-control" data-action="go-live"><i class="fa-solid fa-tower-broadcast"></i> Go Live <kbd>L</kbd></button>
   </div>
