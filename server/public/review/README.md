@@ -33,6 +33,8 @@ All browser dependencies are stored in `public/vendor`; internet access is not r
 
 ## Implemented workflow and use cases
 
+The prototype review workflow distinguishes displayed, selected, and active reviews. Multiple Chung/Hong requests may remain pending concurrently, only one may be selected or active for a ring, and pending selection is locked until the active result is recorded. Review Window bounds are supplied by prototype ruleset configuration rather than calculated by the browser. Completing a formal review restores the live timeline and releases the pending queue.
+
 - Exactly three synchronized camera placeholders in a 2×2 MCV; request/review controls occupy the fourth quadrant.
 - SCV camera switching without changing the common playback cursor or review state.
 - Chung Review Request and Hong Review Request with five-second coach Review Windows.

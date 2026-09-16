@@ -1,7 +1,7 @@
 import {state, notify, update} from './state.js';
 
 const frame = 1 / 30;
-function selectedReview() { return state.reviewHistory.find(review => review.id === state.currentRequest); }
+function activeReview() { return state.reviewHistory.find(review => review.id === state.activeReviewId); }
 function clamp(time) { return Math.max(state.timelineRange.start, Math.min(state.timelineRange.end, time)); }
 
 export const playbackController = {
@@ -27,7 +27,7 @@ export const playbackController = {
   },
   syncServerTime(serverSeconds) {
     state.liveEdge = Number(serverSeconds);
-    if (!selectedReview()?.rst) state.timelineRange.end = state.liveEdge;
+    if (!activeReview()?.rst) state.timelineRange.end = state.liveEdge;
     if (state.playbackState === 'live') state.playbackCursor = state.liveEdge;
   },
   advance(deltaSeconds) {

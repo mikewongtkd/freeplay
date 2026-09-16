@@ -6,6 +6,7 @@
     <dl id="reviewMetadata" class="review-metadata d-none">
       <div><dt>Origin</dt><dd id="metaOrigin">—</dd></div>
       <div><dt>Issue Type</dt><dd id="metaIssueType">—</dd></div>
+      <div><dt>Reason</dt><dd id="metaReason">—</dd></div>
       <div><dt>Request Mark (RM)</dt><dd id="metaRm">—</dd></div>
       <div><dt>Review Window</dt><dd id="metaWindow">—</dd></div>
       <div><dt>Action (AUR)</dt><dd id="metaAur">Not marked</dd></div>

@@ -6,7 +6,10 @@ return [
     'version' => '0.1.0-prototype',
     'cameraCount' => 3,
     'frameDurationSeconds' => 1 / 30,
-    'reviewWindowSeconds' => 5,
+    'reviewWindowSeconds' => [
+        'coach' => 5,
+        'referee' => 10,
+    ],
     'initialContextSeconds' => 10,
     'defaultRing' => 1,
     'notificationUrl' => null,

@@ -38,3 +38,26 @@ test('FR-053 clock uses a monotonic client delta from a server anchor', () => {
   assert.match(notifications, /camera-stop-recording/);
   assert.match(notifications, /pssel-event/);
 });
+
+test('review workflow keeps displayed, selected, and active identities separate', () => {
+  const state = read('assets/js/state.js');
+  assert.match(state, /currentRequest: null, selectedReviewId: null, activeReviewId: null/);
+  assert.match(state, /review\.status === 'selected'/);
+  assert.match(state, /review\.status === 'active'/);
+});
+
+test('active review alone freezes the timeline and completion returns to live', () => {
+  const review = read('assets/js/review-controller.js');
+  const playback = read('assets/js/playback-controller.js');
+  assert.match(review, /state\.timelineRange\.end = activeReview\(\)\?\.rst \|\| state\.liveEdge/);
+  assert.match(review, /playbackController\.goLive\(\)/);
+  assert.match(playback, /if \(!activeReview\(\)\?\.rst\) state\.timelineRange\.end = state\.liveEdge/);
+});
+
+test('pending review selection is locked while another review is active', () => {
+  const controller = read('assets/js/review-controller.js');
+  const app = read('assets/js/app.js');
+  assert.match(controller, /state\.activeReviewId && state\.activeReviewId !== id/);
+  assert.match(app, /data-action="select-review"/);
+  assert.match(app, /const locked = !!state\.activeReviewId/);
+});

@@ -4,7 +4,7 @@ by Mike Wong, assisted by AI (ChatGPT), September 2026
 
 **Contents:** This document entails the functional and non-functional system requirement specification for the FreePlay Instant Video Replay Review software system.
 
-**Revision note:** Revised after requirements and UI/UX review to clarify the continuous-timeline model, Request Mark/AUR semantics, PSSEL scope, playback speeds, adjacent-media retrieval, timeline bounds, review-window selection, appeal-quota behavior, Review Start Time (RST), Multi Camera View (MCV), Single Camera View (SCV), review-clock behavior, and camera-feed timeline semantics.
+**Revision note:** Revised after requirements and UI/UX prototype review to clarify the continuous-timeline model, Request Mark/AUR semantics, PSSEL scope, playback speeds, adjacent-media retrieval, timeline bounds, review-window selection and activation, concurrent review requests, appeal-quota behavior, Review Start Time (RST), Multi Camera View (MCV), Single Camera View (SCV), review-clock behavior, live-time approximation, browser-refresh recovery, and camera-feed timeline semantics.
 
 **Audience:** FreePlay developers and system designers
 
@@ -43,16 +43,18 @@ The IVR client shall present recorded competition video as a **continuously navi
 
 The following time concepts are distinct:
 
-- **Request Mark (RM):** The server-authoritative timestamp recorded when the IVR operator marks that a coach or authorized official has initiated a potential review request.
-- **Review Window:** For a coach-requested IVR, the interval from five seconds before the Request Mark through the Request Mark (`RM - 5s` through `RM`).
+- **Request Mark (RM):** The server-authoritative timestamp recorded when the IVR operator marks that a coach or the Center Referee has initiated a potential review request.
+- **Review Window:** The rules/operations-relevant interval associated with a Request Mark. Its duration shall be supplied by the applicable ruleset/configuration rather than hard-coded in the client. The current default is five seconds for coach requests and ten seconds for referee requests.
+- **Selected Review:** A pending Review Window that the operator has chosen as the next review context. Selection does not start the formal review and does not create an RST.
+- **Active Review:** The selected review after the operator activates **Start Review**. A review remains active until its Review Result is recorded.
 - **Action Under Review (AUR):** The operator-selected timestamp identifying the action being adjudicated, or the operator's best estimate of that time if the action cannot be located in the available video. For a coach-requested IVR, the AUR shall normally fall within the Review Window.
 - **Initial Replay Context:** The media initially retrieved around a Request Mark to allow the Review Jury to locate and understand the AUR. This context may extend beyond the Review Window without expanding the rules-defined scope of the appeal.
 - **Playback Cursor:** The current logical time displayed by the player on the common timeline.
-- **Review Start Time (RST):** The server-authoritative timestamp recorded when the operator activates **Start Review** for a selected Request Mark. RST begins the Review Response Clock. A formal review remains active until its Review Result is recorded.
+- **Review Start Time (RST):** The server-authoritative timestamp recorded when the operator activates **Start Review** for the Selected Review. RST begins the Review Response Clock.
 - **Multi Camera View (MCV):** A synchronized view displaying all available camera feeds against the same common timeline and Playback Cursor.
 - **Single Camera View (SCV):** A synchronized view displaying one selected camera at the same logical Playback Cursor, with detailed replay navigation, frame stepping, pan, and zoom.
 
-These concepts shall be represented separately in the data model and shall not be treated as interchangeable timestamps. MCV and SCV are viewing modes and shall not determine whether a formal review is active.
+These concepts shall be represented separately in the data model and shall not be treated as interchangeable timestamps or states. MCV and SCV are viewing modes and shall not determine whether a review is pending, selected, or active. More than one pending review request may exist concurrently, including overlapping Chung and Hong requests, but at most one review may be active in a given IVR client/ring workflow at a time.
 
 ------------------------------------------------------------------------
 
@@ -81,7 +83,7 @@ The system shall support review of video relevant to:
 
 A coach's IVR request is limited to **one action occurring within five seconds of the coach's request**.
 
-The system shall represent this rules-relevant interval as the five seconds immediately preceding the Request Mark through the Request Mark (`RM - 5s` through `RM`). The system shall also make additional preceding context immediately available to help the Review Jury locate and understand the AUR. Additional context does not expand the rules-defined scope of the appeal.
+The current rules-derived coach Review Window is the five seconds immediately preceding the Request Mark through the Request Mark. The implementation shall not hard-code this duration into UI or replay logic. Instead, the applicable ruleset/configuration shall provide the Review Window duration and the server/review model shall represent explicit window start and end timestamps. Under the current rules, the coach value is five seconds (`RM - 5s` through `RM`). The system shall also make additional preceding context immediately available to help the Review Jury locate and understand the AUR. Additional context does not expand the rules-defined scope of the appeal.
 
 ## 2.3 Referee-requested IVR
 
@@ -204,6 +206,8 @@ If an IVR decision causes a *gam-jeom* to be applied, FreePlay shall identify an
 
 Any such recommendation shall remain advisory unless a future approved requirement explicitly authorizes FreePlay to modify the scoring system.
 
+**Design note --- temporal correlation risk:** A simple rule such as selecting the next scoring event after the AUR can associate an unrelated later exchange with the reviewed action. The initial implementation may retain the present advisory correlation approach, but this risk shall be documented. Future refinement should consider a constrained temporal neighborhood, event/context matching, and/or explicit operator confirmation before treating a scoring event as causally related to the AUR.
+
 ### FR-007 --- Review Response Clock
 
 When the operator activates **Start Review** for a selected Request Mark, the system shall record the server-authoritative Review Start Time (RST) and display a clock labeled **Review Response Time**.
@@ -234,7 +238,7 @@ The operator shall be able to create a Request Mark (RM) for the current ring wi
 
 Due to scoring-system latency, a coach may indicate an intent to request review and then decline or be declined before a formal review begins because the expected score appears shortly afterward. In this case, the RM may remain as an uncommitted timeline annotation and shall not become a formal IVR event unless the referee addresses the request.
 
-If the referee chooses to address the request, the operator shall be able to open the corresponding review immediately. The Review Window shall begin at `RM - 5s`, while the Initial Replay Context shall include additional preceding video as specified in FR-013.
+If the referee chooses to address the request, the operator shall be able to open the corresponding review immediately. The Review Window shall use the explicit start/end timestamps derived from the applicable ruleset/configuration; under the current coach-request rules this begins five seconds before RM. The Initial Replay Context shall include additional preceding video as specified in FR-013.
 
 ### FR-011 --- Server-authoritative request timestamp
 
@@ -242,11 +246,11 @@ The system shall associate the request with a server-authoritative timestamp sui
 
 ### FR-012 --- Five-second rule window
 
-For a coach-requested IVR, the system shall identify and display the Review Window from `RM - 5s` through `RM`. The system shall make this interval immediately accessible from the Request Mark. Video outside this interval may be reviewed for context as specified in FR-013, but shall not alter the rules-defined review window. 
+For a coach-requested IVR, the system shall identify and display the explicit Review Window bounds produced from the applicable ruleset/configuration. The current coach ruleset value is five seconds ending at RM (`RM - 5s` through `RM`), but client behavior shall use the supplied start/end timestamps rather than independently hard-coding the subtraction. The system shall make this interval immediately accessible from the Request Mark. Video outside this interval may be reviewed for context as specified in FR-013, but shall not alter the rules-defined Review Window. 
 
 ### FR-013 --- Context around the rule window
 
-When a formal review is opened from a Request Mark, the system shall initially retrieve at least the ten seconds preceding the RM. Playback shall initially be positioned at the beginning of the Review Window (`RM - 5s`).
+When a formal review is opened from a Request Mark, the system shall initially retrieve at least the ten seconds preceding the RM. Playback shall initially be positioned at the explicit beginning timestamp of the Review Window. Under the current coach ruleset this is normally `RM - 5s`, but playback logic shall not assume that value is fixed.
 
 The operator shall also be able to navigate to any timestamp between the beginning of the current match's retained recording and the latest video available from the ingestion server. As playback or seeking approaches either boundary of currently buffered media, the client shall automatically request adjacent media so that navigation can continue without a separate explicit retrieval action.
 
@@ -258,19 +262,18 @@ When the operator finds the Action Under Review (AUR), or the best estimate of w
 
 ### FR-015 --- Referee-requested review
 
-The system shall permit a replay to be initiated as a referee-requested review rather than a coach appeal. The system may reuse the same review procedure, but the request shall be recorded with a referee/official origin and shall not consume or modify either coach's appeal quota.
+The system shall permit a replay to be initiated as a referee-requested review rather than a coach appeal. The system may reuse the same review procedure, but the request shall be recorded with **Referee** origin and shall not consume or modify either coach's appeal quota. Review Jury, Technical Delegate, or CSB direction that a review be opened shall be operationally conveyed through the Center Referee and shall therefore remain a Referee-origin review.
 
 ### FR-016 --- Request origin
 
-The system should permit a replay event to identify its origin, such as:
+Each IVR request shall record an **Origin** with exactly one of the following values:
 
 ``` text
-Blue coach
-Red coach
-Center Referee
-Review Jury / official correction
-Technical Delegate / Chair of the Supervisory Board
+Coach
+Referee
 ```
+
+The requesting side (Chung or Hong) shall be represented separately from Origin. Review Jury, Technical Delegate, or CSB direction to open a review shall be executed through the Center Referee and recorded with Origin = Referee rather than creating additional origin values.
 
 ### FR-017 --- Review reason
 
@@ -280,21 +283,43 @@ Suggested reason categories should correspond to Article 21 where practical.
 
 ### FR-018 --- Rapid initiation
 
-The review is initiated when the operator has placed a Request Mark and activates a button labeled **Start Review**. If no Review Window is selected, the most recently created Review Window shall automatically be selected.
+The review is initiated when the operator has placed one or more Request Marks, has a Review Window selected, and activates a button labeled **Start Review**.
 
-Activating **Start Review** shall:
+If exactly one pending Review Window exists and none is selected, the client may automatically select it. If two or more pending Review Windows exist, the operator shall explicitly select which one is to be reviewed first; the system shall not choose the order on the operator's behalf.
+
+Activating **Start Review** shall transition the Selected Review to the Active Review and shall:
 
 - record the server-authoritative Review Start Time (RST);
 - start the Review Response Clock defined in FR-007;
 - request the replay media corresponding to the selected Review Window;
-- position playback at the beginning of the Review Window (`RM - 5s`);
+- position playback at the explicit beginning timestamp of that Review Window;
+- freeze the normal timeline right bound at RST for the duration of the Active Review;
 - preserve Multi Camera View (MCV) as a valid initial review view rather than forcing a camera selection.
 
-The operator shall be free to remain in MCV, enter Single Camera View (SCV), switch among cameras, or return to MCV at any time during the active review.
+While a review is active, selection or activation of any other pending Review Window shall be disabled. Other pending Review Windows shall remain visible. The operator shall complete the Active Review by recording its Review Result before another pending review can be selected and started.
+
+The operator shall be free to remain in MCV, enter Single Camera View (SCV), switch among cameras, or return to MCV at any time during the Active Review.
 
 Creating or initiating a replay request shall not require the operator to complete administrative metadata before video can be viewed.
 
 Administrative fields may be completed or confirmed while or after video is being acquired.
+
+
+### FR-019 --- Orthogonal request classification
+
+The request model shall represent the following dimensions independently rather than collapsing them into a single request-type value:
+
+``` text
+Side:       Chung | Hong
+Origin:     Coach | Referee
+Issue Type: Non-Technical | Technical
+Reason:     selected/recorded review reason
+```
+
+Side identifies which contestant/request lane the Review Window belongs to. Origin identifies whether the request came from a coach or the Center Referee. Issue Type identifies whether the request uses the normal red/blue-card workflow or the technical/green-card workflow.
+
+The UI may present these dimensions using compact controls, but the data model and server API shall preserve them separately.
+
 
 
 ------------------------------------------------------------------------
@@ -487,7 +512,13 @@ Time shall be displayed as a common timeline, which shall be visible in all view
 
 The left bound shall be, in order of preference and depending on the availability of metadata and video: (1) up to 30 seconds prior to the start of the current round for the current match; (2) the most recent start of video recording; or (3) if there are no video available, the time the review page was first opened for a given ring, match, and round.
 
-The right bound shall represent, in order of preference, (1) the time when a review is started; or (2) the current time.
+The right bound shall be state-dependent:
+
+1. while no formal review is active, the right bound shall track the current approximated server time/live edge;
+2. when **Start Review** is activated, the right bound shall freeze at that review's RST so that timeline annotations and interactive targets do not move during adjudication;
+3. when the Review Result is recorded, the client shall exit the frozen review timeline, restore the right bound to the current approximated server time, and return playback to the live edge unless the operator has explicitly entered a historical-review/reopen workflow.
+
+The transition back to live shall not erase the completed review's timeline annotations or audit record.
 
 The beginning of the current match may be established, in order of preference, by: (1) explicit match-start metadata received from an integrated scoring/tournament system; or (2) an operator-created match-start action when such integration is unavailable. Camera recording may begin before match start, but pre-match video is not required to be shown on the normal match timeline unless the operator explicitly navigates to retained earlier media. If the start is not established by the scoring system or the operator, the start of the recording shall be the default value for the match start.
 
@@ -507,18 +538,38 @@ The operator shall be able to click a valid point on the timeline to move the pl
 
 ### FR-051 --- Annotating the timeline with review windows
 
-At any time, the operator shall be able to create a Request Mark for chung or hong. The request can originate from either coach, or from the referee. For coach requests, the Request Mark indicates the end of the Review Window and the beginning is five seconds earlier. For referee requests, the Request Mark indicates the end of the Review Window and the beginning is ten seconds earlier. The system shall present a button for **Chung Review Request** and **Hong Review Request** to create the Request Mark. A radio toggle button group labelled **Origin** with two buttons labelled **Coach** and **Referee** shall indicate the request origin, and a switch labelled **Issue Type** with two states: (default) **Non-Technical (Red or Blue Card)** and **Technical (Green Card)** shall indicate if the request is for technical issues.
+At any time, the operator shall be able to create a Request Mark for Chung or Hong. More than one pending Request Mark/Review Window may exist concurrently. In particular, Chung and Hong coaches may raise their cards at approximately the same time, producing overlapping or near-simultaneous Review Windows.
 
-The chung review window shall be shown by default in a shade of blue above the timeline, and the hong review window shall be shown by default in a shade of red below the timeline. If a request is designated as a technical issue, its window shall be shown by default in a shade of green. Referee/official requests shall be visually distinguishable from coach requests.
+The system shall present a button for **Chung Review Request** and **Hong Review Request** to create the Request Mark. A radio toggle button group labelled **Origin** with two buttons labelled **Coach** and **Referee** shall indicate the request origin, and a switch labelled **Issue Type** with two states: (default) **Non-Technical (Red or Blue Card)** and **Technical (Green Card)** shall indicate whether the request concerns a technical issue.
 
-On creating a Request Mark, the system shall enable a button labeled **Start Review**. Activating Start Review shall perform the behavior defined in FR-018, including recording RST, starting the Review Response Clock, and beginning playback at `RM - 5s` without forcing a transition from MCV to SCV.
+Review Window duration shall be determined by the applicable ruleset/configuration and represented by explicit start and end timestamps. The current defaults are:
 
-Clicking a review-window annotation shall select that window without changing its timestamps. Selecting a previous or next review window shall change the selected review context and shall move playback to the beginning of that selected window unless the operator explicitly continues playback at the current position.
+``` text
+Coach origin      5 seconds ending at RM
+Referee origin   10 seconds ending at RM
+```
 
-At most one review window shall be designated as selected in a single IVR client session at a time. If no review window is selected, commands that refer to the "current or latest" review window shall operate on the most recently created review window.
+The IVR client shall not derive Review Window boundaries from hard-coded `RM - 5s` or `RM - 10s` logic when explicit window bounds are available from the server/review model.
 
+The Chung Review Window shall be shown by default in a shade of blue above the timeline, and the Hong Review Window shall be shown by default in a shade of red below the timeline. If a request is designated as a technical issue, its window shall be shown by default in a shade of green. Referee-origin requests shall be visually distinguishable from coach-origin requests.
 
-Review windows shall be selectable by mouse interaction and by semantic keyboard/HID commands.
+Request Marks, Review Windows, and AUR marks belonging to different reviews are independent timeline annotations and may overlap in time or occupy the same timestamp. The UI shall render such overlaps without merging the underlying review records or implying that one annotation invalidates another.
+
+On creating a Request Mark, the system shall make the corresponding pending Review Window selectable. When exactly one pending window exists, **Start Review** may act on that window as described in FR-018. When multiple pending windows exist, the operator shall select which Review Window is to be handled first.
+
+Clicking a pending review-window annotation shall select that window without changing its timestamps. Selecting a previous or next pending Review Window shall change the selected review context and shall move playback to the beginning of that selected window unless the operator explicitly continues playback at the current position.
+
+At most one pending Review Window shall be designated as the Selected Review at a time. Once **Start Review** is activated, that Selected Review becomes the Active Review. While an Active Review exists:
+
+- no other pending Review Window may be selected;
+- Previous/Next Review selection commands shall be disabled or ignored for changing review context;
+- other pending Review Windows shall remain visible;
+- new Request Marks may still be recorded if operationally necessary, but they shall remain pending and shall not interrupt or replace the Active Review;
+- the operator shall record the Active Review's Review Result before selecting the next pending review.
+
+After the Active Review is completed, review selection shall be re-enabled and the operator may choose the next pending review. The system shall not impose Chung-first, Hong-first, oldest-first, or newest-first ordering when more than one pending review exists; review order is an operator/Review Jury decision.
+
+Review windows shall be selectable by mouse interaction and by semantic keyboard/HID commands when selection is enabled.
 
 ### FR-052 --- Annotating the timeline with action under review
 
@@ -534,7 +585,41 @@ The ingestion server shall notify the IVR Review system on the following events:
 - camera stop recording
 - any PSSEL event
 
-These notifications shall carry the server timestamp, which shall be used to update the IVR Review system clock. Between server notifications, the IVR Review System shall approximate the server clock by noting the time delta between the last notification and the current time and reporting the sum of the last server notification timestamp and the delta. This sum shall be the IVR Review system's current time.
+These notifications shall carry the server timestamp, which shall be used to re-anchor the IVR Review system clock.
+
+Between server notifications, the browser shall approximate current server time by adding elapsed monotonic browser time to the most recently received server timestamp. In JavaScript, elapsed time shall be based on `performance.now()` or an equivalent monotonic high-resolution clock rather than `Date.now()` so that local wall-clock adjustments do not corrupt the approximation.
+
+Conceptually:
+
+``` text
+serverNowApprox =
+    lastServerTimestamp +
+    (performance.now() - performanceNowAtLastServerTimestamp)
+```
+
+Each new server timestamp shall replace/re-anchor this approximation. The implementation shall treat server timestamps as authoritative and browser elapsed time only as an interpolation mechanism between server notifications.
+
+A browser refresh/restart resets the local monotonic clock origin; after reconnect, the client shall establish a new server-time anchor rather than attempting to continue a pre-refresh `performance.now()` delta.
+
+### FR-054 --- Pending, selected, and active review state
+
+Each review request shall have an explicit workflow state sufficient to distinguish at least:
+
+``` text
+pending
+selected
+active
+completed
+resolved_without_review
+```
+
+A Selected Review is a pending request chosen by the operator as the next review to process. Activating **Start Review** transitions that review to Active and records RST. Recording a formal Review Result transitions the Active Review to Completed. A request handled before formal review may transition to `resolved_without_review` without ever becoming Active.
+
+At most one review may be Selected and at most one review may be Active in the same ring/client workflow at a time. Multiple other requests may remain pending concurrently.
+
+Persistent/server-side review state shall be identified by review/event ID rather than inferred from visual ordering, latest timestamp, or browser-only selection state.
+
+
 
 ------------------------------------------------------------------------
 
@@ -713,7 +798,7 @@ The control model shall support variable-speed/directional playback appropriate 
 
 ### FR-070 --- Review timer
 
-The Review Response Clock shall use RST as its authoritative start time and shall stop when the Review Result is recorded, as defined in FR-007.
+The Review Response Clock shall use RST as its authoritative start time and shall stop when the Review Result is recorded, as defined in FR-007. If the browser reconnects or refreshes during an Active Review, the elapsed review time shall be reconstructed from the server-authoritative RST and current server time; the clock shall not restart from zero.
 
 
 ### FR-071 --- 30-second awareness
@@ -724,7 +809,7 @@ The UI shall provide clear awareness of the 30-second decision requirement witho
 
 During a formal review, the system shall permit the authorized operator to record the Review Result using the Request Result values defined in FR-064.
 
-Recording the Review Result shall end the active review and stop the Review Response Clock.
+Recording the Review Result shall end the Active Review, stop the Review Response Clock, release the review-selection lock, restore the normal live timeline right bound, and return playback to the live edge as defined in FR-050.
 
 Final terminology shall be aligned with the approved operational workflow.
 
@@ -751,7 +836,7 @@ Referee-requested IVR shall not incorrectly consume a coach's appeal quota.
 
 ### FR-080 --- Replay event record
 
-The system shall create a persistent replay-event record when an uncommitted Request Mark is accepted for formal IVR review. An uncommitted Request Mark that is never addressed by the referee may remain only as a transient or non-formal timeline annotation and shall not be required to consume appeal quota.
+The system shall create or promote a persistent replay-event record when a pending/uncommitted Request Mark is selected and accepted for formal IVR review. The event shall preserve its workflow state (pending/selected/active/completed as applicable). An uncommitted Request Mark that is never addressed by the referee may remain only as a transient or non-formal timeline annotation and shall not be required to consume appeal quota.
 
 ### FR-081 --- Event metadata
 
@@ -949,11 +1034,25 @@ An IVR request shall not pause or otherwise interfere with recording of unrelate
 
 ### NFR-024 --- Browser refresh/restart
 
-Where practical, a formal IVR event already recorded by the server should remain recoverable after a browser refresh or IVR-client restart.
+A formal IVR event already recorded by the server shall remain recoverable after a browser refresh or IVR-client restart.
+
+If a refresh/restart occurs during an Active Review, reconnecting the client shall restore, from server-authoritative state where available:
+
+- the Active Review/event ID;
+- its Request Mark and explicit Review Window bounds;
+- RST;
+- current AUR, if one has been marked;
+- request side, Origin, Issue Type, and reason metadata already recorded;
+- result state (which shall remain unset if no decision has yet been recorded);
+- pending review requests for the same ring/contest.
+
+The Review Response Clock shall resume from the elapsed time derived from RST and current server time and shall not restart from zero. Browser-local state such as `performance.now()` anchors shall be re-established after reconnect.
+
+Restoring the exact pre-refresh Playback Cursor is desirable but is secondary to restoring the authoritative review/event state and clock correctly.
 
 ### NFR-025 --- Deterministic state
 
-The server, rather than transient browser state, should be authoritative for persistent replay-event records.
+The server, rather than transient browser state, shall be authoritative for persistent replay-event records and formal review workflow state, including Active Review identity, RST, recorded result, and persistent annotations.
 
 ------------------------------------------------------------------------
 
@@ -965,7 +1064,7 @@ The IVR interface shall be optimized for an official performing a time-critical 
 
 ### NFR-031 --- Minimal interaction
 
-The common workflow of marking a request, starting the review, locating/marking the AUR in MCV, selecting and inspecting camera angles in SCV, switching freely between views, and recording the Review Result shall be executable without mandatory entry of administrative metadata during active video review. Operator action counts for representative workflows shall be documented during use-case validation and used to identify avoidable interaction steps.
+The common workflow of marking one or more requests, selecting the next request to review, starting the review, locating/marking the AUR in MCV, selecting and inspecting camera angles in SCV, switching freely between views, and recording the Review Result shall be executable without mandatory entry of administrative metadata during active video review. While an Active Review exists, controls for selecting another review shall be disabled or otherwise made unavailable so that the operator cannot accidentally change review context. Operator action counts for representative workflows shall be documented during use-case validation and used to identify avoidable interaction steps.
 
 ### NFR-032 --- Large, unambiguous controls
 
@@ -1143,8 +1242,8 @@ Formal IVR events should contain enough metadata to establish:
 The system shall preserve the distinction between:
 
 ``` text
-coach-requested IVR
-referee-requested IVR
+coach-origin IVR
+referee-origin IVR
 technical review
 other official correction
 ```
@@ -1193,6 +1292,7 @@ The following decisions may appropriately be resolved during UI/UX mock-up, use-
 10. Exact visual treatment of referee/official review windows and technical-review annotations.
 11. Whether the operational **Rejected: IVR Issue** quota-return policy requires configuration by tournament/ruleset.
 12. Whether all three camera streams should remain continuously decoded in MCV/SCV or whether implementation may use selective decoding while preserving the required operator-observable behavior.
+13. Future refinement of PSSEL-to-AUR temporal/causal correlation so that advisory invalidation/reinstatement recommendations do not accidentally associate an unrelated later scoring event with the reviewed action.
 
 ------------------------------------------------------------------------
 
@@ -1203,19 +1303,21 @@ The first IVR prototype should be considered functionally successful when an ope
 1.  open the IVR web application in Chrome;
 2.  select or use an assigned ring;
 3.  view all available ring cameras simultaneously in MCV;
-4.  create a Request Mark for a coach or official request;
-5.  activate **Start Review** and cause RST to be recorded and the Review Response Clock to begin;
-6.  receive recent video from the ingestion server and begin playback at the beginning of the selected Review Window;
-7.  locate and mark the AUR while remaining in MCV if desired;
-8.  enter SCV for any available camera without losing the common Playback Cursor;
-9.  play, pause, scrub, seek, frame-step, and change playback rate;
-10. switch among camera angles and between MCV and SCV without changing the selected Review Window, AUR, RST, or active-review state;
-11. use pan and zoom in SCV;
-12. interpret timeline camera-state semantics, including broken/gapped intervals for unavailable video;
-13. record a Review Result from either MCV or SCV;
-14. observe that recording the Review Result stops the Review Response Clock and ends the active review;
-15. receive a clear warning when a camera or requested video interval is unavailable;
-16. perform all of the above while camera ingestion and recording continue normally and rapidly enough to demonstrate a realistic path to the 30-second Review Jury decision workflow.
+4.  create Request Marks for coach- or referee-origin requests, including concurrent/overlapping Chung and Hong requests;
+5.  explicitly select which pending review is to be handled first when multiple pending requests exist;
+6.  activate **Start Review** and cause the Selected Review to become Active, RST to be recorded, the Review Response Clock to begin, and selection of other pending reviews to become disabled;
+7.  receive recent video from the ingestion server and begin playback at the explicit beginning timestamp of the selected Review Window;
+8.  locate and mark the AUR while remaining in MCV if desired, including cases where timeline annotations from separate reviews overlap;
+9.  enter SCV for any available camera without losing the common Playback Cursor;
+10. play, pause, scrub, seek, frame-step, and change playback rate;
+11. switch among camera angles and between MCV and SCV without changing the Active Review, Review Window, AUR, RST, or active-review state;
+12. use pan and zoom in SCV;
+13. interpret timeline camera-state semantics, including broken/gapped intervals for unavailable video;
+14. record a Review Result from either MCV or SCV;
+15. observe that recording the Review Result stops the Review Response Clock, ends the Active Review, re-enables selection of pending reviews, restores the live timeline right bound, and returns playback to the live edge;
+16. refresh/reopen the browser during an Active Review and recover the Active Review and elapsed Review Response Time from server-authoritative state without resetting the clock to zero;
+17. receive a clear warning when a camera or requested video interval is unavailable;
+18. perform all of the above while camera ingestion and recording continue normally and rapidly enough to demonstrate a realistic path to the 30-second Review Jury decision workflow.
 
 ------------------------------------------------------------------------
 
@@ -1233,7 +1335,7 @@ The most important rules-driven requirements are:
   <tbody>
     <tr>
       <td>Review limited to one action within five seconds of coach request</td>
-      <td>Preserve a precise request timestamp and make the preceding five seconds immediately accessible</td>
+      <td>Preserve a precise request timestamp and explicit ruleset-derived Review Window bounds; current coach configuration is five seconds ending at RM</td>
     </tr>
     <tr>
       <td>Review Jury performs the video review</td>
@@ -1292,16 +1394,22 @@ For this specification:
 instant video replay and informing the Center Referee of the final
 decision.
 
-**Request Mark (RM)** --- The server-authoritative timestamp recorded immediately when the IVR operator marks that a coach or authorized official has initiated a potential review request. A Request Mark may initially be uncommitted; it becomes part of a formal IVR event when the referee addresses the request.
+**Request Mark (RM)** --- The server-authoritative timestamp recorded immediately when the IVR operator marks that a coach or the Center Referee has initiated a potential review request. A Request Mark may initially be uncommitted/pending; it becomes part of a formal IVR event when the referee addresses the request and the operator proceeds with formal review.
 
 **Request timestamp** --- The timestamp of the Request Mark associated with a formal IVR event.
 
 **Review point** --- The logical time around which the operator is
 reviewing the contested action.
 
+**Pending Review** --- A Request Mark/Review Window that exists but has not yet been started as a formal review.
+
+**Selected Review** --- The one pending Review Window chosen by the operator as the next review to process. Selection alone does not create an RST or start the Review Response Clock.
+
+**Active Review** --- The Selected Review after **Start Review** has been activated. At most one review may be Active in a ring/client workflow at a time. Other pending reviews remain visible but cannot be selected until the Active Review is completed.
+
 **Retrieved Media Range** --- The time range retrieved from the server for playback or review. This is an implementation/navigation range and is distinct from the rules-defined Review Window.
 
-**Review Window** --- For a coach-requested IVR, the interval from five seconds before the Request Mark through the Request Mark (`RM - 5s` through `RM`) within which the one action under appeal must normally occur.
+**Review Window** --- The explicit start/end interval associated with a Request Mark and used to define the rules/operations-relevant review scope. Its duration is supplied by the applicable ruleset/configuration rather than hard-coded in the client. The current defaults are five seconds ending at RM for Coach origin and ten seconds ending at RM for Referee origin.
 
 **RST** --- Review Start Time; the server-authoritative timestamp recorded when the operator activates **Start Review**. RST starts the Review Response Clock.
 

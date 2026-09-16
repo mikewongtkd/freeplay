@@ -34,7 +34,24 @@ function ivr_session_start(): void
         session_name('freeplay_ivr_prototype');
         session_start();
     }
-    $_SESSION['ivr_reviews'] ??= [];
+    $_SESSION['ivr_reviews_by_ring'] ??= [];
+}
+
+function &ivr_ring_reviews(int $ring): array
+{
+    $_SESSION['ivr_reviews_by_ring'][$ring] ??= [];
+    return $_SESSION['ivr_reviews_by_ring'][$ring];
+}
+
+function ivr_review_workflow(array $reviews): array
+{
+    $selected = null;
+    $active = null;
+    foreach ($reviews as $review) {
+        if (($review['status'] ?? '') === 'selected') $selected = $review['id'];
+        if (($review['status'] ?? '') === 'active') $active = $review['id'];
+    }
+    return ['selectedReviewId' => $selected, 'activeReviewId' => $active];
 }
 
 function ivr_now(): array

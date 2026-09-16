@@ -1,4 +1,4 @@
-import {state} from './state.js';
+import {state, activeReview} from './state.js';
 import {playbackController} from './playback-controller.js';
 
 const $ = window.jQuery;
@@ -32,9 +32,12 @@ export const timelineController = {
     });
   },
   renderAnnotations() {
+    const lanes = {chung: 0, hong: 0};
     $('#timelineAnnotations').html(state.reviewHistory.map(review => {
       const className = `${review.side || 'chung'} ${review.issueType === 'technical' ? 'technical' : ''} ${review.origin === 'referee' ? 'referee' : ''}`;
-      let html = `<button class="review-window ${className} ${review.id === state.currentRequest ? 'selected' : ''}" data-review-id="${review.id}" data-start="${review.windowStart}" data-end="${review.windowEnd}" title="Select ${review.id}"><span>${review.id}</span></button>`;
+      const lane = lanes[review.side || 'chung']++ % 3, shift = lane * 4 * (review.side === 'hong' ? -1 : 1);
+      const locked = state.activeReviewId && state.activeReviewId !== review.id;
+      let html = `<button class="review-window ${className} ${review.id === state.currentRequest ? 'selected' : ''} ${review.id === state.activeReviewId ? 'active' : ''} ${locked ? 'locked' : ''}" style="--lane-shift:${shift}px" data-review-id="${review.id}" data-start="${review.windowStart}" data-end="${review.windowEnd}" title="${locked ? 'Pending while another review is active' : `Select ${review.id}`}" ${locked ? 'aria-disabled="true"' : ''}><span>${review.id}</span></button>`;
       html += marker(review, 'rm', review.rm, 'RM', `request-mark ${className}`);
       if (review.rst) html += marker(review, 'rst', review.rst, 'RST', 'rst-mark');
       if (review.aur != null) html += marker(review, 'aur', review.aur, 'AUR', `aur-mark ${review.aurOutsideWindow ? 'outside' : ''}`);
@@ -58,7 +61,7 @@ export const timelineController = {
     $('#timeline').attr('aria-valuenow', pct(state.playbackCursor).toFixed(1));
     ensureTicks();
     [...document.getElementById('timelineTicks').children].forEach((tick, i) => { const time = state.timelineRange.start + (state.timelineRange.end - state.timelineRange.start) * i / (tickCount - 1); tick.textContent = timeLabel(time); });
-    const endSource = state.reviewHistory.find(review => review.id === state.currentRequest)?.rst ? 'review start' : 'current time';
+    const endSource = activeReview()?.rst ? 'active review start' : 'current time';
     $('#timelineRangeLabel').text(`${timeLabel(state.timelineRange.start)} (${state.timelineStartSource}) – ${timeLabel(state.timelineRange.end)} (${endSource})`);
   },
   positionFromEvent(event) { const rect = document.getElementById('timeline').getBoundingClientRect(); const ratio = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)); return state.timelineRange.start + ratio * (state.timelineRange.end - state.timelineRange.start); },

@@ -1,4 +1,4 @@
-import {state, subscribe, replaceReviews, selectedReview, notify} from './state.js';
+import {state, subscribe, replaceReviews, selectedReview, activeReview, notify} from './state.js';
 import {mockServer} from './mock-server.js';
 import {reviewController} from './review-controller.js';
 import {playbackController} from './playback-controller.js';
@@ -69,19 +69,25 @@ function updateScvTransform() {
 }
 
 function renderReview() {
-  const review = selectedReview(), has = !!review, active = review?.status === 'active', pending = review?.status === 'pending', final = ['completed', 'resolved'].includes(review?.status);
+  const review = selectedReview(), has = !!review, active = review?.status === 'active', selectable = ['pending', 'selected'].includes(review?.status), final = ['completed', 'resolved_without_review'].includes(review?.status);
   $('#reviewEmpty').toggleClass('d-none', has); $('#reviewMetadata').toggleClass('d-none', !has);
-  $('#reviewStatusBadge').attr('class', `badge ${active ? 'text-bg-primary' : pending ? 'text-bg-warning' : final ? 'text-bg-success' : 'text-bg-secondary'}`).text(has ? review.status.toUpperCase() : 'NO REQUEST');
+  $('#reviewStatusBadge').attr('class', `badge ${active ? 'text-bg-primary' : selectable ? 'text-bg-warning' : final ? 'text-bg-success' : 'text-bg-secondary'}`).text(has ? review.status.replaceAll('_', ' ').toUpperCase() : 'NO REQUEST');
   if (has) {
-    setText('#metaOrigin', originLabels[review.origin] || review.origin); setText('#metaIssueType', issueTypeLabels[review.issueType] || review.issueType);
+    setText('#metaOrigin', originLabels[review.origin] || review.origin); setText('#metaIssueType', issueTypeLabels[review.issueType] || review.issueType); setText('#metaReason', review.reason || review.issues?.[0] || 'Reason pending');
     setText('#metaRm', formatTime(review.rm)); setText('#metaWindow', `${formatTime(review.windowStart)} – ${formatTime(review.windowEnd)}`);
     setText('#metaAur', review.aur == null ? 'Not marked' : formatTime(review.aur)); setText('#metaRst', review.rst == null ? 'Not started' : formatTime(review.rst));
   }
-  $('#aurWarning').toggleClass('d-none', !review?.aurOutsideWindow); $('.request-actions').toggleClass('d-none', active);
-  $('#startReviewButton').prop('disabled', !pending).toggleClass('d-none', active || final); $('#resolveButton').toggleClass('d-none', !pending);
+  $('#aurWarning').toggleClass('d-none', !review?.aurOutsideWindow);
+  $('#startReviewButton').prop('disabled', review?.status !== 'selected' || !!state.activeReviewId).toggleClass('d-none', active || final); $('#resolveButton').toggleClass('d-none', !selectable || !!state.activeReviewId);
   $('#formalResults').toggleClass('d-none', !active); $('#annotationSection').toggleClass('d-none', !final);
-  const linkedEligible = final && ['chung', 'hong'].includes(review?.side);
   $('#reviewClock').toggleClass('d-none', !active); updateReviewClock();
+  renderPendingQueue();
+}
+
+function renderPendingQueue() {
+  const locked = !!state.activeReviewId;
+  $('#pendingReviewList').html(state.pendingRequests.length ? state.pendingRequests.map(review => `<button class="btn btn-sm ${review.id === state.selectedReviewId ? 'btn-primary' : 'btn-outline-secondary'}" data-action="select-review" data-review-id="${review.id}" ${locked ? 'disabled' : ''}><strong>${review.side === 'chung' ? 'Chung' : 'Hong'}</strong> ${review.id}<span>${originLabels[review.origin]} · ${issueTypeLabels[review.issueType]} · ${review.reason || 'Reason pending'}</span></button>`).join('') : '<span class="empty-copy">No pending requests</span>');
+  $('#previousReviewButton,#nextReviewButton').prop('disabled', locked || state.pendingRequests.length < 2);
 }
 
 function updateReviewClock() {
@@ -218,7 +224,7 @@ async function dispatch(action, element) {
   switch (action) {
     case 'show-mcv': cameraController.showMCV(); break; case 'show-camera': if (!cameraController.showCamera(Number(element.dataset.camera))) toast('That camera is unavailable at the current time.', 'warning'); break;
     case 'previous-camera': cameraController.previous(); break; case 'next-camera': cameraController.next(); break;
-    case 'create-request': await reviewController.createRequest(element.dataset.side, {origin: $('input[name="requestOrigin"]:checked').val(), issueType: $('input[name="requestIssueType"]:checked').val()}); break; case 'start-review': await reviewController.startReview(); break;
+    case 'create-request': await reviewController.createRequest(element.dataset.side, {origin: $('input[name="requestOrigin"]:checked').val(), issueType: $('input[name="requestIssueType"]:checked').val(), reason: $('#requestReason').val()}); break; case 'select-review': await reviewController.selectReview(element.dataset.reviewId); break; case 'start-review': await reviewController.startReview(); break;
     case 'resolve-without-review': await reviewController.resolveWithoutReview(); toast('Request preserved as Resolved without Review. No RST was created.'); break;
     case 'set-result': await reviewController.setResult(element.dataset.result); toast(`${resultLabels[element.dataset.result]} recorded. Review clock stopped.`, element.dataset.result === 'accepted' ? 'success' : element.dataset.result === 'ivr_issue' ? 'warning' : 'danger'); break;
     case 'previous-review': reviewController.previous(); break; case 'next-review': reviewController.next(); break;
@@ -241,13 +247,13 @@ async function bootstrapApp() {
     serverClock.anchor(model.timeline.liveEdge, 'bootstrap');
     state.ring = model.ring; state.match = model.match; state.round = model.match.round; state.cameras = model.cameras;
     state.timelineRange = {start: model.timeline.start, end: model.timeline.end}; state.timelineStartSource = model.timeline.startSource; state.liveEdge = model.timeline.liveEdge; state.playbackCursor = model.timeline.liveEdge;
-    state.psselEvents = data.psselEvents; state.scenarios = data.scenarios; replaceReviews(data.reviews); state.syncWarning = Math.max(...model.cameras.map(camera => camera.syncOffsetMs)) - Math.min(...model.cameras.map(camera => camera.syncOffsetMs)) > 33 ? 'Camera synchronization exceeds one frame.' : null;
+    state.psselEvents = data.psselEvents; state.scenarios = data.scenarios; replaceReviews(data.reviews, data.workflow?.activeReviewId || data.workflow?.selectedReviewId, data.workflow); state.timelineRange.end = activeReview()?.rst || state.liveEdge; state.syncWarning = Math.max(...model.cameras.map(camera => camera.syncOffsetMs)) - Math.min(...model.cameras.map(camera => camera.syncOffsetMs)) > 33 ? 'Camera synchronization exceeds one frame.' : null;
     subscribe(renderForChange); notificationController.install(); renderInitial(); installKeyboard(); installScvWheelControls(); installScvDragControls();
     $(document).on('click', '[data-action]', async function(event) { if (this.dataset.action === 'cursor') return; event.preventDefault(); try { await dispatch(this.dataset.action, this); } catch (error) { toast(error.message, 'danger'); } });
     $('[data-camera-tile]').on('click keydown', function(event) { if (event.type === 'keydown' && !['Enter', ' '].includes(event.key)) return; event.preventDefault(); if (!cameraController.showCamera(Number(this.dataset.cameraTile))) toast('That camera is unavailable.', 'warning'); });
     $('#cameraSelect').on('change', function() { cameraController.showCamera(Number(this.value)); });
     $('#timeline').on('click', function(event) { if ($(event.target).closest('button').length) return; if (!timelineController.seekFromEvent(event)) toast('Selected camera has no video at that time. Choose another angle.', 'warning'); });
-    $('#timeline').on('click', '.review-window,.annotation-marker', function(event) { event.stopPropagation(); reviewController.selectReview(this.dataset.reviewId, this.dataset.time == null); if (this.dataset.time) playbackController.seekTo(Number(this.dataset.time)); });
+    $('#timeline').on('click', '.review-window,.annotation-marker', async function(event) { event.stopPropagation(); try { const selected = await reviewController.selectReview(this.dataset.reviewId, this.dataset.time == null); if (selected && this.dataset.time) playbackController.seekTo(Number(this.dataset.time)); } catch (error) { toast(error.message, 'warning'); } });
     $('#timeline').on('click', '.pssel-marker', function(event) { event.stopPropagation(); psselController.goTo(this.dataset.psselId); });
     $('#annotationModal').on('show.bs.modal', fillAnnotation); $('#annotationForm').on('submit', saveAnnotation);
     $('#scvScene').on('click', function(event) { if (scvDragMoved) { scvDragMoved = false; return; } if (state.currentView === 'MCV' || $(event.target).closest('button').length) return; const rect = this.getBoundingClientRect(); state.pan = {x: ((event.clientX - rect.left) / rect.width - .5) * -40, y: ((event.clientY - rect.top) / rect.height - .5) * -40}; notify('focal-point'); });

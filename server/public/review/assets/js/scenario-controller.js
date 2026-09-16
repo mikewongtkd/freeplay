@@ -4,7 +4,7 @@ import {reviewController} from './review-controller.js';
 import {cameraController} from './camera-controller.js';
 import {playbackController} from './playback-controller.js';
 
-async function clean() { const response = await mockServer.reset(); replaceReviews(response.data.reviews); cameraController.setAllAvailable(true); state.cameras.forEach(camera => camera.gaps = []); state.currentView = 'MCV'; state.selectedCamera = 1; state.scenario = null; playbackController.goLive(); }
+async function clean() { const response = await mockServer.reset({ring: state.ring}); replaceReviews(response.data.reviews, null, response.data.workflow); cameraController.setAllAvailable(true); state.cameras.forEach(camera => camera.gaps = []); state.currentView = 'MCV'; state.selectedCamera = 1; state.scenario = null; playbackController.goLive(); }
 
 export const scenarioController = {
   async load(id) {
