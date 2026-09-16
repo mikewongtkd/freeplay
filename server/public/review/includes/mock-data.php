@@ -56,9 +56,10 @@ function ivr_scenarios(): array
         ['id' => 'C', 'name' => 'AUR Outside Review Window', 'summary' => 'Out-of-window marker warns but is preserved'],
         ['id' => 'D', 'name' => 'One Camera Gap', 'summary' => 'CAM 2 impaired; CAM 1 and CAM 3 remain usable'],
         ['id' => 'E', 'name' => 'Rejected: IVR Issue', 'summary' => 'All relevant views unavailable'],
-        ['id' => 'F', 'name' => 'Referee Last-Five-Seconds Review', 'summary' => 'Official-origin review without coach quota impact'],
+        ['id' => 'F', 'name' => 'Referee-Origin Review', 'summary' => 'Ten-second referee window without coach quota impact'],
         ['id' => 'G', 'name' => 'Second Review', 'summary' => 'Opposing coach receives a linked, independent review'],
         ['id' => 'H', 'name' => 'Two-Action Request', 'summary' => 'One window and clock; two issue records'],
         ['id' => 'I', 'name' => 'PSSEL Navigation', 'summary' => 'Filtered match, score, penalty, pause, and resume events'],
+        ['id' => 'J', 'name' => 'Concurrent Requests', 'summary' => 'Overlapping Chung and Hong requests await operator-selected order'],
     ];
 }

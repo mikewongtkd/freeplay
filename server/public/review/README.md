@@ -44,7 +44,7 @@ The prototype review workflow distinguishes displayed, selected, and active revi
 - AUR marking with a visible warning—but no prohibition—outside a coach window.
 - Shared seek, frame-step, reverse 0.5×, forward 0.5×/1×/2×/5×, window/AUR jumps, and Go Live controls.
 - SCV fit, zoom, focal-point click, camera navigation, and fullscreen controls.
-- Previous/next review navigation with immutable finalized timestamps and results in the normal UI.
+- Previous/next pending-review navigation, locked while a formal review is active, with immutable finalized timestamps and results in the normal UI.
 - Post-review IVR Sheet annotation after the timed decision.
 - Camera unavailable/gap visualization without blocking healthy angles.
 - Filtered advisory PSSEL event markers that seek the shared cursor.
@@ -54,10 +54,11 @@ The prototype review workflow distinguishes displayed, selected, and active revi
 - Scenario C: AUR Outside Review Window.
 - Scenario D: One Camera Gap.
 - Scenario E: Rejected: IVR Issue.
-- Scenario F: Referee Last-Five-Seconds Review.
+- Scenario F: Referee-Origin Review with a configured ten-second window.
 - Scenario G: Second Review with independent RST/result and linkage.
 - Scenario H: Two-Action Request with one window/AUR/clock and two issue records.
 - Scenario I: PSSEL Navigation.
+- Scenario J: Concurrent overlapping Chung and Hong requests.
 
 Open **Settings** (gear icon) to load scenarios. Scenario loading resets the prototype session, performs the named interaction sequence, and leaves the resulting state visible for inspection.
 

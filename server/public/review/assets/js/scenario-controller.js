@@ -19,6 +19,7 @@ export const scenarioController = {
       case 'G': { const first = await reviewController.createCoachRequest('hong', {issues: ['Crossing the Boundary Line']}); await reviewController.startReview(); playbackController.seekTo(first.rm - 1.4); await reviewController.markAUR(); await reviewController.setResult('accepted'); playbackController.goLive(); const second = await reviewController.createCoachRequest('chung', {issues: ['Gam-jeom given to the wrong player'], linkedReviewId: first.id}); await reviewController.startReview(); playbackController.seekTo(second.rm - 1.7); await reviewController.markAUR(); await reviewController.setResult('accepted'); break; }
       case 'H': { const r = await reviewController.createCoachRequest('chung', {issues: ['Remove Gam-jeom', 'Gam-jeom for opponent: Falling Down']}); await reviewController.startReview(); playbackController.seekTo(r.rm - 3.4); await reviewController.markAUR(); await reviewController.setResult('accepted'); break; }
       case 'I': playbackController.seekTo(state.psselEvents.find(event => event.type === 'score')?.time || state.liveEdge); break;
+      case 'J': { await reviewController.createCoachRequest('chung', {reason: 'Prohibited act / Gam-jeom'}); await reviewController.createCoachRequest('hong', {reason: 'Punch misidentification'}); break; }
     }
     notify('scenario-loaded');
   },
