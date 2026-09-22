@@ -19,7 +19,9 @@ From the repository root, serve the dashboard separately:
 php -S 0.0.0.0:80 -t public
 ```
 
-Cameras connect to `ws://SERVER_IP:9000`. Node endpoints include `GET /health`, `GET /api/live`, and `GET /api/replay`. PHP APIs live under `/api/*.php`.
+Cameras connect to `ws://SERVER_IP:9000`. Node endpoints include `GET /health`, `GET /api/live`, and the versioned IVR media API under `/api/ivr/v1`. PHP APIs live under `/api/*.php`.
+
+For the first IVR media milestone, request a single-camera manifest with `GET /api/ivr/v1/replay?ring=1&camera=1&timeEpochUs=<epoch-us>&beforeSeconds=5&afterSeconds=5`. The response contains opaque fMP4 initialization and fragment URLs suitable for Chrome Media Source Extensions. It resolves both the bounded live RAM cache and indexed disk recordings without exposing storage paths. `GET /api/ivr/v1/capabilities` describes the currently implemented production features.
 
 ## Ingestion validation
 

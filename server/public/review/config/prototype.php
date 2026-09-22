@@ -13,4 +13,6 @@ return [
     'initialContextSeconds' => 10,
     'defaultRing' => 1,
     'notificationUrl' => null,
+    // Override when the ingest/replay service is published behind a proxy.
+    'replayApiBase' => null,
 ];

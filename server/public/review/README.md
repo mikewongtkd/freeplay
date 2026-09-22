@@ -1,6 +1,6 @@
 # FreePlay IVR Prototype
 
-This directory contains a working PHP 8 / Bootstrap 5 / jQuery prototype of the FreePlay Instant Video Replay operator interface. It validates workflow, information architecture, state transitions, keyboard interaction, and MCV/SCV behavior. It does not play production replay media or adjudicate Taekwondo rules.
+This directory contains a working PHP 8 / Bootstrap 5 / jQuery prototype of the FreePlay Instant Video Replay operator interface. It validates workflow, information architecture, state transitions, keyboard interaction, and MCV/SCV behavior. SCV can now play retained H.264/fMP4 from the ingestion service in Chrome; the remaining workflow and match context are still prototype data. It does not adjudicate Taekwondo rules.
 
 ## Run
 
@@ -18,6 +18,8 @@ http://localhost:8080/review/?ring=1
 ```
 
 All browser dependencies are stored in `public/vendor`; internet access is not required.
+
+The browser defaults to the replay service at `http(s)://SERVER_IP:9000/api/ivr/v1`. Set `replayApiBase` in `config/prototype.php` when a reverse proxy publishes it elsewhere. Start a camera, wait for a codec configuration and completed GOP, open SCV, and select/seek the camera to load real replay media. A descriptive overlay and status error are shown if the range is not retained or Chrome rejects the codec.
 
 ## Architecture
 
@@ -80,8 +82,8 @@ Open **Settings** (gear icon) to load scenarios. Scenario loading resets the pro
 
 ## Intentionally mocked or non-production
 
-- Camera imagery is a CSS-rendered placeholder; no real H.264/fMP4 decoding occurs.
-- The common cursor and playback rates are logical simulations.
+- MCV camera imagery remains a CSS-rendered placeholder; real H.264/fMP4 playback is currently connected in SCV.
+- Reverse playback remains a logical simulation; positive-rate SCV playback, seeking, and frame stepping use the HTML media element when retained media is loaded.
 - Match, camera, sync, gaps, and PSSEL events are fixtures.
 - PHP session storage is per-browser and is not an authoritative audit database.
 - Server timestamps use PHP wall-clock time but do not create ingestion-server IVR records.
@@ -89,17 +91,17 @@ Open **Settings** (gear icon) to load scenarios. Scenario loading resets the pro
 - Rule eligibility and adjudication are never automated.
 - Authentication, authorization, TLS, CSRF protection, retention, and production concurrency are deferred.
 - Reverse playback is simulated as a negative cursor rate.
-- Media buffering, adjacent range retrieval, decoder state, and failure recovery are not implemented.
+- Automatic adjacent-range prefetch, long-running buffer eviction, and decoder recovery are not yet implemented.
 
 ## Future server integration TODOs
 
 1. Replace `mock-server.js` with a versioned IVR API client.
-2. Deliver browser-consumable fMP4 initialization/media fragments without exposing file paths or SQLite rows.
-3. Support adjacent range retrieval and clear per-camera availability/gap metadata.
+2. Extend the single-camera production replay slice to coordinated three-camera manifests and MCV playback.
+3. Support automatic adjacent range retrieval and buffer eviction; gap metadata is already included in the manifest.
 4. Make RM, RST, AUR, results, annotations, linkage, camera integrity, and reviewed media ranges server-authoritative and durable.
 5. Add a filtered PSSEL ingestion/query service tied to match and server timeline.
 6. Measure startup, seek, and camera-switch latency against production media.
 7. Add browser-refresh recovery, multi-client concurrency, authentication/authorization, and future TLS.
 8. Add automated controller tests and production replay integration tests.
 
-See `docs/server-ivr-protocol-updates.md` for the proposed ingestion-server API work. No files under `src/` were changed for this prototype.
+See `docs/server-ivr-protocol-updates.md` for the remaining ingestion-server API work.

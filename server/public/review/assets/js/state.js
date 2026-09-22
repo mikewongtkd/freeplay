@@ -7,7 +7,7 @@ export const state = {
   aur: null, rst: null, reviewClockSeconds: 0, reviewStatus: 'monitoring', reviewResult: null,
   psselEvents: [], timelineRange: {start: 0, end: 0}, timelineStartSource: 'page opened', selectedCamera: 1,
   playbackState: 'live', zoom: 1, pan: {x: 0, y: 0}, scenarios: [], scenario: null,
-  syncWarning: null, lastError: null
+  syncWarning: null, lastError: null, mediaError: null, mediaLoading: false
 };
 
 export function subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); }

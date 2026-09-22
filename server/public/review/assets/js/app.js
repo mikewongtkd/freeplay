@@ -9,6 +9,7 @@ import {scenarioController} from './scenario-controller.js';
 import {installKeyboard} from './keyboard-controller.js';
 import {serverClock} from './server-clock.js';
 import {notificationController} from './notification-controller.js';
+import {MediaController} from './media-controller.js';
 
 const $ = window.jQuery;
 const resultLabels = {accepted: 'Accepted', rejected: 'Rejected', ivr_issue: 'Rejected: IVR Issue', resolved_without_review: 'Resolved without Review'};
@@ -19,6 +20,20 @@ let lastFrameMs = 0;
 let renderedPlaybackRate = null;
 let renderedPlaying = null;
 let renderedClockClass = null;
+const mediaController = new MediaController({
+  video: document.getElementById('scvMedia'),
+  scene: document.getElementById('scvScene'),
+  onTime: epochSeconds => {
+    if (state.currentView === 'MCV') return;
+    state.playbackCursor = Math.max(state.timelineRange.start, Math.min(state.timelineRange.end, epochSeconds));
+    updateTimeSensitiveValues();
+  },
+  onState: (mediaState, detail) => {
+    if (mediaState === 'loading') { state.mediaLoading = true; state.mediaError = null; updateCameraValues(); }
+    if (mediaState === 'error') { state.mediaLoading = false; state.mediaError = detail?.message || 'Replay media error.'; state.lastError = state.mediaError; notify('error'); updateCameraValues(); }
+    if (mediaState === 'ready') { state.mediaLoading = false; state.mediaError = null; state.lastError = null; renderStatus(); updateCameraValues(); syncAnimationLoop(); }
+  }
+});
 
 function setText(selector, value) { const node = document.querySelector(selector); if (node && node.textContent !== String(value)) node.textContent = String(value); }
 function setClass(selector, value) { const node = document.querySelector(selector); if (node && node.className !== value) node.className = value; }
@@ -59,7 +74,11 @@ function updateCameraValues() {
   if (!selected) return;
   setText('#scvCameraLabel', `CAM ${selected.id}`); setText('#scvCameraName', selected.name);
   setClass('#scvCameraState', `camera-state badge ${statusClass(selected)}`); setText('#scvCameraState', statusLabel(selected));
-  $('#scvUnavailable').toggleClass('visible', !cameraAtCursor(selected)); setText('#scvTimecode', formatTime(state.playbackCursor));
+  const mediaUnavailable = !cameraAtCursor(selected) || !!state.mediaError || state.mediaLoading;
+  $('#scvUnavailable').toggleClass('visible', mediaUnavailable); setText('#scvTimecode', formatTime(state.playbackCursor));
+  setClass('#scvUnavailableIcon', `fa-solid fa-${state.mediaLoading ? 'spinner fa-spin' : 'video-slash'}`);
+  setText('#scvUnavailableTitle', state.mediaLoading ? 'Loading replay' : state.mediaError ? 'Replay unavailable' : 'No video available');
+  setText('#scvUnavailableDetail', state.mediaLoading ? 'Retrieving retained camera media…' : state.mediaError || 'Choose another camera');
 }
 
 function updateScvTransform() {
@@ -142,18 +161,33 @@ function renderForChange(_currentState, reason) {
   else if (['fit', 'zoom', 'pan', 'focal-point'].includes(reason)) updateScvTransform();
   else if (reason === 'scenario-loaded') { renderViews(); renderCameraOptions(); updateScvTransform(); renderReview(); renderStatus(); timelineController.renderTracks(); timelineController.renderAnnotations(); updateTimeSensitiveValues(); }
   else if (reason === 'error') renderStatus();
+  syncRealMedia(reason);
   syncAnimationLoop();
+}
+
+function syncRealMedia(reason) {
+  if (state.currentView === 'MCV') { if (reason === 'show-mcv') mediaController.reset(); return; }
+  if (reason === 'play-pause') {
+    if (mediaController.active) mediaController.setPlaying(state.isPlaying);
+    else void mediaController.seek(state.playbackCursor, {ring:state.ring, camera:state.selectedCamera, play:state.isPlaying}).catch(() => {});
+    return;
+  }
+  if (reason === 'rate') { mediaController.setRate(state.playbackRate); if (state.playbackRate > 0) mediaController.setPlaying(true); return; }
+  if (['show-camera', 'seek', 'frame-step', 'go-live', 'review-started'].includes(reason)) {
+    void mediaController.seek(state.playbackCursor, {ring:state.ring, camera:state.selectedCamera, play:state.isPlaying && state.playbackRate > 0}).catch(() => {});
+  }
 }
 
 function animationStep(nowMs) {
   const delta = Math.min(.25, (nowMs - lastFrameMs) / 1000); lastFrameMs = nowMs;
-  playbackController.advance(delta); updateTimeSensitiveValues();
+  if (!mediaController.active) playbackController.advance(delta); updateTimeSensitiveValues();
   if (state.isPlaying && state.playbackState !== 'live') animationFrame = requestAnimationFrame(animationStep); else animationFrame = null;
 }
 
 function syncAnimationLoop() {
-  if (state.isPlaying && state.playbackState !== 'live' && animationFrame == null) { lastFrameMs = performance.now(); animationFrame = requestAnimationFrame(animationStep); }
-  if ((!state.isPlaying || state.playbackState === 'live') && animationFrame != null) { cancelAnimationFrame(animationFrame); animationFrame = null; }
+  const needsSyntheticClock = state.isPlaying && state.playbackState !== 'live' && !mediaController.active;
+  if (needsSyntheticClock && animationFrame == null) { lastFrameMs = performance.now(); animationFrame = requestAnimationFrame(animationStep); }
+  if (!needsSyntheticClock && animationFrame != null) { cancelAnimationFrame(animationFrame); animationFrame = null; }
 }
 
 function installScvWheelControls() {
