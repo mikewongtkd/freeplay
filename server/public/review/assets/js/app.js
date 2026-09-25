@@ -25,12 +25,13 @@ const mediaController = new MediaController({
   scene: document.getElementById('scvScene'),
   onTime: epochSeconds => {
     if (state.currentView === 'MCV') return;
+    if (state.playbackState === 'live') return;
     state.playbackCursor = Math.max(state.timelineRange.start, Math.min(state.timelineRange.end, epochSeconds));
     updateTimeSensitiveValues();
   },
   onState: (mediaState, detail) => {
     if (mediaState === 'loading') { state.mediaLoading = true; state.mediaError = null; updateCameraValues(); }
-    if (mediaState === 'error') { state.mediaLoading = false; state.mediaError = detail?.message || 'Replay media error.'; state.lastError = state.mediaError; notify('error'); updateCameraValues(); }
+    if (mediaState === 'error') { state.mediaLoading = false; state.mediaError = detail?.message || 'Replay media error.'; state.lastError = state.mediaError; state.isPlaying = false; if (state.playbackState === 'live') state.playbackState = 'paused'; notify('error'); updateCameraValues(); }
     if (mediaState === 'ready') { state.mediaLoading = false; state.mediaError = null; state.lastError = null; renderStatus(); updateCameraValues(); syncAnimationLoop(); }
   }
 });
@@ -168,12 +169,18 @@ function renderForChange(_currentState, reason) {
 function syncRealMedia(reason) {
   if (state.currentView === 'MCV') { if (reason === 'show-mcv') mediaController.reset(); return; }
   if (reason === 'play-pause') {
+    if (mediaController.liveActive && state.playbackState !== 'live') mediaController.stopLivePolling();
     if (mediaController.active) mediaController.setPlaying(state.isPlaying);
     else void mediaController.seek(state.playbackCursor, {ring:state.ring, camera:state.selectedCamera, play:state.isPlaying}).catch(() => {});
     return;
   }
-  if (reason === 'rate') { mediaController.setRate(state.playbackRate); if (state.playbackRate > 0) mediaController.setPlaying(true); return; }
-  if (['show-camera', 'seek', 'frame-step', 'go-live', 'review-started'].includes(reason)) {
+  if (reason === 'rate') { mediaController.stopLivePolling(); mediaController.setRate(state.playbackRate); if (state.playbackRate > 0) mediaController.setPlaying(true); return; }
+  if (reason === 'go-live' || reason === 'show-camera' && state.playbackState === 'live') {
+    state.isPlaying = true; updatePlaybackValues();
+    void mediaController.goLive(state.liveEdge, {ring:state.ring, camera:state.selectedCamera}).catch(() => {});
+    return;
+  }
+  if (['show-camera', 'seek', 'frame-step', 'review-started'].includes(reason)) {
     void mediaController.seek(state.playbackCursor, {ring:state.ring, camera:state.selectedCamera, play:state.isPlaying && state.playbackRate > 0}).catch(() => {});
   }
 }

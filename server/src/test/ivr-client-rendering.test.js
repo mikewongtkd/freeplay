@@ -52,6 +52,17 @@ test('active review alone freezes the timeline and completion returns to live', 
   assert.match(review, /state\.timelineRange\.end = activeReview\(\)\?\.rst \|\| state\.liveEdge/);
   assert.match(review, /playbackController\.goLive\(\)/);
   assert.match(playback, /if \(!activeReview\(\)\?\.rst\) state\.timelineRange\.end = state\.liveEdge/);
+  assert.match(playback, /state\.isPlaying = true; state\.playbackRate = 1; state\.playbackState = 'live'/);
+});
+
+test('SCV Go Live continuously polls and bounds its MSE buffer', () => {
+  const app = read('assets/js/app.js');
+  const media = read('assets/js/media-controller.js');
+  assert.match(app, /mediaController\.goLive\(state\.liveEdge/);
+  assert.match(media, /LIVE_POLL_MS/);
+  assert.match(media, /pollLive\(signal\)/);
+  assert.match(media, /this\.sourceBuffer\.remove\(0, removeBefore\)/);
+  assert.match(media, /this\.loadedFragments\.has\(fragmentKey\)/);
 });
 
 test('pending review selection is locked while another review is active', () => {

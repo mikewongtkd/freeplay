@@ -23,7 +23,7 @@ export const playbackController = {
     state.playbackState = state.playbackRate < 0 ? 'reverse review' : 'playing'; notify('rate');
   },
   goLive() {
-    state.playbackCursor = state.liveEdge; state.isPlaying = false; state.playbackRate = 1; state.playbackState = 'live'; notify('go-live');
+    state.playbackCursor = state.liveEdge; state.isPlaying = true; state.playbackRate = 1; state.playbackState = 'live'; notify('go-live');
   },
   syncServerTime(serverSeconds) {
     state.liveEdge = Number(serverSeconds);

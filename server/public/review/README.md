@@ -19,7 +19,7 @@ http://localhost:8080/review/?ring=1
 
 All browser dependencies are stored in `public/vendor`; internet access is not required.
 
-The browser defaults to the replay service at `http(s)://SERVER_IP:9000/api/ivr/v1`. Set `replayApiBase` in `config/prototype.php` when a reverse proxy publishes it elsewhere. Start a camera, wait for a codec configuration and completed GOP, open SCV, and select/seek the camera to load real replay media. A descriptive overlay and status error are shown if the range is not retained or Chrome rejects the codec.
+The browser defaults to the replay service at `http(s)://SERVER_IP:9000/api/ivr/v1`. Set `replayApiBase` in `config/prototype.php` when a reverse proxy publishes it elsewhere. Start a camera, wait for a codec configuration and completed GOP, open SCV, and select/seek the camera to load real replay media. **Go Live** starts near the newest completed GOP, polls for subsequent GOPs, appends them to the active MSE buffer, and evicts media older than 30 seconds. A descriptive overlay and status error are shown if the range is not retained or Chrome rejects the codec.
 
 ## Architecture
 
@@ -91,7 +91,7 @@ Open **Settings** (gear icon) to load scenarios. Scenario loading resets the pro
 - Rule eligibility and adjudication are never automated.
 - Authentication, authorization, TLS, CSRF protection, retention, and production concurrency are deferred.
 - Reverse playback is simulated as a negative cursor rate.
-- Automatic adjacent-range prefetch, long-running buffer eviction, and decoder recovery are not yet implemented.
+- Historical adjacent-range prefetch and automatic decoder recovery are not yet implemented. SCV Go Live performs forward GOP polling and bounded buffer eviction.
 
 ## Future server integration TODOs
 

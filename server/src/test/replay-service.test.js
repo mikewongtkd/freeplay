@@ -54,6 +54,8 @@ test('manifest merges indexed disk and RAM GOPs behind opaque media URLs', t => 
   const result = service.manifest({ring:1, camera:1, timeEpochUs:'2000000', beforeSeconds:2, afterSeconds:2});
   assert.equal(result.camera.mimeType, 'video/mp4; codecs="avc1.42001f"');
   assert.deepEqual(result.camera.fragments.map(item => item.source), ['disk', 'ram']);
+  assert.ok(result.camera.initializations.every(item => item.key));
+  assert.ok(result.camera.fragments.every(item => item.initializationKey));
   assert.ok(result.camera.fragments.every(item => /^\/api\/ivr\/v1\/media\/[A-Za-z0-9_-]+$/.test(item.url)));
   assert.ok(!JSON.stringify(result).includes(f.root));
   assert.equal(result.camera.quality.complete, true);

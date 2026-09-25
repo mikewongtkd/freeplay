@@ -83,12 +83,12 @@ class ReplayService {
     return {kind:'disk', path:absolute, offset, length, immutable:Boolean(row.file_complete)};
   }
 
-  initializationFor({stream, row, version, width, height, avcc}) {
+  initializationFor({stream, row, version, width, height, avcc, key}) {
     const config = avcc ? {avcC:Buffer.from(avcc)} : stream?.codecConfigs?.get(Number(version));
     if (!config?.avcC) return null;
     const bytes = initSegment(Number(width), Number(height), config.avcC);
     const id = this.registerToken({kind:'bytes', bytes, immutable:true, contentType:'video/mp4'});
-    return {id, url:`${API_PREFIX}/media/${id}`, codec:codecString(config.avcC)};
+    return {id, key, url:`${API_PREFIX}/media/${id}`, codec:codecString(config.avcC)};
   }
 
   manifest({ring, camera, timeEpochUs, beforeSeconds, afterSeconds}) {
@@ -120,12 +120,13 @@ class ReplayService {
     let sequence = 1;
     for (const item of ordered) {
       const row = item.row;
-      const width = stream?.hello.width || row?.width;
-      const height = stream?.hello.height || row?.height;
-      const configKey = `${item.source}:${row?.session_id || stream?.sessionId}:${item.codecConfigVersion}`;
+      const width = item.source === 'ram' ? stream?.hello.width : row?.width;
+      const height = item.source === 'ram' ? stream?.hello.height : row?.height;
+      const configKey = `${row?.session_id || stream?.sessionId}:${item.codecConfigVersion}`;
       let initialization = initializations.get(configKey);
       if (!initialization) {
-        initialization = this.initializationFor({stream, row, version:item.codecConfigVersion, width, height, avcc:row?.avcc});
+        const initializationKey = `init-${crypto.createHash('sha256').update(configKey).digest('base64url').slice(0, 16)}`;
+        initialization = this.initializationFor({stream, row, version:item.codecConfigVersion, width, height, avcc:row?.avcc, key:initializationKey});
         if (initialization) initializations.set(configKey, initialization);
       }
       if (!initialization) continue;
@@ -133,7 +134,7 @@ class ReplayService {
         ? {kind:'bytes', bytes:fragment(item.gop, sequence++), immutable:false, contentType:'video/mp4'}
         : {...item.extent, contentType:'video/mp4'};
       const id = this.registerToken(media);
-      fragments.push({id, url:`${API_PREFIX}/media/${id}`, initializationId:initialization.id, source:item.source, startEpochUs:String(item.startEpochUs), endEpochUs:String(item.endEpochUs), startPtsUs:String(item.startPtsUs), endPtsUs:String(item.endPtsUs), complete:item.complete, sequenceGapCount:item.sequenceGapCount, estimatedMissingBuffers:item.estimatedMissingBuffers});
+      fragments.push({id, url:`${API_PREFIX}/media/${id}`, initializationId:initialization.id, initializationKey:initialization.key, source:item.source, startEpochUs:String(item.startEpochUs), endEpochUs:String(item.endEpochUs), startPtsUs:String(item.startPtsUs), endPtsUs:String(item.endPtsUs), complete:item.complete, sequenceGapCount:item.sequenceGapCount, estimatedMissingBuffers:item.estimatedMissingBuffers});
     }
 
     const gaps = [];
