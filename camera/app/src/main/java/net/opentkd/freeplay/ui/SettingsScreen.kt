@@ -26,8 +26,8 @@ fun SettingsScreen(
     ) {
         SectionTitle("Camera")
         SettingTextField("Resolution", settings.resolution) { onSettingsChanged(settings.copy(resolution = it)) }
-        SettingTextField("FPS", settings.frameRate.toString(), KeyboardType.Number) { 
-            onSettingsChanged(settings.copy(frameRate = it.toIntOrNull() ?: settings.frameRate)) 
+        SettingTextField("FPS", settings.frameRate.toString(), KeyboardType.Number) {
+            onSettingsChanged(settings.copy(frameRate = it.toIntOrNull() ?: settings.frameRate))
         }
 
         HorizontalDivider()
@@ -49,6 +49,16 @@ fun SettingsScreen(
 
         HorizontalDivider()
 
+        SectionTitle("Remote Control")
+        SettingSwitch("Enable Remote Control", settings.remoteControlEnabled) {
+            onSettingsChanged(settings.copy(remoteControlEnabled = it))
+        }
+        SettingSwitch("Allow Remote Stop", settings.allowRemoteStop) {
+            onSettingsChanged(settings.copy(allowRemoteStop = it))
+        }
+
+        HorizontalDivider()
+
         SectionTitle("System")
         SettingSwitch("Auto-start Camera", settings.autoStartCamera) { onSettingsChanged(settings.copy(autoStartCamera = it)) }
         SettingSwitch("Keep Screen On", settings.keepScreenOn) { onSettingsChanged(settings.copy(keepScreenOn = it)) }
@@ -61,7 +71,7 @@ fun SettingTextField(label: String, value: String, keyboardType: KeyboardType = 
     var text by remember(value) { mutableStateOf(value) }
     OutlinedTextField(
         value = text,
-        onValueChange = { 
+        onValueChange = {
             text = it
             onValueChange(it)
         },

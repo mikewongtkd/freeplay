@@ -4,13 +4,28 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
+data class Capabilities(
+    val remoteStreamingControl: Boolean = true,
+    val remoteStop: Boolean = true,
+    val requestKeyframe: Boolean = true,
+    val setBitrate: Boolean = true,
+    val commandAcknowledgement: Boolean = true,
+    val streamGeneration: Boolean = true
+)
+
+@Serializable
+data class ServerCapabilities(
+    val remoteStreamingControl: Boolean = false,
+    val commandAcknowledgement: Boolean = false
+)
+
+@Serializable
 sealed class FreePlayControlMessage {
     abstract val type: String
 
     @Serializable
     @SerialName("hello")
     data class Hello(
-        override val type: String = "hello",
         val protocol: String = FreePlayProtocol.PROTOCOL_NAME,
         val version: Int = FreePlayProtocol.PROTOCOL_VERSION,
         val streamId: String,
@@ -26,63 +41,156 @@ sealed class FreePlayControlMessage {
         val fps: Int,
         val bitrate: Int,
         val keyframeInterval: Int,
-        val encoder: String
-    ) : FreePlayControlMessage()
+        val encoder: String,
+        val streamState: String = "idle",
+        val capabilities: Capabilities = Capabilities()
+    ) : FreePlayControlMessage() {
+        override val type: String get() = "hello"
+    }
 
     @Serializable
     @SerialName("hello_ack")
     data class HelloAck(
-        override val type: String = "hello_ack",
         val accepted: Boolean,
         val streamId: String? = null,
         val serverTime: Double? = null,
-        val reason: String? = null
-    ) : FreePlayControlMessage()
+        val serverTimeEpochUs: String? = null,
+        val reason: String? = null,
+        val capabilities: ServerCapabilities? = null
+    ) : FreePlayControlMessage() {
+        override val type: String get() = "hello_ack"
+    }
+
+    @Serializable
+    @SerialName("set_streaming")
+    data class SetStreaming(
+        val commandId: String,
+        val desired: Boolean,
+        val reason: String? = null,
+        val requestedAtEpochUs: String? = null
+    ) : FreePlayControlMessage() {
+        override val type: String get() = "set_streaming"
+    }
+
+    @Serializable
+    @SerialName("command_ack")
+    data class CommandAck(
+        val commandId: String,
+        val commandType: String = "set_streaming",
+        val accepted: Boolean,
+        val streamState: String,
+        val alreadyInDesiredState: Boolean = false,
+        val reason: String? = null,
+        val retryable: Boolean? = null
+    ) : FreePlayControlMessage() {
+        override val type: String get() = "command_ack"
+    }
+
+    @Serializable
+    @SerialName("stream_started")
+    data class StreamStarted(
+        val commandId: String? = null,
+        val streamGeneration: Long,
+        val startedAtTabletMonotonicNs: String,
+        val codec: String = "h264",
+        val width: Int,
+        val height: Int,
+        val fps: Int,
+        val bitrate: Int,
+        val keyframeInterval: Int,
+        val encoder: String,
+        val ptsOriginUs: String = "0"
+    ) : FreePlayControlMessage() {
+        override val type: String get() = "stream_started"
+    }
+
+    @Serializable
+    @SerialName("stream_start_failed")
+    data class StreamStartFailed(
+        val commandId: String? = null,
+        val streamGeneration: Long,
+        val streamState: String = "error",
+        val reason: String,
+        val message: String? = null,
+        val retryable: Boolean = true
+    ) : FreePlayControlMessage() {
+        override val type: String get() = "stream_start_failed"
+    }
+
+    @Serializable
+    @SerialName("stream_stopped")
+    data class StreamStopped(
+        val commandId: String? = null,
+        val streamGeneration: Long,
+        val stoppedAtTabletMonotonicNs: String,
+        val reason: String,
+        val finalSequenceNumber: Long,
+        val streamState: String = "idle"
+    ) : FreePlayControlMessage() {
+        override val type: String get() = "stream_stopped"
+    }
 
     @Serializable
     @SerialName("status")
     data class Status(
-        override val type: String = "status",
         val streamId: String,
+        val transportState: String,
+        val streamState: String,
+        val streamGeneration: Long,
+        val remoteControlEnabled: Boolean,
+        val cameraPermission: String,
+        val cameraState: String,
+        val encoderState: String,
         val uptimeMs: Long,
-        val encodedFrames: Long,
-        val keyframes: Int,
-        val bytesSent: Long,
-        val currentBitrate: Double,
-        val averageBitrate: Double,
-        val measuredFps: Double,
-        val droppedFrames: Int,
-        val transportQueueBytes: Long,
-        val reconnectCount: Int,
-        val network: String,
+        val streamUptimeMs: Long = 0,
+        val encodedFrames: Long = 0,
+        val keyframes: Int = 0,
+        val bytesSent: Long = 0,
+        val currentBitrate: Double = 0.0,
+        val averageBitrate: Double = 0.0,
+        val measuredFps: Double = 0.0,
+        val droppedFrames: Int = 0,
+        val transportQueueBytes: Long = 0,
+        val transportQueueMessages: Int = 0,
+        val reconnectCount: Int = 0,
+        val network: String = "ethernet",
         val deviceTemperatureC: Double? = null,
-        val encoder: String
-    ) : FreePlayControlMessage()
+        val encoder: String,
+        val lastCommandId: String? = null,
+        val lastErrorCode: String? = null
+    ) : FreePlayControlMessage() {
+        override val type: String get() = "status"
+    }
 
     @Serializable
     @SerialName("request_keyframe")
     data class RequestKeyframe(
-        override val type: String = "request_keyframe"
-    ) : FreePlayControlMessage()
+        val reason: String? = null
+    ) : FreePlayControlMessage() {
+        override val type: String get() = "request_keyframe"
+    }
 
     @Serializable
     @SerialName("set_bitrate")
     data class SetBitrate(
-        override val type: String = "set_bitrate",
         val bitrate: Int
-    ) : FreePlayControlMessage()
+    ) : FreePlayControlMessage() {
+        override val type: String get() = "set_bitrate"
+    }
 
     @Serializable
     @SerialName("ping")
     data class Ping(
-        override val type: String = "ping",
         val id: Long
-    ) : FreePlayControlMessage()
+    ) : FreePlayControlMessage() {
+        override val type: String get() = "ping"
+    }
 
     @Serializable
     @SerialName("pong")
     data class Pong(
-        override val type: String = "pong",
         val id: Long
-    ) : FreePlayControlMessage()
+    ) : FreePlayControlMessage() {
+        override val type: String get() = "pong"
+    }
 }

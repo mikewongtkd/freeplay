@@ -1,5 +1,6 @@
 package net.opentkd.freeplay.status
 
+import net.opentkd.freeplay.network.StreamState
 import net.opentkd.freeplay.network.TransportState
 
 data class DeviceStatus(
@@ -8,7 +9,13 @@ data class DeviceStatus(
     val networkReady: Boolean = false,
     val serverConnected: Boolean = false,
     val storageReady: Boolean = true,
-    val transportState: TransportState = TransportState.STOPPED,
+    val transportState: TransportState = TransportState.Disconnected,
+    val streamState: StreamState = StreamState.IDLE,
+    val streamGeneration: Long = 0,
+    val remoteControlEnabled: Boolean = true,
+    val isRemoteStarted: Boolean = false,
+    val lastCommandId: String? = null,
+    val lastErrorCode: String? = null,
     val uptimeMillis: Long = 0,
     val bitrateMbps: Double = 0.0,
     val fps: Double = 0.0,

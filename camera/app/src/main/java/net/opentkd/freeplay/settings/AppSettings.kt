@@ -15,7 +15,9 @@ data class AppSettings(
     val autoStartCamera: Boolean = true,
     val autoStartStreaming: Boolean = false,
     val keepScreenOn: Boolean = true,
-    val lockLandscape: Boolean = true
+    val lockLandscape: Boolean = true,
+    val remoteControlEnabled: Boolean = true,
+    val allowRemoteStop: Boolean = true
 ) {
     val streamId: String
         get() = "ring${ringNumber}_cam${cameraNumber}"

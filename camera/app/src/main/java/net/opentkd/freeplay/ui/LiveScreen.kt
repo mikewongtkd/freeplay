@@ -1,5 +1,7 @@
 package net.opentkd.freeplay.ui
 
+import android.view.Surface
+import android.view.SurfaceHolder
 import android.view.SurfaceView
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -13,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import net.opentkd.freeplay.network.StreamState
 import net.opentkd.freeplay.network.TransportState
 import net.opentkd.freeplay.settings.AppSettings
 import net.opentkd.freeplay.status.DeviceStatus
@@ -24,7 +27,7 @@ fun LiveScreen(
     onStartStreaming: () -> Unit,
     onStopStreaming: () -> Unit,
     onSnapshot: () -> Unit,
-    onSurfaceCreated: (android.view.Surface) -> Unit,
+    onSurfaceCreated: (Surface) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Row(modifier = modifier.fillMaxSize()) {
@@ -33,19 +36,19 @@ fun LiveScreen(
             AndroidView(
                 factory = { context ->
                     SurfaceView(context).apply {
-                        holder.addCallback(object : android.view.SurfaceHolder.Callback {
-                            override fun surfaceCreated(holder: android.view.SurfaceHolder) {
+                        holder.addCallback(object : SurfaceHolder.Callback {
+                            override fun surfaceCreated(holder: SurfaceHolder) {
                                 onSurfaceCreated(holder.surface)
                             }
-                            override fun surfaceChanged(holder: android.view.SurfaceHolder, format: Int, width: Int, height: Int) {}
-                            override fun surfaceDestroyed(holder: android.view.SurfaceHolder) {}
+                            override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+                            override fun surfaceDestroyed(holder: SurfaceHolder) {}
                         })
                     }
                 },
                 modifier = Modifier.fillMaxSize()
             )
 
-            // Top Overlay
+            // Top Left Overlay
             Column(
                 modifier = Modifier
                     .align(Alignment.TopStart)
@@ -69,35 +72,74 @@ fun LiveScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = Color.White
                 )
+
+                if (status.isRemoteStarted) {
+                    Spacer(Modifier.height(4.dp))
+                    Surface(
+                        color = Color(0xFF1976D2),
+                        shape = MaterialTheme.shapes.extraSmall
+                    ) {
+                        Text(
+                            text = "⚡ REMOTELY INITIATED",
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
-            // Status Indicator
-            val (statusText, statusColor) = when (val state = status.transportState) {
-                is TransportState.STREAMING -> "STREAMING" to Color.Green
-                is TransportState.CONNECTING -> "CONNECTING" to Color.Yellow
-                is TransportState.AWAITING_HELLO_ACK -> "WAITING ACK" to Color.Yellow
-                is TransportState.AWAITING_CODEC_CONFIG -> "CONFIG WAIT" to Color.Yellow
-                is TransportState.RECONNECTING -> "RECONNECT (${state.attempt})" to Color.Yellow
-                is TransportState.ERROR -> "ERROR" to Color.Red
-                is TransportState.REJECTED -> "REJECTED" to Color.Red
-                is TransportState.WARNING -> "WARNING" to Color.Yellow
-                is TransportState.STOPPED -> "STOPPED" to Color.Gray
-            }
-
-            Surface(
+            // Top Right Status Badges
+            Column(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(16.dp),
-                color = statusColor,
-                shape = MaterialTheme.shapes.small
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Text(
-                    text = statusText,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color.Black,
-                    fontWeight = FontWeight.Bold
-                )
+                val (statusText, statusColor) = when {
+                    status.streamState == StreamState.STARTING -> "STARTING" to Color.Yellow
+                    status.streamState == StreamState.STOPPING -> "STOPPING" to Color(0xFFFF9800)
+                    status.streamState == StreamState.STREAMING -> "STREAMING (Gen ${status.streamGeneration})" to Color.Green
+                    status.transportState is TransportState.RegisteredIdle -> "CONNECTED / IDLE" to Color(0xFF2196F3)
+                    status.transportState is TransportState.Connecting -> "CONNECTING" to Color.Yellow
+                    status.transportState is TransportState.AwaitingHelloAck -> "WAITING ACK" to Color.Yellow
+                    status.transportState is TransportState.Reconnecting -> {
+                        val att = (status.transportState as TransportState.Reconnecting).attempt
+                        "RECONNECT ($att)" to Color.Yellow
+                    }
+                    status.transportState is TransportState.Error || status.streamState == StreamState.ERROR -> "ERROR" to Color.Red
+                    status.transportState is TransportState.Rejected -> "REJECTED" to Color.Red
+                    else -> "DISCONNECTED" to Color.Gray
+                }
+
+                Surface(
+                    color = statusColor,
+                    shape = MaterialTheme.shapes.small
+                ) {
+                    Text(
+                        text = statusText,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = Color.Black,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                if (!settings.remoteControlEnabled) {
+                    Surface(
+                        color = Color.DarkGray,
+                        shape = MaterialTheme.shapes.extraSmall
+                    ) {
+                        Text(
+                            text = "Remote Control Disabled",
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White
+                        )
+                    }
+                }
             }
 
             // Bottom Controls
@@ -108,19 +150,21 @@ fun LiveScreen(
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                if (status.transportState is TransportState.STOPPED || 
-                    status.transportState is TransportState.ERROR || 
-                    status.transportState is TransportState.REJECTED) {
+                val isStreamingActive = status.streamState == StreamState.STREAMING ||
+                        status.streamState == StreamState.STARTING ||
+                        status.streamState == StreamState.STOPPING
+
+                if (!isStreamingActive) {
                     Button(onClick = onStartStreaming, colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)) {
                         Icon(Icons.Default.PlayArrow, contentDescription = "Start")
                         Spacer(Modifier.width(8.dp))
-                        Text("START")
+                        Text("START STREAM")
                     }
                 } else {
                     Button(onClick = onStopStreaming, colors = ButtonDefaults.buttonColors(containerColor = Color.Red)) {
                         Icon(Icons.Default.Stop, contentDescription = "Stop")
                         Spacer(Modifier.width(8.dp))
-                        Text("STOP")
+                        Text("STOP STREAM")
                     }
                 }
 
@@ -147,17 +191,19 @@ fun LiveScreen(
         // Right Status Panel
         Column(
             modifier = Modifier
-                .width(200.dp)
+                .width(220.dp)
                 .fillMaxHeight()
                 .background(MaterialTheme.colorScheme.surfaceVariant)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text("STATUS", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             Text(
-                if (status.transportState is TransportState.STREAMING)
-                    "Streaming to server\n${settings.serverAddress}:${settings.serverPort}"
-                else "Idle",
+                when {
+                    status.streamState == StreamState.STREAMING -> "Streaming (Gen ${status.streamGeneration})\n${settings.serverAddress}:${settings.serverPort}"
+                    status.transportState is TransportState.RegisteredIdle -> "Registered Idle\n${settings.serverAddress}:${settings.serverPort}"
+                    else -> "Disconnected / Stopped"
+                },
                 style = MaterialTheme.typography.bodySmall
             )
 
@@ -170,6 +216,7 @@ fun LiveScreen(
 
             Text("STATS", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
             StatItem("Uptime", status.uptimeString)
+            StatItem("Generation", status.streamGeneration.toString())
             StatItem("Bitrate", String.format("%.2f Mbps", status.bitrateMbps))
             StatItem("FPS", String.format("%.1f", status.fps))
             StatItem("Dropped", status.droppedFrames.toString())

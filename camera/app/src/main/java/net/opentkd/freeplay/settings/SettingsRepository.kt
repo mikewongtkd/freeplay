@@ -26,6 +26,8 @@ class SettingsRepository(private val context: Context) {
         val AUTO_START_STREAMING = booleanPreferencesKey("auto_start_streaming")
         val KEEP_SCREEN_ON = booleanPreferencesKey("keep_screen_on")
         val LOCK_LANDSCAPE = booleanPreferencesKey("lock_landscape")
+        val REMOTE_CONTROL_ENABLED = booleanPreferencesKey("remote_control_enabled")
+        val ALLOW_REMOTE_STOP = booleanPreferencesKey("allow_remote_stop")
     }
 
     val appSettingsFlow: Flow<AppSettings> = context.dataStore.data
@@ -49,7 +51,9 @@ class SettingsRepository(private val context: Context) {
                 autoStartCamera = preferences[PreferencesKeys.AUTO_START_CAMERA] ?: true,
                 autoStartStreaming = preferences[PreferencesKeys.AUTO_START_STREAMING] ?: false,
                 keepScreenOn = preferences[PreferencesKeys.KEEP_SCREEN_ON] ?: true,
-                lockLandscape = preferences[PreferencesKeys.LOCK_LANDSCAPE] ?: true
+                lockLandscape = preferences[PreferencesKeys.LOCK_LANDSCAPE] ?: true,
+                remoteControlEnabled = preferences[PreferencesKeys.REMOTE_CONTROL_ENABLED] ?: true,
+                allowRemoteStop = preferences[PreferencesKeys.ALLOW_REMOTE_STOP] ?: true
             )
         }
 
@@ -67,6 +71,8 @@ class SettingsRepository(private val context: Context) {
             preferences[PreferencesKeys.AUTO_START_STREAMING] = settings.autoStartStreaming
             preferences[PreferencesKeys.KEEP_SCREEN_ON] = settings.keepScreenOn
             preferences[PreferencesKeys.LOCK_LANDSCAPE] = settings.lockLandscape
+            preferences[PreferencesKeys.REMOTE_CONTROL_ENABLED] = settings.remoteControlEnabled
+            preferences[PreferencesKeys.ALLOW_REMOTE_STOP] = settings.allowRemoteStop
         }
     }
 }

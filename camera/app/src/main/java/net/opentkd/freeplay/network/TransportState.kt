@@ -1,13 +1,24 @@
 package net.opentkd.freeplay.network
 
 sealed interface TransportState {
-    data object STOPPED : TransportState // Keeping name compatible with previous enum where possible
-    data object CONNECTING : TransportState
-    data object AWAITING_HELLO_ACK : TransportState
-    data object AWAITING_CODEC_CONFIG : TransportState
-    data object STREAMING : TransportState
-    data class RECONNECTING(val attempt: Int) : TransportState
-    data class REJECTED(val reason: String) : TransportState
-    data class ERROR(val message: String) : TransportState
-    data object WARNING : TransportState // For compatibility
+    data object Disconnected : TransportState
+    data object Connecting : TransportState
+    data object AwaitingHelloAck : TransportState
+    data object RegisteredIdle : TransportState
+    data object RegisteredStreaming : TransportState
+    data class Reconnecting(val attempt: Int) : TransportState
+    data class Rejected(val reason: String) : TransportState
+    data class Error(val message: String) : TransportState
+
+    val wireName: String
+        get() = when (this) {
+            is Disconnected -> "disconnected"
+            is Connecting -> "connecting"
+            is AwaitingHelloAck -> "awaiting_hello_ack"
+            is RegisteredIdle -> "registered"
+            is RegisteredStreaming -> "registered"
+            is Reconnecting -> "reconnecting"
+            is Rejected -> "rejected"
+            is Error -> "error"
+        }
 }

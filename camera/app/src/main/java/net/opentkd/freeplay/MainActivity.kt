@@ -2,6 +2,7 @@ package net.opentkd.freeplay
 
 import android.Manifest
 import android.content.pm.ActivityInfo
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.WindowManager
 import android.widget.Toast
@@ -16,16 +17,19 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import net.opentkd.freeplay.camera.CameraController
 import net.opentkd.freeplay.encoder.VideoEncoder
+import net.opentkd.freeplay.network.StreamState
 import net.opentkd.freeplay.network.TransportState
 import net.opentkd.freeplay.network.WebSocketVideoTransport
-import net.opentkd.freeplay.network.VideoTransport
+import net.opentkd.freeplay.service.CameraStreamService
 import net.opentkd.freeplay.settings.AppSettings
 import net.opentkd.freeplay.settings.SettingsRepository
 import net.opentkd.freeplay.status.DeviceStatusManager
@@ -36,28 +40,49 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var settingsRepository: SettingsRepository
     private lateinit var statusManager: DeviceStatusManager
-    private lateinit var videoTransport: VideoTransport
+    private lateinit var wsTransport: WebSocketVideoTransport
     private lateinit var videoEncoder: VideoEncoder
     private lateinit var cameraController: CameraController
 
     private var statsJob: Job? = null
+    private var currentAppSettings = AppSettings()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        
+
         settingsRepository = SettingsRepository(this)
         statusManager = DeviceStatusManager(this)
-        val wsTransport = WebSocketVideoTransport()
-        videoTransport = wsTransport
-        videoEncoder = VideoEncoder(videoTransport, statusManager)
-        
+
+        wsTransport = WebSocketVideoTransport()
+        videoEncoder = VideoEncoder(wsTransport, statusManager)
+        cameraController = CameraController(this, statusManager)
+
         wsTransport.setKeyframeRequestListener {
             videoEncoder.requestKeyframe()
         }
 
-        cameraController = CameraController(this, statusManager)
+        // Setup pipeline callbacks for remote/local lifecycle
+        wsTransport.setPipelineCallbacks(
+            onStartPipeline = { generation ->
+                val encoderSurface = videoEncoder.prepare(currentAppSettings)
+                cameraController.setEncoderSurface(encoderSurface)
+                videoEncoder.start()
+            },
+            onStopPipeline = { generation ->
+                videoEncoder.stop()
+                cameraController.setEncoderSurface(null)
+                wsTransport.stats.value.sequenceNumber
+            }
+        )
 
-        // Observe transport stats and state
+        // Observe settings
+        lifecycleScope.launch {
+            settingsRepository.appSettingsFlow.collect { settings ->
+                currentAppSettings = settings
+            }
+        }
+
+        // Observe transport stats, state, and stream lifecycle
         lifecycleScope.launch {
             wsTransport.stats.collect { stats ->
                 statusManager.updateStatus { it.copy(
@@ -72,8 +97,26 @@ class MainActivity : ComponentActivity() {
             wsTransport.state.collect { state ->
                 statusManager.updateStatus { it.copy(
                     transportState = state,
-                    serverConnected = state is TransportState.STREAMING
+                    serverConnected = state is TransportState.RegisteredIdle || state is TransportState.RegisteredStreaming
                 ) }
+            }
+        }
+        lifecycleScope.launch {
+            wsTransport.streamState.collect { sState ->
+                statusManager.updateStatus { it.copy(
+                    streamState = sState,
+                    encoderReady = sState == StreamState.STREAMING
+                ) }
+            }
+        }
+        lifecycleScope.launch {
+            wsTransport.streamGeneration.collect { gen ->
+                statusManager.updateStatus { it.copy(streamGeneration = gen) }
+            }
+        }
+        lifecycleScope.launch {
+            wsTransport.lifecycleController.isRemotelyInitiated.collect { remote ->
+                statusManager.updateStatus { it.copy(isRemoteStarted = remote) }
             }
         }
 
@@ -91,17 +134,23 @@ class MainActivity : ComponentActivity() {
     fun MainScreen() {
         val settings by settingsRepository.appSettingsFlow.collectAsStateWithLifecycle(initialValue = AppSettings())
         val status by statusManager.status.collectAsStateWithLifecycle()
-        val transportState by videoTransport.state.collectAsStateWithLifecycle()
-        val bytesSent by videoTransport.bytesSent.collectAsStateWithLifecycle()
-        val bitrate by videoTransport.currentBitrate.collectAsStateWithLifecycle()
+        val transportState by wsTransport.state.collectAsStateWithLifecycle()
+        val bytesSent by wsTransport.bytesSent.collectAsStateWithLifecycle()
+        val bitrate by wsTransport.currentBitrate.collectAsStateWithLifecycle()
 
-        // Sync status manager with transport and settings
+        // Sync permission status to transport
+        val hasCameraPermission = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+        wsTransport.cameraPermissionGranted = hasCameraPermission
+
+        // Sync status manager
         LaunchedEffect(transportState, bytesSent, bitrate) {
             statusManager.updateStatus { it.copy(
                 transportState = transportState,
                 bytesTransmitted = bytesSent,
                 bitrateMbps = bitrate,
-                serverConnected = transportState is net.opentkd.freeplay.network.TransportState.STREAMING
+                serverConnected = transportState is TransportState.RegisteredIdle || transportState is TransportState.RegisteredStreaming
             ) }
         }
 
@@ -125,6 +174,7 @@ class MainActivity : ComponentActivity() {
         val permissionsLauncher = rememberLauncherForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { isGranted ->
+            wsTransport.cameraPermissionGranted = isGranted
             if (!isGranted) {
                 Toast.makeText(this, "Camera permission is required", Toast.LENGTH_LONG).show()
             }
@@ -133,6 +183,8 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(Unit) {
             permissionsLauncher.launch(Manifest.permission.CAMERA)
             statusManager.checkNetworkStatus()
+            // Auto connect control WebSocket to server
+            startControlConnection(settingsRepository.appSettingsFlow.first())
         }
 
         Scaffold(
@@ -171,13 +223,11 @@ class MainActivity : ComponentActivity() {
                     modifier = screenModifier,
                     settings = settings,
                     status = status,
-                    onStartStreaming = { startStreaming(settings) },
-                    onStopStreaming = { stopStreaming() },
+                    onStartStreaming = { startStreamingLocally() },
+                    onStopStreaming = { stopStreamingLocally() },
                     onSnapshot = { takeSnapshot() },
                     onSurfaceCreated = { surface ->
-                        val encoderSurface = videoEncoder.prepare(settings)
-                        cameraController.startCamera(surface, encoderSurface)
-                        videoEncoder.start()
+                        cameraController.startCamera(surface, null)
                     }
                 )
                 1 -> StatusScreen(
@@ -193,23 +243,31 @@ class MainActivity : ComponentActivity() {
                 3 -> SettingsScreen(
                     modifier = screenModifier,
                     settings = settings,
-                    onSettingsChanged = { lifecycleScope.launch { settingsRepository.updateSettings(it) } }
+                    onSettingsChanged = { updated ->
+                        lifecycleScope.launch { settingsRepository.updateSettings(updated) }
+                    }
                 )
             }
         }
     }
 
-    private fun startStreaming(settings: AppSettings) {
+    private fun startControlConnection(settings: AppSettings) {
         lifecycleScope.launch {
-            videoTransport.connect(settings)
+            CameraStreamService.startService(this@MainActivity)
+            wsTransport.connect(settings)
             statusManager.startSession()
         }
     }
 
-    private fun stopStreaming() {
+    private fun startStreamingLocally() {
         lifecycleScope.launch {
-            videoTransport.disconnect()
-            statusManager.stopSession()
+            wsTransport.startStreamingLocally()
+        }
+    }
+
+    private fun stopStreamingLocally() {
+        lifecycleScope.launch {
+            wsTransport.stopStreamingLocally()
         }
     }
 
@@ -231,5 +289,6 @@ class MainActivity : ComponentActivity() {
         cameraController.stopCamera()
         videoEncoder.stop()
         statsJob?.cancel()
+        CameraStreamService.stopService(this)
     }
 }

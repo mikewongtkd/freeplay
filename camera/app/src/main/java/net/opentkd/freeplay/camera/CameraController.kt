@@ -22,7 +22,7 @@ class CameraController(
     }
 
     @SuppressLint("MissingPermission")
-    fun startCamera(previewSurface: Surface, encoderSurface: Surface) {
+    fun startCamera(previewSurface: Surface, encoderSurface: Surface? = null) {
         this.previewSurface = previewSurface
         this.encoderSurface = encoderSurface
 
@@ -37,6 +37,7 @@ class CameraController(
                 override fun onDisconnected(camera: CameraDevice) {
                     camera.close()
                     cameraDevice = null
+                    statusManager.updateStatus { it.copy(cameraReady = false) }
                 }
 
                 override fun onError(camera: CameraDevice, error: Int) {
@@ -47,6 +48,14 @@ class CameraController(
             }, null)
         } catch (e: Exception) {
             Log.e(TAG, "Error opening camera", e)
+            statusManager.updateStatus { it.copy(cameraReady = false) }
+        }
+    }
+
+    fun setEncoderSurface(encoderSurface: Surface?) {
+        this.encoderSurface = encoderSurface
+        if (cameraDevice != null) {
+            createCaptureSession()
         }
     }
 
@@ -59,39 +68,55 @@ class CameraController(
 
     private fun createCaptureSession() {
         val device = cameraDevice ?: return
-        val surfaces = listOf(previewSurface!!, encoderSurface!!)
+        val preview = previewSurface ?: return
 
-        device.createCaptureSession(surfaces, object : CameraCaptureSession.StateCallback() {
-            override fun onConfigured(session: CameraCaptureSession) {
-                captureSession = session
-                try {
-                    val builder = device.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
-                    builder.addTarget(previewSurface!!)
-                    builder.addTarget(encoderSurface!!)
-                    
-                    // Enable continuous autofocus
-                    builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
-                    
-                    session.setRepeatingRequest(builder.build(), null, null)
-                    statusManager.updateStatus { it.copy(cameraReady = true) }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error starting capture request", e)
+        val surfaces = mutableListOf<Surface>(preview)
+        encoderSurface?.let { surfaces.add(it) }
+
+        try {
+            captureSession?.close()
+            captureSession = null
+
+            device.createCaptureSession(surfaces, object : CameraCaptureSession.StateCallback() {
+                override fun onConfigured(session: CameraCaptureSession) {
+                    captureSession = session
+                    try {
+                        val builder = device.createCaptureRequest(CameraDevice.TEMPLATE_RECORD)
+                        builder.addTarget(preview)
+                        encoderSurface?.let { builder.addTarget(it) }
+
+                        builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_VIDEO)
+
+                        session.setRepeatingRequest(builder.build(), null, null)
+                        statusManager.updateStatus { it.copy(cameraReady = true) }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error starting capture request", e)
+                        statusManager.updateStatus { it.copy(cameraReady = false) }
+                    }
                 }
-            }
 
-            override fun onConfigureFailed(session: CameraCaptureSession) {
-                Log.e(TAG, "Session configuration failed")
-                statusManager.updateStatus { it.copy(cameraReady = false) }
-            }
-        }, null)
+                override fun onConfigureFailed(session: CameraCaptureSession) {
+                    Log.e(TAG, "Session configuration failed")
+                    statusManager.updateStatus { it.copy(cameraReady = false) }
+                }
+            }, null)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error creating capture session", e)
+            statusManager.updateStatus { it.copy(cameraReady = false) }
+        }
     }
 
     fun stopCamera() {
-        captureSession?.stopRepeating()
-        captureSession?.close()
-        captureSession = null
-        cameraDevice?.close()
-        cameraDevice = null
-        statusManager.updateStatus { it.copy(cameraReady = false) }
+        try {
+            captureSession?.stopRepeating()
+            captureSession?.close()
+            captureSession = null
+            cameraDevice?.close()
+            cameraDevice = null
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping camera", e)
+        } finally {
+            statusManager.updateStatus { it.copy(cameraReady = false) }
+        }
     }
 }

@@ -40,31 +40,29 @@ class VideoEncoder(
 
         statusManager.updateStatus { it.copy(
             encoderName = encoderInfo.name,
-            isHardwareAccelerated = encoderInfo.isHardwareAccelerated,
+            isHardwareAccelerated = EncoderCapabilities.isHardware(encoderInfo),
             resolution = "${settings.resolution} @ ${settings.frameRate}fps"
         ) }
 
         transport.setEncoderName(encoderInfo.name)
 
         val parts = settings.resolution.split("x")
-        val width = parts[0].toInt()
-        val height = parts[1].toInt()
+        val width = parts.getOrNull(0)?.toIntOrNull() ?: 1920
+        val height = parts.getOrNull(1)?.toIntOrNull() ?: 1080
 
         val format = MediaFormat.createVideoFormat(MIME_TYPE, width, height).apply {
             setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface)
             setInteger(MediaFormat.KEY_BIT_RATE, settings.bitrate)
             setInteger(MediaFormat.KEY_FRAME_RATE, settings.frameRate)
             setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, settings.keyframeInterval)
-            // Some devices need this for high profile
-            // setInteger(MediaFormat.KEY_PROFILE, MediaCodecInfo.CodecProfileLevel.AVCProfileHigh)
-            // setInteger(MediaFormat.KEY_LEVEL, MediaCodecInfo.CodecProfileLevel.AVCLevel41)
         }
 
-        mediaCodec = MediaCodec.createByCodecName(encoderInfo.name).apply {
+        val codec = MediaCodec.createByCodecName(encoderInfo.name).apply {
             setCallback(createCallback())
             configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE)
-            inputSurface = createInputSurface()
         }
+        inputSurface = codec.createInputSurface()
+        mediaCodec = codec
 
         return inputSurface!!
     }
@@ -77,13 +75,22 @@ class VideoEncoder(
     }
 
     fun stop() {
-        mediaCodec?.stop()
-        mediaCodec?.release()
+        try {
+            mediaCodec?.stop()
+        } catch (e: Exception) {
+            Log.w(TAG, "Exception during mediaCodec.stop()", e)
+        }
+        try {
+            mediaCodec?.release()
+        } catch (e: Exception) {
+            Log.w(TAG, "Exception during mediaCodec.release()", e)
+        }
         mediaCodec = null
         inputSurface?.release()
         inputSurface = null
         handlerThread?.quitSafely()
         handlerThread = null
+        currentCodecConfig = null
         statusManager.updateStatus { it.copy(encoderReady = false) }
     }
 
@@ -111,7 +118,7 @@ class VideoEncoder(
                 val data = ByteArray(info.size)
                 outputBuffer.position(info.offset)
                 outputBuffer.get(data)
-                
+
                 AvcNormalization.parseCombined(data)?.let { (sps, pps) ->
                     val config = AvcCodecConfig(sps, pps, info.presentationTimeUs)
                     if (config != currentCodecConfig) {
@@ -123,25 +130,22 @@ class VideoEncoder(
                 codec.releaseOutputBuffer(index, false)
                 return
             }
-            
-            // Handle keyframe count
+
             if ((info.flags and MediaCodec.BUFFER_FLAG_KEY_FRAME) != 0) {
                 statusManager.updateStatus { it.copy(keyframeCount = it.keyframeCount + 1) }
             }
 
-            // Update stats
             statusManager.updateStatus { it.copy(
                 frameCount = it.frameCount + 1,
                 bytesTransmitted = it.bytesTransmitted + info.size
             ) }
 
-            // Copy the data to allow immediate release of the MediaCodec buffer
             val data = ByteArray(info.size)
             outputBuffer.position(info.offset)
             outputBuffer.get(data, 0, info.size)
-            
+
             val bufferCopy = ByteBuffer.wrap(data)
-            
+
             val infoCopy = MediaCodec.BufferInfo().apply {
                 set(0, info.size, info.presentationTimeUs, info.flags)
             }
@@ -160,21 +164,21 @@ class VideoEncoder(
 
         override fun onOutputFormatChanged(codec: MediaCodec, format: MediaFormat) {
             Log.d(TAG, "Output Format Changed: $format")
-            
+
             val spsBuffer = format.getByteBuffer("csd-0")
             val ppsBuffer = format.getByteBuffer("csd-1")
-            
+
             if (spsBuffer != null && ppsBuffer != null) {
                 val sps = ByteArray(spsBuffer.remaining())
                 spsBuffer.get(sps)
                 val pps = ByteArray(ppsBuffer.remaining())
                 ppsBuffer.get(pps)
-                
+
                 val config = AvcCodecConfig(
                     AvcNormalization.stripStartCode(sps),
                     AvcNormalization.stripStartCode(pps)
                 )
-                
+
                 if (config != currentCodecConfig) {
                     currentCodecConfig = config
                     transport.updateCodecConfig(config)
