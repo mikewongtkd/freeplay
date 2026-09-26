@@ -3,11 +3,12 @@
     <div class="mcv-grid col-lg-10 col-12">
       <?php for ($camera = 1; $camera <= 3; $camera++): ?>
         <article class="video-tile camera-tile" data-camera-tile="<?= $camera ?>" tabindex="0" role="button" aria-label="Open Camera <?= $camera ?> in Single Camera View">
-          <div class="simulated-video camera-scene camera-scene-<?= $camera ?>">
+          <div id="mcvScene<?= $camera ?>" class="simulated-video camera-scene camera-scene-<?= $camera ?>">
+            <video id="mcvMedia<?= $camera ?>" class="camera-media mcv-media" muted playsinline preload="none" aria-label="Camera <?= $camera ?> live replay"></video>
             <div class="camera-label"><strong>CAM <?= $camera ?></strong><span data-camera-name="<?= $camera ?>">Camera <?= $camera ?></span></div>
             <span class="camera-state badge" data-camera-state="<?= $camera ?>">LOADING</span>
             <div class="camera-action"><span class="fighter fighter-hong"></span><span class="fighter fighter-chung"></span></div>
-            <div class="unavailable-overlay" data-camera-unavailable="<?= $camera ?>"><i class="fa-solid fa-video-slash"></i><strong>No video available</strong><span>Camera unavailable at this time</span></div>
+            <div class="unavailable-overlay" data-camera-unavailable="<?= $camera ?>"><i class="fa-solid fa-video-slash" data-camera-unavailable-icon="<?= $camera ?>"></i><strong data-camera-unavailable-title="<?= $camera ?>">No video available</strong><span data-camera-unavailable-detail="<?= $camera ?>">Camera unavailable at this time</span></div>
             <div class="video-timecode" data-video-time="<?= $camera ?>">--:--:--.---</div>
           </div>
         </article>

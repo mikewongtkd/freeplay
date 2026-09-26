@@ -65,6 +65,18 @@ test('SCV Go Live continuously polls and bounds its MSE buffer', () => {
   assert.match(media, /this\.loadedFragments\.has\(fragmentKey\)/);
 });
 
+test('MCV Go Live uses independent players with bounded drift correction', () => {
+  const app = read('assets/js/app.js');
+  const view = read('views/mcv.php');
+  const coordinator = read('assets/js/mcv-live-controller.js');
+  assert.match(view, /id="mcvMedia<\?= \$camera \?>"/);
+  assert.match(app, /new McvLiveController\(mcvEntries/);
+  assert.match(app, /mcvLiveController\.start\(state\.liveEdge/);
+  assert.match(coordinator, /Promise\.allSettled\(jobs\)/);
+  assert.match(coordinator, /controller\.synchronizeTo\(target\)/);
+  assert.match(coordinator, /SYNC_INTERVAL_MS = 1000/);
+});
+
 test('pending review selection is locked while another review is active', () => {
   const controller = read('assets/js/review-controller.js');
   const app = read('assets/js/app.js');

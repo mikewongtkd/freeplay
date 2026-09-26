@@ -19,7 +19,7 @@ http://localhost:8080/review/?ring=1
 
 All browser dependencies are stored in `public/vendor`; internet access is not required.
 
-The browser defaults to the replay service at `http(s)://SERVER_IP:9000/api/ivr/v1`. Set `replayApiBase` in `config/prototype.php` when a reverse proxy publishes it elsewhere. Start a camera, wait for a codec configuration and completed GOP, open SCV, and select/seek the camera to load real replay media. **Go Live** starts near the newest completed GOP, polls for subsequent GOPs, appends them to the active MSE buffer, and evicts media older than 30 seconds. A descriptive overlay and status error are shown if the range is not retained or Chrome rejects the codec.
+The browser defaults to the replay service at `http(s)://SERVER_IP:9000/api/ivr/v1`. Set `replayApiBase` in `config/prototype.php` when a reverse proxy publishes it elsewhere. Start cameras and wait for codec configurations plus completed GOPs. In SCV and MCV, **Go Live** starts near each camera's newest completed GOP, polls for subsequent GOPs, appends them to bounded MSE buffers, and evicts media older than 30 seconds. MCV loads available cameras independently and corrects inter-camera playback drift without stopping healthy views. A descriptive per-camera overlay is shown if a range is not retained or Chrome rejects a codec.
 
 ## Architecture
 
@@ -37,7 +37,7 @@ The browser defaults to the replay service at `http(s)://SERVER_IP:9000/api/ivr/
 
 The prototype review workflow distinguishes displayed, selected, and active reviews. Multiple Chung/Hong requests may remain pending concurrently, only one may be selected or active for a ring, and pending selection is locked until the active result is recorded. Review Window bounds are supplied by prototype ruleset configuration rather than calculated by the browser. Completing a formal review restores the live timeline and releases the pending queue.
 
-- Exactly three synchronized camera placeholders in a 2×2 MCV; request/review controls occupy the fourth quadrant.
+- Three synchronized live camera players in a 2×2 MCV; request/review controls occupy the fourth quadrant and unavailable cameras degrade independently.
 - SCV camera switching without changing the common playback cursor or review state.
 - Chung Review Request and Hong Review Request with five-second coach Review Windows.
 - Separate Request Mark and Start Review actions.
@@ -82,7 +82,7 @@ Open **Settings** (gear icon) to load scenarios. Scenario loading resets the pro
 
 ## Intentionally mocked or non-production
 
-- MCV camera imagery remains a CSS-rendered placeholder; real H.264/fMP4 playback is currently connected in SCV.
+- CSS-rendered camera placeholders remain as fallback imagery when real H.264/fMP4 media has not loaded.
 - Reverse playback remains a logical simulation; positive-rate SCV playback, seeking, and frame stepping use the HTML media element when retained media is loaded.
 - Match, camera, sync, gaps, and PSSEL events are fixtures.
 - PHP session storage is per-browser and is not an authoritative audit database.
