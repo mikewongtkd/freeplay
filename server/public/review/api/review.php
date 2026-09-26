@@ -57,7 +57,7 @@ if ($action === 'create-request') {
         'id' => $id, 'ring' => $ring, 'side' => $side, 'origin' => $origin, 'issueType' => $issueType, 'reason' => $reason,
         'isCoachRequest' => $isCoach, 'rm' => $now['epochSeconds'], 'rmEpochUs' => $now['epochUs'],
         'windowStart' => $now['epochSeconds'] - $duration, 'windowEnd' => $now['epochSeconds'], 'windowDurationSeconds' => $duration,
-        'aur' => null, 'rst' => null, 'decisionAt' => null, 'result' => null,
+        'aur' => null, 'aurHistory' => [], 'rst' => null, 'decisionAt' => null, 'result' => null,
         'status' => $hasOpenRequest ? 'pending' : 'selected', 'issues' => $issues ?: [$reason],
         'linkedReviewId' => $body['linkedReviewId'] ?? null, 'annotation' => [],
     ];
@@ -88,6 +88,10 @@ switch ($action) {
         break;
     case 'mark-aur':
         if (!in_array($review['status'], ['active', 'completed'], true)) ivr_json(['ok' => false, 'error' => ['code' => 'invalid_state', 'message' => 'Start review before marking AUR.']], 409);
+        if (($review['aur'] ?? null) !== null) {
+            $review['aurHistory'] ??= [];
+            $review['aurHistory'][] = ['aur' => $review['aur'], 'replacedAt' => $now['epochSeconds'], 'replacedAtEpochUs' => $now['epochUs']];
+        }
         $review['aur'] = (float) ($body['time'] ?? $now['epochSeconds']);
         $review['aurOutsideWindow'] = $review['isCoachRequest'] && ($review['aur'] < $review['windowStart'] || $review['aur'] > $review['windowEnd']);
         break;

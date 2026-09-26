@@ -49,6 +49,27 @@
   </form></div>
 </div>
 
+<div class="modal fade" id="replaceAurModal" tabindex="-1" aria-labelledby="replaceAurTitle" aria-describedby="replaceAurDescription" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered"><form id="replaceAurForm" class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title fs-5" id="replaceAurTitle"><i class="fa-solid fa-triangle-exclamation text-warning me-2"></i>Replace existing AUR?</h2>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancel AUR replacement"></button>
+    </div>
+    <div class="modal-body">
+      <p id="replaceAurDescription">This review already has an Action Under Review marker. Confirm that you intend to replace it with the current playback position.</p>
+      <dl class="row mb-0 small">
+        <dt class="col-5">Existing AUR</dt><dd id="replaceAurExisting" class="col-7 text-end font-monospace">—</dd>
+        <dt class="col-5">New AUR</dt><dd id="replaceAurNew" class="col-7 text-end font-monospace">—</dd>
+      </dl>
+    </div>
+    <div class="modal-footer">
+      <span class="small text-secondary me-auto"><kbd>Esc</kbd> cancel · <kbd>Enter</kbd> replace</span>
+      <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+      <button id="replaceAurConfirm" type="submit" class="btn btn-warning"><i class="fa-solid fa-thumbtack"></i> Replace AUR</button>
+    </div>
+  </form></div>
+</div>
+
 <div class="offcanvas offcanvas-end" tabindex="-1" id="developerPanel" aria-labelledby="developerTitle">
   <div class="offcanvas-header"><div><h2 class="offcanvas-title fs-5" id="developerTitle">Prototype scenarios</h2><div class="small text-secondary">Mock data and workflow controls</div></div><button class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
   <div class="offcanvas-body">

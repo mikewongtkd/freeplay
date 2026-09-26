@@ -43,7 +43,7 @@ The prototype review workflow distinguishes displayed, selected, and active revi
 - Separate Request Mark and Start Review actions.
 - RST-driven advisory response clock: blue 0–10 s, green 10–20 s, yellow 20–30 s, red after 30 s.
 - Mutually exclusive disposition controls: Resolved without Review before Start Review; Accepted, Rejected, and Rejected: IVR Issue during formal review.
-- AUR marking with a visible warning—but no prohibition—outside a coach window.
+- AUR marking with a visible warning—but no prohibition—outside a coach window. Replacing an existing AUR requires confirmation (Escape cancels; Enter replaces) and preserves the prior mark in replacement history.
 - Shared seek, frame-step, reverse 0.5×, forward 0.5×/1×/2×/5×, window/AUR jumps, and Go Live controls.
 - SCV fit, zoom, focal-point click, camera navigation, and fullscreen controls.
 - Previous/next pending-review navigation, locked while a formal review is active, with immutable finalized timestamps and results in the normal UI.

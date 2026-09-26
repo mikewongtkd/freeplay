@@ -64,6 +64,27 @@ function statusClass(camera) { return cameraAtCursor(camera) ? 'text-bg-success'
 function statusLabel(camera) { return cameraAtCursor(camera) ? 'AVAILABLE' : camera.available ? 'GAP' : 'UNAVAILABLE'; }
 function toast(message, tone = 'primary') { const id = `toast-${Date.now()}`; $('#toastRegion').append(`<div id="${id}" class="toast show border-${tone}" role="status"><div class="toast-body d-flex justify-content-between gap-3"><span>${$('<div>').text(message).html()}</span><button class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button></div></div>`); setTimeout(() => $(`#${id}`).remove(), 4500); }
 
+let aurConfirmationPending = false;
+function confirmAurReplacement(review, replacementTime) {
+  if (aurConfirmationPending) return Promise.resolve(false);
+  const element = document.getElementById('replaceAurModal'), form = document.getElementById('replaceAurForm'), confirm = document.getElementById('replaceAurConfirm');
+  if (!element || !form || !confirm) return Promise.resolve(false);
+  aurConfirmationPending = true;
+  setText('#replaceAurExisting', formatTime(review.aur)); setText('#replaceAurNew', formatTime(replacementTime));
+  const modal = bootstrap.Modal.getOrCreateInstance(element);
+  return new Promise(resolve => {
+    let settled = false;
+    const cleanup = () => { form.removeEventListener('submit', submit); element.removeEventListener('hidden.bs.modal', hidden); element.removeEventListener('shown.bs.modal', shown); element.removeEventListener('keydown', keydown); };
+    const finish = accepted => { if (settled) return; settled = true; aurConfirmationPending = false; cleanup(); resolve(accepted); };
+    const submit = event => { event.preventDefault(); finish(true); modal.hide(); };
+    const hidden = () => finish(false);
+    const shown = () => confirm.focus();
+    const keydown = event => { if (event.key !== 'Enter') return; event.preventDefault(); form.requestSubmit(confirm); };
+    form.addEventListener('submit', submit); element.addEventListener('hidden.bs.modal', hidden); element.addEventListener('shown.bs.modal', shown); element.addEventListener('keydown', keydown);
+    modal.show();
+  });
+}
+
 function renderHeaderStructure() {
   setText('#headerRing', `Ring ${state.ring}`); setText('#headerDivision', state.match?.division || 'Prototype match'); setText('#headerStage', state.match?.stage || '');
 }
@@ -311,7 +332,11 @@ async function dispatch(action, element) {
     case 'previous-review': reviewController.previous(); break; case 'next-review': reviewController.next(); break;
     case 'seek': playbackController.seekRelative(Number(element.dataset.seconds)); break; case 'step-frame': playbackController.stepFrame(Number(element.dataset.direction)); break;
     case 'play-pause': playbackController.playPause(); break; case 'set-rate': playbackController.setRate(Number(element.dataset.rate)); break;
-    case 'mark-aur': await reviewController.markAUR(); if (!selectedReview()?.rst) toast('Start a formal review before marking AUR.', 'warning'); break;
+    case 'mark-aur': {
+      const review = activeReview() || selectedReview(), replacementTime = state.playbackCursor;
+      if (review?.aur != null && !await confirmAurReplacement(review, replacementTime)) break;
+      await reviewController.markAUR(replacementTime); if (!selectedReview()?.rst) toast('Start a formal review before marking AUR.', 'warning'); break;
+    }
     case 'jump-window': reviewController.jumpWindow(); break; case 'jump-aur': reviewController.jumpAur(); break; case 'go-live': playbackController.goLive(); break;
     case 'fit': playbackController.fit(); break; case 'zoom': playbackController.zoom(Number(element.dataset.delta)); break;
     case 'pan': playbackController.pan(Number(element.dataset.x), Number(element.dataset.y)); break;

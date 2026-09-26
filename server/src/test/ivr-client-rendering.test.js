@@ -84,3 +84,15 @@ test('pending review selection is locked while another review is active', () => 
   assert.match(app, /data-action="select-review"/);
   assert.match(app, /const locked = !!state\.activeReviewId/);
 });
+
+test('replacing an AUR requires keyboard-accessible confirmation', () => {
+  const app = read('assets/js/app.js');
+  const keyboard = read('assets/js/keyboard-controller.js');
+  const modals = read('includes/modals.php');
+  assert.match(app, /review\?\.aur != null && !await confirmAurReplacement/);
+  assert.match(app, /event\.key !== 'Enter'/);
+  assert.match(app, /hidden\.bs\.modal/);
+  assert.match(keyboard, /data-action="mark-aur"/);
+  assert.match(modals, /id="replaceAurModal"/);
+  assert.match(modals, /<kbd>Esc<\/kbd> cancel · <kbd>Enter<\/kbd> replace/);
+});
