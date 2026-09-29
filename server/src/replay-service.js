@@ -30,12 +30,13 @@ function asBigInt(value, fallback = 0n) {
 }
 
 class ReplayService {
-  constructor({db, liveStreams, root, videoDir, camerasPerRing = 3}) {
+  constructor({db, liveStreams, root, videoDir, camerasPerRing = 3, streamControl = null}) {
     this.db = db;
     this.liveStreams = liveStreams;
     this.root = path.resolve(root);
     this.videoDir = path.resolve(videoDir);
     this.camerasPerRing = camerasPerRing;
+    this.streamControl = streamControl;
     this.tokens = new Map();
     this.diskQuery = db.prepare(`
       SELECT g.*, f.path, f.complete AS file_complete,
@@ -151,10 +152,10 @@ class ReplayService {
   async handle(req, res, url) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     if (req.method === 'OPTIONS' && url.pathname.startsWith(API_PREFIX)) {
-      res.statusCode = 204; res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS'); res.end(); return true;
+      res.statusCode = 204; res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS'); res.setHeader('Access-Control-Allow-Headers','Content-Type, Idempotency-Key'); res.end(); return true;
     }
     if (req.method === 'GET' && url.pathname === `${API_PREFIX}/capabilities`) {
-      json(res, 200, {ok:true, apiVersion:'1', serverTimeEpochUs:String(BigInt(Date.now()) * 1000n), features:{multiCameraReplay:false, adjacentRanges:false, reviewPersistence:false, pssel:false}, media:{container:'video/mp4', codec:'avc1', transport:'http-fmp4-mse'}, limits:{maximumRangeSeconds:60}});
+      json(res, 200, {ok:true, apiVersion:'1', serverTimeEpochUs:String(BigInt(Date.now()) * 1000n), features:{multiCameraReplay:false, adjacentRanges:false, reviewPersistence:false, pssel:false,remoteStreamingControl:Boolean(this.streamControl),cameraStateEvents:Boolean(this.streamControl)}, media:{container:'video/mp4', codec:'avc1', transport:'http-fmp4-mse'}, control:{eventWebSocketPath:'/ivr'}, limits:{maximumRangeSeconds:60}});
       return true;
     }
     if (req.method === 'GET' && url.pathname === `${API_PREFIX}/replay`) {
@@ -166,6 +167,20 @@ class ReplayService {
         apiError(res, status, error.code || 'replay_lookup_failed', status >= 500 ? 'Replay lookup failed.' : error.message);
       }
       return true;
+    }
+    if (this.streamControl && req.method === 'GET' && url.pathname === `${API_PREFIX}/cameras`) {
+      const ringValue=url.searchParams.get('ring'), ring=ringValue==null?null:Number(ringValue);
+      if(ring!==null&&(!Number.isInteger(ring)||ring<1||ring>14)){apiError(res,400,'invalid_request','ring is invalid.');return true;}
+      json(res,200,{ok:true,cameras:this.streamControl.list({ring}),serverTimeEpochUs:String(BigInt(Date.now())*1000n)});return true;
+    }
+    const cameraMatch=url.pathname.match(new RegExp(`^${API_PREFIX}/cameras/(\\d+)/(\\d+)$`));
+    if(this.streamControl&&req.method==='GET'&&cameraMatch){const ring=Number(cameraMatch[1]),camera=Number(cameraMatch[2]),view=this.streamControl.get(`ring${ring}_cam${camera}`);if(!view){apiError(res,404,'camera_unknown','Camera is unknown or disconnected.');return true;}json(res,200,{ok:true,camera:view});return true;}
+    const controlMatch=url.pathname.match(new RegExp(`^${API_PREFIX}/cameras/(\\d+)/(\\d+)/stream$`));
+    if(this.streamControl&&req.method==='POST'&&controlMatch){
+      try{const body=await readJson(req);const requestId=body.requestId??req.headers['idempotency-key']??null;const result=this.streamControl.issue({ring:Number(controlMatch[1]),camera:Number(controlMatch[2]),desired:body.desired,requestId});
+        if(result.alreadyInDesiredState){json(res,200,{accepted:true,alreadyInDesiredState:true,...result.view});return true;}
+        json(res,result.status,{accepted:true,replayed:result.replayed===true,...this.streamControl.publicCommand(result.command),streamId:result.command.streamId,streamState:result.command.state});
+      }catch(error){apiError(res,error.status||500,error.code||'internal_error',(error.status||500)>=500?'Camera control request failed.':error.message);}return true;
     }
     const match = req.method === 'GET' && url.pathname.match(new RegExp(`^${API_PREFIX}/media/([A-Za-z0-9_-]+)$`));
     if (!match) { apiError(res, 404, 'not_found', 'Unknown IVR API resource.'); return true; }
@@ -186,6 +201,10 @@ class ReplayService {
     } catch (_) { apiError(res, 404, 'media_unavailable', 'The requested media file is unavailable.'); }
     return true;
   }
+}
+
+function readJson(req) {
+  return new Promise((resolve,reject)=>{let bytes=0,chunks=[];req.on('data',chunk=>{bytes+=chunk.length;if(bytes>16384){reject(Object.assign(new Error('Request body is too large.'),{status:400,code:'invalid_request'}));req.destroy();return;}chunks.push(chunk);});req.on('end',()=>{try{const text=Buffer.concat(chunks).toString('utf8');const body=text?JSON.parse(text):{};if(!body||typeof body!=='object'||Array.isArray(body))throw new Error('body');resolve(body);}catch(_){reject(Object.assign(new Error('Request body must be valid JSON.'),{status:400,code:'invalid_request'}));}});req.on('error',reject);});
 }
 
 module.exports = {ReplayService, codecString, API_PREFIX};

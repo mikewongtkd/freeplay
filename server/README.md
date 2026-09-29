@@ -21,6 +21,10 @@ php -S 0.0.0.0:80 -t public
 
 Cameras connect to `ws://SERVER_IP:9000`. Node endpoints include `GET /health`, `GET /api/live`, and the versioned IVR media API under `/api/ivr/v1`. PHP APIs live under `/api/*.php`.
 
+Updated cameras may connect at either `/` (backward compatible) or `/ingest` and advertise `capabilities.remoteStreamingControl`. Camera control and media state are separate, so a registered camera can remain connected while its encoder is idle. IVR clients can query `GET /api/ivr/v1/cameras` (optionally `?ring=N`), query one camera at `GET /api/ivr/v1/cameras/{ring}/{camera}`, and request a transition with `POST /api/ivr/v1/cameras/{ring}/{camera}/stream` using `{"desired":true|false,"requestId":"optional-idempotency-key"}`. Normalized state events are available from `ws://SERVER_IP:9000/ivr`; that socket is subscription-only.
+
+The prototype control API has rate limiting, strict target/message validation, command correlation, bounded timeouts, idempotency, and SQLite audit records, but it does not yet authenticate operators or provide TLS. Deploy it only on the trusted tournament network until an authenticated reverse proxy or equivalent authorization layer is configured.
+
 For the first IVR media milestone, request a single-camera manifest with `GET /api/ivr/v1/replay?ring=1&camera=1&timeEpochUs=<epoch-us>&beforeSeconds=5&afterSeconds=5`. The response contains opaque fMP4 initialization and fragment URLs suitable for Chrome Media Source Extensions. It resolves both the bounded live RAM cache and indexed disk recordings without exposing storage paths. `GET /api/ivr/v1/capabilities` describes the currently implemented production features.
 
 ## Ingestion validation
