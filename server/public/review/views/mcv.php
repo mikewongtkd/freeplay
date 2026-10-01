@@ -7,6 +7,7 @@
             <video id="mcvMedia<?= $camera ?>" class="camera-media mcv-media" muted playsinline preload="none" aria-label="Camera <?= $camera ?> live replay"></video>
             <div class="camera-label"><strong>CAM <?= $camera ?></strong><span data-camera-name="<?= $camera ?>">Camera <?= $camera ?></span></div>
             <span class="camera-state badge" data-camera-state="<?= $camera ?>">LOADING</span>
+            <button type="button" class="btn btn-sm camera-stream-control d-none" data-action="toggle-camera-stream" data-camera-stream-control="<?= $camera ?>" aria-label="Start Camera <?= $camera ?> stream"><i class="fa-solid fa-video"></i><span>Start Stream</span></button>
             <div class="camera-action"><span class="fighter fighter-hong"></span><span class="fighter fighter-chung"></span></div>
             <div class="unavailable-overlay" data-camera-unavailable="<?= $camera ?>"><i class="fa-solid fa-video-slash" data-camera-unavailable-icon="<?= $camera ?>"></i><strong data-camera-unavailable-title="<?= $camera ?>">No video available</strong><span data-camera-unavailable-detail="<?= $camera ?>">Camera unavailable at this time</span></div>
             <div class="video-timecode" data-video-time="<?= $camera ?>">--:--:--.---</div>

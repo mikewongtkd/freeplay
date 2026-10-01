@@ -34,6 +34,7 @@ function positive(value, name) {
 }
 
 function validateHello(o, options = {}) {
+  console.log( `validateHello: ${JSON.stringify(o)}` ); // MW
   if (!o || typeof o !== 'object' || Array.isArray(o)) throw new ProtocolError('invalid_hello', 'hello must be a JSON object');
   if (o.type !== 'hello') throw new ProtocolError('expected_hello', 'First message must be hello');
   if (o.protocol !== 'freeplay-ingest') throw new ProtocolError('unsupported_protocol', 'protocol must be freeplay-ingest');

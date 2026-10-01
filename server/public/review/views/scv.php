@@ -23,6 +23,8 @@
           <button class="btn btn-outline-secondary" data-action="next-camera" aria-label="Next camera"><i class="fa-solid fa-chevron-right"></i></button>
         </div>
         <button class="btn btn-outline-primary w-100" data-action="show-mcv" aria-label="Multi-Camera View"><i class="fa-solid fa-columns"></i> Multi-Camera View</button>
+        <button id="scvStreamControl" type="button" class="btn btn-success w-100 mt-2 d-none" data-action="toggle-camera-stream" aria-label="Start selected camera stream"><i class="fa-solid fa-video"></i> <span>Start Camera Stream</span></button>
+        <div id="scvStreamControlStatus" class="camera-control-status mt-2 d-none" aria-live="polite"></div>
       </div>
       <div id="scvReviewPanel"></div>
       <div class="panel-section scv-working-notes">

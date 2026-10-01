@@ -11,6 +11,7 @@ import {serverClock} from './server-clock.js';
 import {notificationController} from './notification-controller.js';
 import {MediaController} from './media-controller.js';
 import {McvLiveController} from './mcv-live-controller.js';
+import {StreamControlClient} from './stream-control-client.js';
 
 const $ = window.jQuery;
 const resultLabels = {accepted: 'Accepted', rejected: 'Rejected', ivr_issue: 'Rejected: IVR Issue', resolved_without_review: 'Resolved without Review'};
@@ -22,6 +23,7 @@ let renderedPlaybackRate = null;
 let renderedPlaying = null;
 let renderedClockClass = null;
 let mcvDriftMs = 0;
+let streamControlClient = null;
 const mcvMediaStates = new Map([1, 2, 3].map(camera => [camera, {status:'idle', error:null}]));
 const mediaController = new MediaController({
   video: document.getElementById('scvMedia'),
@@ -129,6 +131,51 @@ function updateCameraValues() {
   setClass('#scvUnavailableIcon', `fa-solid fa-${state.mediaLoading ? 'spinner fa-spin' : 'video-slash'}`);
   setText('#scvUnavailableTitle', state.mediaLoading ? 'Loading replay' : state.mediaError ? 'Replay unavailable' : 'No video available');
   setText('#scvUnavailableDetail', state.mediaLoading ? 'Retrieving retained camera media…' : state.mediaError || 'Choose another camera');
+  updateStreamControlValues();
+}
+
+function streamControlPresentation(camera) {
+  const control = camera?.streamControl;
+  if (!control?.connected || !control.remoteControlEnabled) return {visible:false};
+  const transition = ['starting','stopping'].includes(control.streamState);
+  const desired = !['streaming','stopping'].includes(control.streamState);
+  const supported = desired ? control.remoteStartSupported : control.remoteStopSupported;
+  if (!supported) return {visible:false};
+  if (control.streamState === 'starting') return {visible:true,disabled:true,desired:true,label:'Starting…',icon:'spinner fa-spin',tone:'warning'};
+  if (control.streamState === 'stopping') return {visible:true,disabled:true,desired:false,label:'Stopping…',icon:'spinner fa-spin',tone:'warning'};
+  if (control.streamState === 'streaming') return {visible:true,disabled:transition,desired:false,label:'Stop Stream',icon:'stop',tone:'danger'};
+  return {visible:true,disabled:transition,desired:true,label:'Start Stream',icon:'video',tone:'success'};
+}
+
+function updateStreamControlButton(node, camera) {
+  if (!node) return;
+  const view = streamControlPresentation(camera), $node = $(node);
+  $node.toggleClass('d-none', !view.visible);
+  if (!view.visible) return;
+  node.dataset.camera = camera.id; node.dataset.desired = String(view.desired); node.disabled = view.disabled;
+  node.classList.remove('btn-success','btn-danger','btn-warning'); node.classList.add(`btn-${view.tone}`);
+  const icon = node.querySelector('i'), label = node.querySelector('span');
+  if (icon) icon.className = `fa-solid fa-${view.icon}`;
+  if (label) label.textContent = view.label;
+  node.setAttribute('aria-label', `${view.label} for Camera ${camera.id}`);
+}
+
+function updateStreamControlValues() {
+  state.cameras.forEach(camera => updateStreamControlButton(document.querySelector(`[data-camera-stream-control="${camera.id}"]`), camera));
+  const selected = state.cameras.find(camera => camera.id === state.selectedCamera) || state.cameras[0];
+  updateStreamControlButton(document.getElementById('scvStreamControl'), selected);
+  const status = document.getElementById('scvStreamControlStatus'), control = selected?.streamControl;
+  if (!status) return;
+  const text = !control ? 'Camera connection state unavailable.' : !control.connected ? 'Camera disconnected.' : !control.remoteControlEnabled ? 'Remote control is disabled on this camera.' : control.streamState === 'idle' ? 'Camera connected — video stopped.' : control.streamState === 'error' ? control.lastError?.message || control.lastError?.code || 'Camera stream error.' : `Camera stream: ${control.streamState}.`;
+  status.textContent = text; status.className = `camera-control-status mt-2 ${control?.streamState === 'error' ? 'error' : !control?.connected ? 'warning' : ''}`;
+}
+
+function applyCameraControlState(update) {
+  const cameraNumber = Number(update.camera || update.streamId?.match(/_cam(\d+)$/)?.[1]);
+  const camera = state.cameras.find(item => item.id === cameraNumber);
+  if (!camera) return;
+  camera.streamControl = {...camera.streamControl,...update,camera:cameraNumber};
+  state.cameraControlError = null; notify('camera-control-state');
 }
 
 function updateScvTransform() {
@@ -191,6 +238,7 @@ function renderStatus() {
   if (state.syncWarning) pieces.push(`<span class="status-pill warning"><i class="fa-solid fa-triangle-exclamation"></i> ${state.syncWarning}</span>`);
   if (state.currentView === 'MCV' && mcvDriftMs > 100) pieces.push(`<span class="status-pill warning"><i class="fa-solid fa-stopwatch"></i> Live camera drift ${mcvDriftMs} ms</span>`);
   if (state.lastError) pieces.push(`<span class="status-pill error"><i class="fa-solid fa-circle-xmark"></i> ${state.lastError}</span>`);
+  if (state.cameraControlError) pieces.push(`<span class="status-pill warning"><i class="fa-solid fa-video-slash"></i> Camera control: ${$('<div>').text(state.cameraControlError).html()}</span>`);
   $('#statusStrip').html(pieces.join('')).toggleClass('empty', !pieces.length);
 }
 
@@ -206,6 +254,7 @@ function renderForChange(_currentState, reason) {
   if (['seek', 'frame-step', 'play-pause', 'rate', 'go-live'].includes(reason)) updateTimeSensitiveValues();
   else if (['show-mcv', 'show-camera'].includes(reason)) { renderViews(); renderCameraOptions(); updateScvTransform(); updateCameraValues(); timelineController.updateTrackState(); timelineController.updateDynamic(); }
   else if (['camera-availability', 'server-camera-event'].includes(reason)) { renderCameraOptions(); updateCameraValues(); updateLiveStatus(); timelineController.renderTracks(); renderStatus(); }
+  else if (reason === 'camera-control-state') { updateStreamControlValues(); renderStatus(); }
   else if (reason === 'server-pssel-event') { timelineController.renderPsselEvents(); updateTimeSensitiveValues(); }
   else if (reason === 'server-time-anchor') updateTimeSensitiveValues();
   else if (['review-updated', 'request-created', 'review-started', 'review-selected'].includes(reason)) { renderReview(); renderStatus(); timelineController.renderAnnotations(); updateTimeSensitiveValues(); }
@@ -341,6 +390,7 @@ async function dispatch(action, element) {
     case 'fit': playbackController.fit(); break; case 'zoom': playbackController.zoom(Number(element.dataset.delta)); break;
     case 'pan': playbackController.pan(Number(element.dataset.x), Number(element.dataset.y)); break;
     case 'fullscreen': document.querySelector('.scv-video')?.requestFullscreen?.(); break;
+    case 'toggle-camera-stream': { const camera = Number(element.dataset.camera || state.selectedCamera), desired = element.dataset.desired === 'true'; element.disabled = true; try { await streamControlClient?.setStreaming(camera, desired); toast(`Camera ${camera} stream ${desired ? 'start' : 'stop'} requested.`, 'primary'); } finally { updateStreamControlValues(); } break; }
     case 'second-review': { const prior = selectedReview(); if (prior) await reviewController.createCoachRequest(prior.side === 'chung' ? 'hong' : 'chung', {linkedReviewId: prior.id, issues: ['Gam-jeom given to the wrong player']}); break; }
     case 'load-scenario': await scenarioController.load(element.dataset.scenario); bootstrap.Offcanvas.getInstance(document.getElementById('developerPanel'))?.hide(); toast(`Scenario ${element.dataset.scenario} loaded.`); break;
     case 'reset-prototype': await scenarioController.reset(); toast('Prototype session reset.'); break;
@@ -355,8 +405,10 @@ async function bootstrapApp() {
     state.timelineRange = {start: model.timeline.start, end: model.timeline.end}; state.timelineStartSource = model.timeline.startSource; state.liveEdge = model.timeline.liveEdge; state.playbackCursor = model.timeline.liveEdge;
     state.psselEvents = data.psselEvents; state.scenarios = data.scenarios; replaceReviews(data.reviews, data.workflow?.activeReviewId || data.workflow?.selectedReviewId, data.workflow); state.timelineRange.end = activeReview()?.rst || state.liveEdge; state.syncWarning = Math.max(...model.cameras.map(camera => camera.syncOffsetMs)) - Math.min(...model.cameras.map(camera => camera.syncOffsetMs)) > 33 ? 'Camera synchronization exceeds one frame.' : null;
     subscribe(renderForChange); notificationController.install(); renderInitial(); syncRealMedia('show-mcv'); installKeyboard(); installScvWheelControls(); installScvDragControls();
+    streamControlClient = new StreamControlClient({ring:state.ring,onState:applyCameraControlState,onConnection:connected=>{state.cameraEventsConnected=connected;}});
+    void streamControlClient.start().catch(error=>{state.cameraControlError=error.message;notify('camera-control-state');});
     $(document).on('click', '[data-action]', async function(event) { if (this.dataset.action === 'cursor') return; event.preventDefault(); try { await dispatch(this.dataset.action, this); } catch (error) { toast(error.message, 'danger'); } });
-    $('[data-camera-tile]').on('click keydown', function(event) { if (event.type === 'keydown' && !['Enter', ' '].includes(event.key)) return; event.preventDefault(); if (!cameraController.showCamera(Number(this.dataset.cameraTile))) toast('That camera is unavailable.', 'warning'); });
+    $('[data-camera-tile]').on('click keydown', function(event) { if ($(event.target).closest('[data-camera-stream-control]').length) return; if (event.type === 'keydown' && !['Enter', ' '].includes(event.key)) return; event.preventDefault(); if (!cameraController.showCamera(Number(this.dataset.cameraTile))) toast('That camera is unavailable.', 'warning'); });
     $('#cameraSelect').on('change', function() { cameraController.showCamera(Number(this.value)); });
     $('#timeline').on('click', function(event) { if ($(event.target).closest('button').length) return; if (!timelineController.seekFromEvent(event)) toast('Selected camera has no video at that time. Choose another angle.', 'warning'); });
     $('#timeline').on('click', '.review-window,.annotation-marker', async function(event) { event.stopPropagation(); try { const selected = await reviewController.selectReview(this.dataset.reviewId, this.dataset.time == null); if (selected && this.dataset.time) playbackController.seekTo(Number(this.dataset.time)); } catch (error) { toast(error.message, 'warning'); } });

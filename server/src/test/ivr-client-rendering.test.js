@@ -96,3 +96,19 @@ test('replacing an AUR requires keyboard-accessible confirmation', () => {
   assert.match(modals, /id="replaceAurModal"/);
   assert.match(modals, /<kbd>Esc<\/kbd> cancel · <kbd>Enter<\/kbd> replace/);
 });
+
+test('camera stream controls use server connection state without rebuilding views', () => {
+  const app = read('assets/js/app.js');
+  const client = read('assets/js/stream-control-client.js');
+  const mcv = read('views/mcv.php');
+  const scv = read('views/scv.php');
+  assert.match(client, /\/cameras\?ring=/);
+  assert.match(client, /\/cameras\/\$\{this\.ring\}\/\$\{camera\}\/stream/);
+  assert.match(client, /url\.pathname = '\/ivr'/);
+  assert.match(app, /function updateStreamControlValues\(\)/);
+  assert.match(app, /notify\('camera-control-state'\)/);
+  assert.match(app, /case 'toggle-camera-stream'/);
+  assert.doesNotMatch(app.match(/function updateStreamControlValues\(\)\s*\{([\s\S]*?)\n\}/)?.[1] || '', /\.html\(|replaceChildren/);
+  assert.match(mcv, /data-camera-stream-control=/);
+  assert.match(scv, /id="scvStreamControl"/);
+});
