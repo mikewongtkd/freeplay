@@ -1,3 +1,4 @@
+/* stylelint-disable at-rule-empty-line-before */
 /* stylelint-disable value-keyword-case */
 /* stylelint-disable color-hex-length */
 /* stylelint-disable rule-empty-line-before */
@@ -477,7 +478,7 @@
   box-shadow: none;
 }
 .scv-side-panel .request-actions {
-  display: none;
+  display: block;
 }
 .scv-layout {
   display: grid;
@@ -727,9 +728,6 @@
   white-space: nowrap;
   font-size: 0.62rem;
   font-weight: 500;
-}
-.scv-side-panel .request-actions {
-  display: block;
 }
 .ivr-shell.scv-active {
   grid-template-rows: auto minmax(0, 1fr) 122px 56px;
