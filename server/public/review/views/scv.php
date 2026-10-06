@@ -24,7 +24,6 @@
         </div>
         <button class="btn btn-outline-primary w-100" data-action="show-mcv" aria-label="Multi-Camera View"><i class="fa-solid fa-columns"></i> Multi-Camera View</button>
       </div>
-      <div id="scvReviewPanel"></div>
       <div class="panel-section scv-working-notes">
         <label class="panel-kicker" for="workingNotes">Working notes</label>
         <textarea id="workingNotes" class="form-control form-control-sm" rows="3" placeholder="Optional notes; formal result does not wait for this field."></textarea>

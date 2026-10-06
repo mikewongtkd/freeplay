@@ -1,9 +1,13 @@
-const base = '/review/api';
+const base = "/review/api";
 
 async function request(path, options = {}) {
-  const response = await fetch(`${base}/${path}`, {headers: {'Content-Type': 'application/json'}, ...options});
+  const response = await fetch(`${base}/${path}`, {
+    headers: { "Content-Type": "application/json" },
+    ...options,
+  });
   const payload = await response.json();
-  if (!response.ok || !payload.ok) throw new Error(payload.error?.message || 'Prototype API request failed.');
+  if (!response.ok || !payload.ok)
+    throw new Error(payload.error?.message || "Prototype API request failed.");
   return payload;
 }
 
@@ -12,17 +16,44 @@ export const mockServer = {
     const [match, pssel, reviews] = await Promise.all([
       request(`match.php?ring=${encodeURIComponent(ring)}`),
       request(`pssel.php?ring=${encodeURIComponent(ring)}`),
-      request(`review.php?ring=${encodeURIComponent(ring)}`)
+      request(`review.php?ring=${encodeURIComponent(ring)}`),
     ]);
-    return {match: match.data, scenarios: match.scenarios, psselEvents: pssel.data.events, reviews: reviews.data.reviews, workflow: reviews.data.workflow};
+    return {
+      match: match.data,
+      scenarios: match.scenarios,
+      psselEvents: pssel.data.events,
+      reviews: reviews.data.reviews,
+      workflow: reviews.data.workflow,
+    };
   },
-  review(action, body = {}) { return request('review.php', {method: 'POST', body: JSON.stringify({action, ...body})}); },
-  createRequest(body) { return this.review('create-request', body); },
-  selectReview(body) { return this.review('select', body); },
-  startReview(body) { return this.review('start', body); },
-  markAur(body) { return this.review('mark-aur', body); },
-  resolveWithoutReview(body) { return this.review('resolve-without-review', body); },
-  setResult(body) { return this.review('set-result', body); },
-  annotate(body) { return this.review('annotate', body); },
-  reset(body = {}) { return this.review('reset', body); }
+  review(action, body = {}) {
+    return request("review.php", {
+      method: "POST",
+      body: JSON.stringify({ action, ...body }),
+    });
+  },
+  createRequest(body) {
+    return this.review("create-request", body);
+  },
+  selectReview(body) {
+    return this.review("select", body);
+  },
+  startReview(body) {
+    return this.review("start", body);
+  },
+  markAur(body) {
+    return this.review("mark-aur", body);
+  },
+  resolveWithoutReview(body) {
+    return this.review("resolve-without-review", body);
+  },
+  setResult(body) {
+    return this.review("set-result", body);
+  },
+  annotate(body) {
+    return this.review("annotate", body);
+  },
+  reset(body = {}) {
+    return this.review("reset", body);
+  },
 };

@@ -29,16 +29,6 @@
       </fieldset>
     </div>
   </div>
-  <label class="panel-kicker" for="requestReason">Reason</label>
-  <select id="requestReason" class="form-select form-select-sm mb-2">
-    <option value="">Reason pending</option>
-    <option>Technical points</option>
-    <option>Punch misidentification</option>
-    <option>Prohibited act / Gam-jeom</option>
-    <option>Boundary or falling decision</option>
-    <option>Last action / last five seconds</option>
-    <option>Other</option>
-  </select>
   <div class="panel-kicker">Pending Review Queue</div>
   <div id="pendingReviewList" class="pending-review-list" aria-live="polite"></div>
   <div class="btn-group w-100" role="group" aria-label="Review navigation">
