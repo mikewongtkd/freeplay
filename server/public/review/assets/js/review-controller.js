@@ -169,9 +169,13 @@ export const reviewController = {
     const i = pending.findIndex((review) => review.id === state.currentRequest);
     if (i >= 0 && i < pending.length - 1) this.selectReview(pending[i + 1].id);
   },
-  jumpWindow() {
+  jumpWindowStart() {
     const review = selectedReview();
     if (review) playbackController.seekTo(review.windowStart);
+  },
+  jumpWindowEnd() {
+    const review = selectedReview();
+    if (review) playbackController.seekTo(review.windowEnd);
   },
   jumpAur() {
     const review = selectedReview();

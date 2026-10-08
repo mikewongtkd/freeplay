@@ -5,9 +5,9 @@
     <button class="btn btn-control" data-action="seek" data-seconds="-1">−1s</button>
   </div>
   <div class="toolbar-group btn-group" role="group" aria-label="Frame and play controls">
-    <button class="btn btn-control" data-action="step-frame" data-direction="-1" title="Previous frame"><i class="fa-solid fa-backward-step"></i> Frame</button>
+    <button class="btn btn-control" data-action="step-frame" data-direction="-1" title="Previous frame"><i class="fa-solid fa-backward-step"></i> Frame<br><kbd><i class="fa-solid fa-arrow-left"></i></kbd></button>
     <button id="playPauseButton" class="btn btn-primary btn-control primary-control" data-action="play-pause"><i id="playPauseIcon" class="fa-solid fa-play"></i><span id="playPauseLabel">Play</span><br><kbd>Space</kbd></button>
-    <button class="btn btn-control" data-action="step-frame" data-direction="1" title="Next frame">Frame <i class="fa-solid fa-forward-step"></i></button>
+    <button class="btn btn-control" data-action="step-frame" data-direction="1" title="Next frame">Frame <i class="fa-solid fa-forward-step"></i><br><kbd><i class="fa-solid fa-arrow-right"></i></kbd></button>
   </div>
   <div class="toolbar-group rate-group btn-group" role="group" aria-label="Playback speed">
     <button class="btn btn-control" data-action="set-rate" data-rate="-0.5">0.5× <i class="fa-solid fa-backward"></i></button>
@@ -17,7 +17,8 @@
     <button class="btn btn-control" data-action="set-rate" data-rate="5">5×</button>
   </div>
   <div class="toolbar-group review-nav-group btn-group" role="group" aria-label="Review navigation">
-    <button class="btn btn-control" data-action="jump-window" title="Go to beginning of Review Window"><i class="fa-solid fa-backward-step"></i> Window<br><kbd>W</kbd></button>
+    <button class="btn btn-control" data-action="jump-window-start" title="Go to the beginning of Review Window"><i class="fa-solid fa-backward-step"></i> Window Start<br><kbd>W</kbd></button>
+    <button class="btn btn-control" data-action="jump-window-end" title="Go to the end of Review Window"><i class="fa-solid fa-forward-step"></i> Window End<br><kbd>E</kbd></button>
     <button class="btn btn-control" data-action="jump-aur" title="Go to Action Under Review"><i class="fa-solid fa-crosshairs"></i> Back to AUR<br><kbd>B</kbd></button>
     <button class="btn btn-aur btn-control" data-action="mark-aur"><i class="fa-solid fa-thumbtack"></i> Mark AUR<br><kbd>A</kbd></button>
     <button class="btn btn-live btn-control" data-action="go-live"><i class="fa-solid fa-tower-broadcast"></i> Go Live<br><kbd>L</kbd></button>

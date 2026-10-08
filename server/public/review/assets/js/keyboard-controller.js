@@ -23,7 +23,8 @@ const commands = {
       .querySelector('[data-action="create-request"][data-side="hong"]')
       ?.click(),
   s: () => reviewController.startReview(),
-  w: () => reviewController.jumpWindow(),
+  w: () => reviewController.jumpWindowStart(),
+  e: () => reviewController.jumpWindowEnd(),
   r: () => reviewController.jumpAur(),
 };
 

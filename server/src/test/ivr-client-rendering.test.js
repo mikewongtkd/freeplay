@@ -77,6 +77,15 @@ test('MCV Go Live uses independent players with bounded drift correction', () =>
   assert.match(coordinator, /SYNC_INTERVAL_MS = 1000/);
 });
 
+test('MCV historical seek loads and synchronizes every available camera', () => {
+  const app = read('assets/js/app.js');
+  const coordinator = read('assets/js/mcv-live-controller.js');
+  assert.match(app, /mcvLiveController\.seek\(state\.playbackCursor/);
+  assert.match(coordinator, /async seek\(epochSeconds, \{ ring, cameras, play = false \}\)/);
+  assert.match(coordinator, /entry\.controller\.seek\(epochSeconds/);
+  assert.match(coordinator, /this\.synchronize\(this\.playableControllers\)/);
+});
+
 test('pending review selection is locked while another review is active', () => {
   const controller = read('assets/js/review-controller.js');
   const app = read('assets/js/app.js');

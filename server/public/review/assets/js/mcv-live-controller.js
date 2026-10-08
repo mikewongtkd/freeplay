@@ -54,8 +54,43 @@ export class McvLiveController {
     this.scheduleSync(generation);
   }
 
-  synchronize() {
-    const controllers = this.activeControllers;
+  async seek(epochSeconds, { ring, cameras, play = false }) {
+    this.stop();
+    const generation = ++this.generation;
+    const available = new Set(
+      cameras
+        .filter((camera) => camera.available)
+        .map((camera) => Number(camera.id)),
+    );
+    const jobs = this.entries.map(async (entry) => {
+      if (!available.has(entry.camera)) {
+        entry.controller.reset();
+        this.onState?.(entry.camera, "unavailable");
+        return;
+      }
+      try {
+        await entry.controller.seek(epochSeconds, {
+          ring,
+          camera: entry.camera,
+          play: false,
+        });
+      } catch (error) {
+        if (error.name !== "AbortError")
+          this.onState?.(entry.camera, "error", error);
+      }
+    });
+    await Promise.allSettled(jobs);
+    if (generation !== this.generation) return;
+    this.synchronize(this.playableControllers);
+    if (play)
+      await Promise.allSettled(
+        this.playableControllers.map((controller) =>
+          controller.setPlaying(true),
+        ),
+      );
+  }
+
+  synchronize(controllers = this.activeControllers) {
     const epochs = controllers
       .map((controller) => controller.currentEpoch)
       .filter(Number.isFinite)

@@ -606,10 +606,19 @@ function syncRealMedia(reason) {
       if (state.playbackState !== "live")
         mcvLiveController.stop({ reset: false });
       void mcvLiveController.setPlaying(state.isPlaying);
-    } else if (
-      ["seek", "frame-step", "rate", "review-started"].includes(reason)
-    )
-      mcvLiveController.stop();
+    } else if (["seek", "frame-step", "review-started"].includes(reason)) {
+      void mcvLiveController.seek(state.playbackCursor, {
+        ring: state.ring,
+        cameras: state.cameras,
+        play: state.isPlaying && state.playbackRate > 0,
+      });
+    } else if (reason === "rate") {
+      mcvLiveController.playableControllers.forEach((controller) =>
+        controller.setRate(state.playbackRate),
+      );
+      if (state.playbackRate > 0)
+        void mcvLiveController.setPlaying(true);
+    }
     return;
   }
   if (reason === "show-camera") mcvLiveController.stop();
@@ -863,8 +872,8 @@ async function dispatch(action, element) {
         toast("Start a formal review before marking AUR.", "warning");
       break;
     }
-    case "jump-window":
-      reviewController.jumpWindow();
+    case "jump-window-start":
+      reviewController.jumpWindowStart();
       break;
     case "jump-aur":
       reviewController.jumpAur();
