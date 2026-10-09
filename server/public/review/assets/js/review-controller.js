@@ -48,6 +48,8 @@ export const reviewController = {
         reason: options.reason || options.issues?.[0] || "",
         issues: options.issues || [],
         linkedReviewId: options.linkedReviewId || null,
+        timestamp: Number(options.timestamp ?? state.playbackCursor),
+        existingReviewId: options.existingReviewId || null,
       });
       const review = useResponse(response);
       if (!preserveActiveContext) {

@@ -105,3 +105,15 @@ test('replacing an AUR requires keyboard-accessible confirmation', () => {
   assert.match(modals, /id="replaceAurModal"/);
   assert.match(modals, /<kbd>Esc<\/kbd> cancel · <kbd>Enter<\/kbd> replace/);
 });
+
+test('review requests use the cursor and confirm same-side window moves', () => {
+  const app = read('assets/js/app.js');
+  const controller = read('assets/js/review-controller.js');
+  const modals = read('includes/modals.php');
+  assert.match(app, /state\.playbackState === "live" \? serverClock\.now\(\) : state\.playbackCursor/);
+  assert.match(app, /review\.side === side && timestamp >= review\.windowStart && timestamp <= review\.windowEnd/);
+  assert.match(app, /confirmReviewWindowMove\(overlapping, timestamp, moveDuration\)/);
+  assert.match(controller, /timestamp: Number\(options\.timestamp \?\? state\.playbackCursor\)/);
+  assert.match(controller, /existingReviewId: options\.existingReviewId \|\| null/);
+  assert.match(modals, /id="moveReviewWindowModal"/);
+});

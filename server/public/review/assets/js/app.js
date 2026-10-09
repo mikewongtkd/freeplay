@@ -195,6 +195,46 @@ function confirmAurReplacement(review, replacementTime) {
   });
 }
 
+let reviewWindowConfirmationPending = false;
+function confirmReviewWindowMove(review, cursorTime, duration) {
+  if (reviewWindowConfirmationPending) return Promise.resolve(false);
+  const element = document.getElementById("moveReviewWindowModal"),
+    form = document.getElementById("moveReviewWindowForm"),
+    confirm = document.getElementById("moveReviewWindowConfirm");
+  if (!element || !form || !confirm) return Promise.resolve(false);
+  reviewWindowConfirmationPending = true;
+  setText("#moveReviewWindowId", `${review.id} · ${review.side === "chung" ? "Chung" : "Hong"}`);
+  setText("#moveReviewWindowExisting", `${formatTime(review.windowStart)} – ${formatTime(review.windowEnd)}`);
+  setText("#moveReviewWindowNew", `${formatTime(cursorTime - duration)} – ${formatTime(cursorTime)}`);
+  const modal = bootstrap.Modal.getOrCreateInstance(element);
+  return new Promise((resolve) => {
+    let settled = false;
+    const cleanup = () => {
+      form.removeEventListener("submit", submit);
+      element.removeEventListener("hidden.bs.modal", hidden);
+      element.removeEventListener("shown.bs.modal", shown);
+    };
+    const finish = (accepted) => {
+      if (settled) return;
+      settled = true;
+      reviewWindowConfirmationPending = false;
+      cleanup();
+      resolve(accepted);
+    };
+    const submit = (event) => {
+      event.preventDefault();
+      finish(true);
+      modal.hide();
+    };
+    const hidden = () => finish(false);
+    const shown = () => confirm.focus();
+    form.addEventListener("submit", submit);
+    element.addEventListener("hidden.bs.modal", hidden);
+    element.addEventListener("shown.bs.modal", shown);
+    modal.show();
+  });
+}
+
 function renderHeaderStructure() {
   setText("#headerRing", `Ring ${state.ring}`);
   setText("#headerDivision", state.match?.division || "Prototype match");
@@ -811,13 +851,25 @@ async function dispatch(action, element) {
     case "next-camera":
       cameraController.next();
       break;
-    case "create-request":
+    case "create-request": {
+      const side = element.dataset.side,
+        origin = $('input[name="requestOrigin"]:checked').val() || "coach",
+        timestamp = state.playbackState === "live" ? serverClock.now() : state.playbackCursor,
+        duration = Number(window.FREEPLAY_IVR?.config?.reviewWindowSeconds?.[origin] || (origin === "referee" ? 10 : 5)),
+        overlapping = [...state.reviewHistory].reverse().find(
+          (review) => review.side === side && timestamp >= review.windowStart && timestamp <= review.windowEnd,
+        ),
+        moveDuration = Number(overlapping?.windowDurationSeconds || duration);
+      if (overlapping && !(await confirmReviewWindowMove(overlapping, timestamp, moveDuration))) break;
       await reviewController.createRequest(element.dataset.side, {
-        origin: $('input[name="requestOrigin"]:checked').val(),
+        origin,
         issueType: $('input[name="requestIssueType"]:checked').val(),
         reason: $("#requestReason").val(),
+        timestamp,
+        existingReviewId: overlapping?.id || null,
       });
       break;
+    }
     case "select-review":
       await reviewController.selectReview(element.dataset.reviewId);
       break;

@@ -70,6 +70,28 @@
   </form></div>
 </div>
 
+<div class="modal fade" id="moveReviewWindowModal" tabindex="-1" aria-labelledby="moveReviewWindowTitle" aria-describedby="moveReviewWindowDescription" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered"><form id="moveReviewWindowForm" class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title fs-5" id="moveReviewWindowTitle"><i class="fa-solid fa-triangle-exclamation text-warning me-2"></i>Move existing review window?</h2>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancel review window move"></button>
+    </div>
+    <div class="modal-body">
+      <p id="moveReviewWindowDescription">The cursor is within an existing review window for the same team. Confirm that you intend to move that window to end at the cursor.</p>
+      <dl class="row mb-0 small">
+        <dt class="col-5">Review</dt><dd id="moveReviewWindowId" class="col-7 text-end">—</dd>
+        <dt class="col-5">Current window</dt><dd id="moveReviewWindowExisting" class="col-7 text-end font-monospace">—</dd>
+        <dt class="col-5">New window</dt><dd id="moveReviewWindowNew" class="col-7 text-end font-monospace">—</dd>
+      </dl>
+    </div>
+    <div class="modal-footer">
+      <span class="small text-secondary me-auto"><kbd>Esc</kbd> cancel · <kbd>Enter</kbd> move</span>
+      <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+      <button id="moveReviewWindowConfirm" type="submit" class="btn btn-warning"><i class="fa-solid fa-arrows-left-right"></i> Move Window</button>
+    </div>
+  </form></div>
+</div>
+
 <div class="offcanvas offcanvas-end" tabindex="-1" id="developerPanel" aria-labelledby="developerTitle">
   <div class="offcanvas-header"><div><h2 class="offcanvas-title fs-5" id="developerTitle">Prototype scenarios</h2><div class="small text-secondary">Mock data and workflow controls</div></div><button class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
   <div class="offcanvas-body">
