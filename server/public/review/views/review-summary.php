@@ -7,10 +7,11 @@
       <div><dt>Origin</dt><dd id="metaOrigin">—</dd></div>
       <div><dt>Issue Type</dt><dd id="metaIssueType">—</dd></div>
       <div><dt>Reason</dt><dd id="metaReason">—</dd></div>
-      <div><dt>Request Mark (RM)</dt><dd id="metaRm">—</dd></div>
-      <div><dt>Review Window</dt><dd id="metaWindow">—</dd></div>
+      <div><dt>Request Time</dt><dd id="metaRm">—</dd></div>
+      <div><dt>Window Start</dt><dd id="metaWindowStart">—</dd></div>
+      <div><dt>Window End</dt><dd id="metaWindowEnd">—</dd></div>
       <div><dt>Action (AUR)</dt><dd id="metaAur">Not marked</dd></div>
-      <div><dt>Review Start (RST)</dt><dd id="metaRst">Not started</dd></div>
+      <div><dt>Review Start</dt><dd id="metaRst">Not started</dd></div>
     </dl>
     <div id="aurWarning" class="alert alert-warning py-2 px-3 d-none" role="alert"><i class="fa-solid fa-triangle-exclamation"></i> AUR is outside the coach Review Window. Marker preserved for audit.</div>
     <div id="reviewClock" class="review-clock d-none"><span>Review Response Time</span><strong id="reviewClockValue">00:00.0</strong></div>

@@ -454,10 +454,8 @@ function renderReview() {
       review.reason || review.issues?.[0] || "Reason pending",
     );
     setText("#metaRm", formatTime(review.rm));
-    setText(
-      "#metaWindow",
-      `${formatTime(review.windowStart)} – ${formatTime(review.windowEnd)}`,
-    );
+    setText( "#metaWindowStart", formatTime(review.windowStart));
+    setText( "#metaWindowEnd", formatTime(review.windowEnd));
     setText(
       "#metaAur",
       review.aur == null ? "Not marked" : formatTime(review.aur),
