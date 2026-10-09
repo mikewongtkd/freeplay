@@ -495,10 +495,25 @@ function renderPendingQueue() {
           .join("")
       : '<span class="empty-copy">No pending requests</span>',
   );
-  $("#previousReviewButton,#nextReviewButton").prop(
-    "disabled",
-    locked || state.pendingRequests.length < 2,
-  );
+  if (!state.currentRequest) {
+    $("#previousReviewButton").prop(
+      "disabled",
+      !state.reviewHistory.some(
+        (review) => review.windowEnd < state.playbackCursor,
+      ),
+    );
+    $("#nextReviewButton").prop(
+      "disabled",
+      !state.reviewHistory.some(
+        (review) => review.windowStart > state.playbackCursor,
+      ),
+    );
+  } else {
+    $("#previousReviewButton,#nextReviewButton").prop(
+      "disabled",
+      locked || state.pendingRequests.length < 2,
+    );
+  }
 }
 
 function updateReviewClock() {
@@ -1099,6 +1114,8 @@ async function bootstrapApp() {
         state.currentRequest = null;
         syncSelectedReview();
         notify("review-selected");
+      } else if (!state.currentRequest) {
+        renderPendingQueue();
       }
     });
     $("#timeline").on(

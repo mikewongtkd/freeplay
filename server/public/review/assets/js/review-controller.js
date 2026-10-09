@@ -174,13 +174,37 @@ export const reviewController = {
     notify("review-selected");
     return true;
   },
+  displayReview(id, moveCursor = true) {
+    const review = state.reviewHistory.find((item) => item.id === id);
+    if (!review) return false;
+    state.currentRequest = review.id;
+    syncDisplayedReview();
+    state.timelineRange.end = activeReview()?.rst || state.liveEdge;
+    if (moveCursor) playbackController.seekTo(review.windowStart, false);
+    notify("review-selected");
+    return true;
+  },
   previous() {
+    if (!state.currentRequest) {
+      const target = state.reviewHistory
+        .filter((review) => review.windowEnd < state.playbackCursor)
+        .sort((a, b) => b.windowEnd - a.windowEnd)[0];
+      if (target) this.displayReview(target.id);
+      return;
+    }
     if (state.activeReviewId) return;
     const pending = state.pendingRequests;
     const i = pending.findIndex((review) => review.id === state.currentRequest);
     if (i > 0) this.selectReview(pending[i - 1].id);
   },
   next() {
+    if (!state.currentRequest) {
+      const target = state.reviewHistory
+        .filter((review) => review.windowStart > state.playbackCursor)
+        .sort((a, b) => a.windowStart - b.windowStart)[0];
+      if (target) this.displayReview(target.id);
+      return;
+    }
     if (state.activeReviewId) return;
     const pending = state.pendingRequests;
     const i = pending.findIndex((review) => review.id === state.currentRequest);

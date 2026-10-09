@@ -19,7 +19,7 @@
     <button id="startReviewButton" class="btn btn-success w-100 action-button" data-action="start-review" disabled><i class="fa-solid fa-play"></i> Start Review <kbd>S</kbd></button>
     <button id="resolveButton" class="btn btn-outline-secondary w-100 d-none" data-action="resolve-without-review">Resolved without Review</button>
     <button id="deleteButton" class="btn btn-danger w-100 mt-2" data-action="delete-request"><i class="fa-solid fa-trash"></i> Delete Request</button>
-    <div id="formalResults" class="result-grid d-none">
+    <div id="formalResults" class="result-grid mt-2 d-none">
       <button class="btn btn-success" data-action="set-result" data-result="accepted"><i class="fa-solid fa-circle-check"></i><span>Accepted</span></button>
       <button class="btn btn-danger" data-action="set-result" data-result="rejected"><i class="fa-solid fa-circle-xmark"></i><span>Rejected</span></button>
       <button class="btn btn-warning" data-action="set-result" data-result="ivr_issue"><i class="fa-solid fa-triangle-exclamation"></i><span>Rejected:<br>IVR Issue</span></button>
