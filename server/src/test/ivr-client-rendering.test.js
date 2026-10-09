@@ -111,7 +111,7 @@ test('review requests use the cursor and confirm same-side window moves', () => 
   const controller = read('assets/js/review-controller.js');
   const modals = read('includes/modals.php');
   assert.match(app, /state\.playbackState === "live" \? serverClock\.now\(\) : state\.playbackCursor/);
-  assert.match(app, /review\.side === side && timestamp >= review\.windowStart && timestamp <= review\.windowEnd/);
+  assert.match(app, /review\.side === side && proposedWindowStart <= review\.windowEnd && timestamp >= review\.windowStart/);
   assert.match(app, /confirmReviewWindowMove\(overlapping, timestamp, moveDuration\)/);
   assert.match(controller, /timestamp: Number\(options\.timestamp \?\? state\.playbackCursor\)/);
   assert.match(controller, /existingReviewId: options\.existingReviewId \|\| null/);

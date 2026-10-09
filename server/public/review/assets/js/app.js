@@ -856,8 +856,9 @@ async function dispatch(action, element) {
         origin = $('input[name="requestOrigin"]:checked').val() || "coach",
         timestamp = state.playbackState === "live" ? serverClock.now() : state.playbackCursor,
         duration = Number(window.FREEPLAY_IVR?.config?.reviewWindowSeconds?.[origin] || (origin === "referee" ? 10 : 5)),
+        proposedWindowStart = timestamp - duration,
         overlapping = [...state.reviewHistory].reverse().find(
-          (review) => review.side === side && timestamp >= review.windowStart && timestamp <= review.windowEnd,
+          (review) => review.side === side && proposedWindowStart <= review.windowEnd && timestamp >= review.windowStart,
         ),
         moveDuration = Number(overlapping?.windowDurationSeconds || duration);
       if (overlapping && !(await confirmReviewWindowMove(overlapping, timestamp, moveDuration))) break;

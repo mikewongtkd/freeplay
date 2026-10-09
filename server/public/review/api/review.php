@@ -59,8 +59,9 @@ if ($action === 'create-request') {
     if ($existingReviewId !== '') {
         foreach ($reviews as &$existingReview) {
             if (($existingReview['id'] ?? '') !== $existingReviewId) continue;
-            if (($existingReview['side'] ?? '') !== $side || $requestedTimestamp < (float) $existingReview['windowStart'] || $requestedTimestamp > (float) $existingReview['windowEnd']) {
-                ivr_json(['ok' => false, 'error' => ['code' => 'window_confirmation_invalid', 'message' => 'The selected cursor is not within the specified same-side review window.']], 409);
+            $proposedWindowStart = $requestedTimestamp - $duration;
+            if (($existingReview['side'] ?? '') !== $side || $proposedWindowStart > (float) $existingReview['windowEnd'] || $requestedTimestamp < (float) $existingReview['windowStart']) {
+                ivr_json(['ok' => false, 'error' => ['code' => 'window_confirmation_invalid', 'message' => 'The proposed request does not overlap the specified same-side review window.']], 409);
             }
             $existingDuration = (float) ($existingReview['windowDurationSeconds'] ?? $duration);
             $existingReview['rm'] = $requestedTimestamp;
@@ -86,6 +87,20 @@ if ($action === 'create-request') {
     ];
     $reviews[] = $review;
     ivr_review_response($reviews, $review, $now);
+}
+
+if( $action === 'delete-request' ) {
+    $id = (string) ($body['reviewId'] ?? '');
+    $found = false;
+    foreach ($reviews as $index => $review) {
+        if (($review['id'] ?? '') === $id) {
+            unset($reviews[$index]);
+            $found = true;
+            break;
+        }
+    }
+    if (!$found) ivr_json(['ok' => false, 'error' => ['code' => 'review_not_found', 'message' => 'The review request to delete was not found.']], 404);
+    ivr_review_response($reviews);
 }
 
 $id = (string) ($body['reviewId'] ?? '');
