@@ -25,6 +25,7 @@
   <div class="d-flex align-items-center gap-2">
     <time id="headerClock" class="d-none d-md-inline small"></time>
     <span id="liveStatus" class="live-status"><span class="live-dot"></span><span id="liveStatusText">Live</span></span>
+    <button class="btn btn-sm btn-header" type="button" data-bs-toggle="modal" data-bs-target="#matchModal"><i class="fa-solid fa-pen-to-square"></i> Match</button>
     <div class="dropdown">
       <button class="btn btn-sm btn-header dropdown-toggle" data-bs-toggle="dropdown" type="button">Views</button>
       <ul class="dropdown-menu dropdown-menu-end">

@@ -28,6 +28,39 @@
   </div></div>
 </div>
 
+<div class="modal fade" id="matchModal" tabindex="-1" aria-labelledby="matchModalTitle" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable"><form id="matchForm" class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title fs-5" id="matchModalTitle">Match information</h2>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancel match changes"></button>
+    </div>
+    <div class="modal-body">
+      <input id="matchId" name="matchId" type="hidden">
+      <input id="matchStart" name="start" type="hidden">
+      <div class="row g-3">
+        <div class="col-md-3"><label class="form-label" for="matchNumber">Match number</label><input id="matchNumber" name="matchNumber" class="form-control" required></div>
+        <div class="col-md-3"><label class="form-label" for="matchRing">Ring</label><input id="matchRing" name="ring" class="form-control" type="number" min="1" max="14" required></div>
+        <div class="col-md-3"><label class="form-label" for="matchRound">Round</label><input id="matchRound" name="round" class="form-control" type="number" min="1" required></div>
+        <div class="col-md-3"><label class="form-label" for="matchStage">Stage</label><input id="matchStage" name="stage" class="form-control" placeholder="Quarterfinal"></div>
+        <div class="col-12"><label class="form-label" for="matchDivision">Division</label><input id="matchDivision" name="division" class="form-control" placeholder="Senior Black Belt · Men -68 kg"></div>
+        <div class="col-12"><h3 class="fs-6 text-primary mb-0">Chung</h3></div>
+        <div class="col-md-5"><label class="form-label" for="matchChungName">Competitor name</label><input id="matchChungName" name="chungName" class="form-control" required></div>
+        <div class="col-md-5"><label class="form-label" for="matchChungTeam">Team</label><input id="matchChungTeam" name="chungTeam" class="form-control"></div>
+        <div class="col-md-2"><label class="form-label" for="matchChungQuota">Quota</label><input id="matchChungQuota" name="chungQuota" class="form-control" type="number" min="0" value="1"></div>
+        <div class="col-12"><h3 class="fs-6 text-danger mb-0">Hong</h3></div>
+        <div class="col-md-5"><label class="form-label" for="matchHongName">Competitor name</label><input id="matchHongName" name="hongName" class="form-control" required></div>
+        <div class="col-md-5"><label class="form-label" for="matchHongTeam">Team</label><input id="matchHongTeam" name="hongTeam" class="form-control"></div>
+        <div class="col-md-2"><label class="form-label" for="matchHongQuota">Quota</label><input id="matchHongQuota" name="hongQuota" class="form-control" type="number" min="0" value="1"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button id="matchReset" type="button" class="btn btn-outline-danger me-auto">Reset</button>
+      <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+  </form></div>
+</div>
+
 <div class="modal fade" id="annotationModal" tabindex="-1" aria-labelledby="annotationTitle" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable"><form id="annotationForm" class="modal-content">
     <div class="modal-header"><div><h2 class="modal-title fs-5" id="annotationTitle">IVR Sheet annotation</h2><div class="small text-secondary">Post-review details are not part of the response clock.</div></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>

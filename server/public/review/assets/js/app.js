@@ -277,7 +277,7 @@ function confirmRequestDeletion(review) {
 
 function renderHeaderStructure() {
   setText("#headerRing", `Ring ${state.ring}`);
-  setText("#headerDivision", state.match?.division || "Prototype match");
+  setText("#headerDivision", state.match?.division  || "Prototype match");
   setText("#headerStage", state.match?.stage || "");
 }
 
@@ -431,6 +431,8 @@ function renderReview() {
     active = review?.status === "active",
     selectable = ["pending", "selected"].includes(review?.status),
     final = ["completed", "resolved_without_review"].includes(review?.status);
+  $("#requestMatchNum").html( `Match ${state.match?.number} • Round ${state.match?.round}` );
+  $("#requestDivInfo").html( `<div class="row"><div class="col-6">${state.match?.chung?.name} (${state.match?.chung?.team})</div><div class="col-6">${state.match?.hong?.name} (${state.match?.hong?.team})</div></div>` );
   $("#reviewEmpty").toggleClass("d-none", has);
   $("#reviewMetadata").toggleClass("d-none", !has);
   $("#reviewStatusBadge")
@@ -1141,6 +1143,9 @@ async function bootstrapApp() {
     });
     $("#annotationModal").on("show.bs.modal", fillAnnotation);
     $("#annotationForm").on("submit", saveAnnotation);
+    $("#matchModal").on("show.bs.modal", fillMatchForm);
+    $("#matchReset").on("click", resetMatchForm);
+    $("#matchForm").on("submit", saveMatch);
     $("#scvScene").on("click", function (event) {
       if (scvDragMoved) {
         scvDragMoved = false;
@@ -1203,6 +1208,51 @@ async function saveAnnotation(event) {
     document.getElementById("annotationModal"),
   )?.hide();
   toast("Post-review annotation saved.", "success");
+}
+
+function fillMatchForm() {
+  const match = state.match || {};
+  $("#matchId").val(match.id || "");
+  $("#matchRing").val(state.ring);
+  $("#matchStart").val(state.timelineRange.start);
+  $("#matchNumber").val(match.number || "");
+  $("#matchRound").val(match.round || "");
+  $("#matchStage").val(match.stage || "");
+  $("#matchDivision").val(match.division || "");
+  $("#matchChungName").val(match.chung?.name || "");
+  $("#matchChungTeam").val(match.chung?.team || "");
+  $("#matchChungQuota").val(match.chung?.quota ?? 1);
+  $("#matchHongName").val(match.hong?.name || "");
+  $("#matchHongTeam").val(match.hong?.team || "");
+  $("#matchHongQuota").val(match.hong?.quota ?? 1);
+}
+
+function resetMatchForm() {
+  const form = document.getElementById("matchForm");
+  form.querySelectorAll("input:not([type='hidden'])").forEach((input) => {
+    input.value = "";
+  });
+  $("#matchId").val("");
+  $("#matchRing").val(state.ring);
+  $("#matchStart").val(state.timelineRange.start);
+  document.getElementById("matchNumber").focus();
+}
+
+async function saveMatch(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  if (!form.reportValidity()) return;
+  try {
+    const payload = Object.fromEntries(new FormData(form).entries());
+    const response = await mockServer.saveMatch(payload);
+    state.match = response.data.match;
+    state.round = response.data.match.round;
+    renderHeaderStructure();
+    bootstrap.Modal.getInstance(document.getElementById("matchModal"))?.hide();
+    toast("Match information saved.", "success");
+  } catch (error) {
+    toast(error.message, "danger");
+  }
 }
 
 bootstrapApp();

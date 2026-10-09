@@ -5,7 +5,15 @@ async function request(path, options = {}) {
     headers: { "Content-Type": "application/json" },
     ...options,
   });
-  const payload = await response.json();
+  const raw = await response.text();
+  let payload;
+  try {
+    payload = JSON.parse(raw);
+  } catch {
+    throw new Error(
+      `${path} returned an invalid response (${response.status}). Check the PHP server log.`,
+    );
+  }
   if (!response.ok || !payload.ok)
     throw new Error(payload.error?.message || "Prototype API request failed.");
   return payload;
@@ -55,6 +63,12 @@ export const mockServer = {
   },
   annotate(body) {
     return this.review("annotate", body);
+  },
+  saveMatch(body) {
+    return request("match.php", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
   },
   reset(body = {}) {
     return this.review("reset", body);
