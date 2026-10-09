@@ -5,6 +5,7 @@ import {
   selectedReview,
   activeReview,
   notify,
+  syncSelectedReview,
 } from "./state.js";
 import { mockServer } from "./mock-server.js";
 import { reviewController } from "./review-controller.js";
@@ -1082,11 +1083,23 @@ async function bootstrapApp() {
     });
     $("#timeline").on("click", function (event) {
       if ($(event.target).closest("button").length) return;
-      if (!timelineController.seekFromEvent(event))
+      if (!timelineController.seekFromEvent(event)) {
         toast(
           "Selected camera has no video at that time. Choose another angle.",
           "warning",
         );
+        return;
+      }
+      const insideReviewWindow = state.reviewHistory.some(
+        (review) =>
+          state.playbackCursor >= review.windowStart &&
+          state.playbackCursor <= review.windowEnd,
+      );
+      if (!insideReviewWindow && state.currentRequest) {
+        state.currentRequest = null;
+        syncSelectedReview();
+        notify("review-selected");
+      }
     });
     $("#timeline").on(
       "click",
