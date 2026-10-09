@@ -235,6 +235,45 @@ function confirmReviewWindowMove(review, cursorTime, duration) {
   });
 }
 
+let deleteRequestConfirmationPending = false;
+function confirmRequestDeletion(review) {
+  if (deleteRequestConfirmationPending) return Promise.resolve(false);
+  const element = document.getElementById("deleteRequestModal"),
+    form = document.getElementById("deleteRequestForm"),
+    confirm = document.getElementById("deleteRequestConfirm");
+  if (!element || !form || !confirm) return Promise.resolve(false);
+  deleteRequestConfirmationPending = true;
+  setText("#deleteRequestId", `${review.id} · ${review.side === "chung" ? "Chung" : "Hong"}`);
+  setText("#deleteRequestWindow", `${formatTime(review.windowStart)} – ${formatTime(review.windowEnd)}`);
+  const modal = bootstrap.Modal.getOrCreateInstance(element);
+  return new Promise((resolve) => {
+    let settled = false;
+    const cleanup = () => {
+      form.removeEventListener("submit", submit);
+      element.removeEventListener("hidden.bs.modal", hidden);
+      element.removeEventListener("shown.bs.modal", shown);
+    };
+    const finish = (accepted) => {
+      if (settled) return;
+      settled = true;
+      deleteRequestConfirmationPending = false;
+      cleanup();
+      resolve(accepted);
+    };
+    const submit = (event) => {
+      event.preventDefault();
+      finish(true);
+      modal.hide();
+    };
+    const hidden = () => finish(false);
+    const shown = () => confirm.focus();
+    form.addEventListener("submit", submit);
+    element.addEventListener("hidden.bs.modal", hidden);
+    element.addEventListener("shown.bs.modal", shown);
+    modal.show();
+  });
+}
+
 function renderHeaderStructure() {
   setText("#headerRing", `Ring ${state.ring}`);
   setText("#headerDivision", state.match?.division || "Prototype match");
@@ -433,6 +472,9 @@ function renderReview() {
     "d-none",
     !selectable || !!state.activeReviewId,
   );
+  $("#deleteButton")
+    .toggleClass("d-none", !has || final)
+    .prop("disabled", !has || final);
   $("#formalResults").toggleClass("d-none", !active);
   $("#annotationSection").toggleClass("d-none", !final);
   $("#reviewClock").toggleClass("d-none", !active);
@@ -883,6 +925,13 @@ async function dispatch(action, element) {
         "Request preserved as Resolved without Review. No RST was created.",
       );
       break;
+    case "delete-request": {
+      const review = selectedReview();
+      if (!review || !(await confirmRequestDeletion(review))) break;
+      if (await reviewController.deleteRequest())
+        toast(`Request ${review.id} deleted.`, "success");
+      break;
+    }
     case "set-result":
       await reviewController.setResult(element.dataset.result);
       toast(

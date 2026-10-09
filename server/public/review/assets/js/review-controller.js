@@ -89,6 +89,21 @@ export const reviewController = {
       return result;
     });
   },
+  async deleteRequest() {
+    const review = selectedReview();
+    if (!review) return false;
+    return execute(async () => {
+      useResponse(
+        await mockServer.deleteRequest({
+          ring: state.ring,
+          reviewId: review.id,
+        }),
+        null,
+      );
+      notify("review-updated");
+      return true;
+    });
+  },
   async markAUR(time = state.playbackCursor) {
     const review = activeReview() || selectedReview();
     if (!review || !["active", "completed"].includes(review.status)) return;

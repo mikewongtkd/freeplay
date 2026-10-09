@@ -117,3 +117,16 @@ test('review requests use the cursor and confirm same-side window moves', () => 
   assert.match(controller, /existingReviewId: options\.existingReviewId \|\| null/);
   assert.match(modals, /id="moveReviewWindowModal"/);
 });
+
+test('delete request requires confirmation and updates the server-backed review list', () => {
+  const app = read('assets/js/app.js');
+  const controller = read('assets/js/review-controller.js');
+  const mock = read('assets/js/mock-server.js');
+  const modals = read('includes/modals.php');
+  assert.match(app, /case "delete-request"/);
+  assert.match(app, /confirmRequestDeletion\(review\)/);
+  assert.match(controller, /async deleteRequest\(\)/);
+  assert.match(controller, /await mockServer\.deleteRequest/);
+  assert.match(mock, /return this\.review\("delete-request", body\)/);
+  assert.match(modals, /id="deleteRequestModal"/);
+});

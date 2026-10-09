@@ -92,6 +92,27 @@
   </form></div>
 </div>
 
+<div class="modal fade" id="deleteRequestModal" tabindex="-1" aria-labelledby="deleteRequestTitle" aria-describedby="deleteRequestDescription" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered"><form id="deleteRequestForm" class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title fs-5" id="deleteRequestTitle"><i class="fa-solid fa-triangle-exclamation text-danger me-2"></i>Delete review request?</h2>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancel request deletion"></button>
+    </div>
+    <div class="modal-body">
+      <p id="deleteRequestDescription">This permanently removes the request and its review window from the timeline.</p>
+      <dl class="row mb-0 small">
+        <dt class="col-5">Request</dt><dd id="deleteRequestId" class="col-7 text-end">—</dd>
+        <dt class="col-5">Review window</dt><dd id="deleteRequestWindow" class="col-7 text-end font-monospace">—</dd>
+      </dl>
+    </div>
+    <div class="modal-footer">
+      <span class="small text-secondary me-auto"><kbd>Esc</kbd> cancel · <kbd>Enter</kbd> delete</span>
+      <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+      <button id="deleteRequestConfirm" type="submit" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Delete Request</button>
+    </div>
+  </form></div>
+</div>
+
 <div class="offcanvas offcanvas-end" tabindex="-1" id="developerPanel" aria-labelledby="developerTitle">
   <div class="offcanvas-header"><div><h2 class="offcanvas-title fs-5" id="developerTitle">Prototype scenarios</h2><div class="small text-secondary">Mock data and workflow controls</div></div><button class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
   <div class="offcanvas-body">

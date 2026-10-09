@@ -47,6 +47,9 @@ export const mockServer = {
   resolveWithoutReview(body) {
     return this.review("resolve-without-review", body);
   },
+  deleteRequest(body) {
+    return this.review("delete-request", body);
+  },
   setResult(body) {
     return this.review("set-result", body);
   },
