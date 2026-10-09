@@ -35,6 +35,30 @@ function ivr_match_payload(array $row): array
     ];
 }
 
+function ivr_apply_saved_cameras(PDO $db, int $ring, array $cameras): array
+{
+    $statement = $db->prepare(<<<'SQL'
+        SELECT COALESCE(c.camera, c.camera_no) AS camera_number, c.stream_id,
+               rc.display_name, rc.sync_offset_ms
+        FROM ivr_ring_cameras rc
+        JOIN ivr_rings r ON r.id = rc.ring_id
+        JOIN cameras c ON c.id = rc.camera_id
+        WHERE r.ring_number = ? AND rc.active = 1
+        SQL);
+    $statement->execute([$ring]);
+    $saved = [];
+    foreach ($statement->fetchAll() as $row) $saved[(int) $row['camera_number']] = $row;
+    foreach ($cameras as &$camera) {
+        $configuration = $saved[(int) $camera['id']] ?? null;
+        if ($configuration === null) continue;
+        $camera['streamId'] = $configuration['stream_id'];
+        $camera['name'] = $configuration['display_name'] ?: $camera['name'];
+        $camera['syncOffsetMs'] = (int) $configuration['sync_offset_ms'];
+    }
+    unset($camera);
+    return $cameras;
+}
+
 try {
     $db = ivr_db();
 } catch (Throwable $error) {
@@ -43,6 +67,7 @@ try {
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $model = ivr_mock_match($ring);
+    $model['cameras'] = ivr_apply_saved_cameras($db, $ring, $model['cameras']);
     $saved = ivr_saved_match($db, $ring);
     if ($saved !== null) {
         $model['match'] = ivr_match_payload($saved);

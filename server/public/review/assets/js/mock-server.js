@@ -70,6 +70,12 @@ export const mockServer = {
       body: JSON.stringify(body),
     });
   },
+  saveCameraConfig(body) {
+    return request("camera-config.php", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
   reset(body = {}) {
     return this.review("reset", body);
   },

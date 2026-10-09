@@ -61,6 +61,39 @@
   </form></div>
 </div>
 
+<div class="modal fade" id="cameraConfigModal" tabindex="-1" aria-labelledby="cameraConfigTitle" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable"><form id="cameraConfigForm" class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title fs-5" id="cameraConfigTitle">Camera configuration</h2>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancel camera configuration changes"></button>
+    </div>
+    <div class="modal-body">
+      <input id="cameraConfigRing" name="ring" type="hidden">
+      <div class="row g-3 fw-semibold small text-secondary d-none d-md-flex mb-1">
+        <div class="col-md-1">Camera</div><div class="col-md-3">Stream ID</div><div class="col-md-3">Display name</div><div class="col-md-1">Offset (ms)</div><div class="col-md-2">Status</div><div class="col-md-2">Actions</div>
+      </div>
+      <?php for ($cameraNumber = 1; $cameraNumber <= 3; $cameraNumber++): ?>
+      <fieldset class="row g-3 align-items-end border-top py-3 mb-0">
+        <legend class="visually-hidden">Camera <?= $cameraNumber ?></legend>
+        <div class="col-md-1"><label class="form-label d-md-none" for="cameraConfigNumber<?= $cameraNumber ?>">Camera</label><input id="cameraConfigNumber<?= $cameraNumber ?>" name="camera<?= $cameraNumber ?>Number" class="form-control" type="number" value="<?= $cameraNumber ?>" readonly></div>
+        <div class="col-md-3"><label class="form-label d-md-none" for="cameraConfigStream<?= $cameraNumber ?>">Stream ID</label><input id="cameraConfigStream<?= $cameraNumber ?>" name="camera<?= $cameraNumber ?>StreamId" class="form-control" readonly></div>
+        <div class="col-md-3"><label class="form-label d-md-none" for="cameraConfigName<?= $cameraNumber ?>">Display name</label><input id="cameraConfigName<?= $cameraNumber ?>" name="camera<?= $cameraNumber ?>Name" class="form-control" required></div>
+        <div class="col-md-1"><label class="form-label d-md-none" for="cameraConfigOffset<?= $cameraNumber ?>">Sync offset (ms)</label><input id="cameraConfigOffset<?= $cameraNumber ?>" name="camera<?= $cameraNumber ?>SyncOffsetMs" class="form-control" type="number" step="1" required></div>
+        <div class="col-md-2"><span id="cameraConfigStatus<?= $cameraNumber ?>" class="badge text-bg-secondary">Unavailable</span></div>
+        <div class="col-md-2 dropdown">
+          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">Actions</button>
+          <ul id="cameraConfigActions<?= $cameraNumber ?>" class="dropdown-menu"></ul>
+        </div>
+      </fieldset>
+      <?php endfor; ?>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </div>
+  </form></div>
+</div>
+
 <div class="modal fade" id="annotationModal" tabindex="-1" aria-labelledby="annotationTitle" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable"><form id="annotationForm" class="modal-content">
     <div class="modal-header"><div><h2 class="modal-title fs-5" id="annotationTitle">IVR Sheet annotation</h2><div class="small text-secondary">Post-review details are not part of the response clock.</div></div><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>

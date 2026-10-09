@@ -1146,6 +1146,8 @@ async function bootstrapApp() {
     $("#matchModal").on("show.bs.modal", fillMatchForm);
     $("#matchReset").on("click", resetMatchForm);
     $("#matchForm").on("submit", saveMatch);
+    $("#cameraConfigModal").on("show.bs.modal", fillCameraConfigForm);
+    $("#cameraConfigForm").on("submit", saveCameraConfig);
     $("#scvScene").on("click", function (event) {
       if (scvDragMoved) {
         scvDragMoved = false;
@@ -1250,6 +1252,73 @@ async function saveMatch(event) {
     renderHeaderStructure();
     bootstrap.Modal.getInstance(document.getElementById("matchModal"))?.hide();
     toast("Match information saved.", "success");
+  } catch (error) {
+    toast(error.message, "danger");
+  }
+}
+
+function fillCameraConfigForm() {
+  $("#cameraConfigRing").val(state.ring);
+  state.cameras.forEach((camera) => {
+    $(`#cameraConfigStream${camera.id}`).val(camera.streamId || "");
+    $(`#cameraConfigName${camera.id}`).val(camera.name || "");
+    $(`#cameraConfigOffset${camera.id}`).val(camera.syncOffsetMs ?? 0);
+    const status = String(camera.status || "").toLowerCase();
+    const mediaStatus = mcvMediaStates.get(camera.id)?.status;
+    const disabled = status === "disabled";
+    const error = !disabled && (mediaStatus === "error" || status === "error");
+    const live = !disabled && ["ready", "playing"].includes(mediaStatus);
+    const label = disabled
+      ? "Disabled"
+      : error
+        ? "Error"
+        : live
+          ? "Live"
+          : "Live video unavailable";
+    const badgeClass = disabled
+      ? "text-bg-secondary"
+      : error
+        ? "text-bg-danger"
+        : live
+          ? "text-bg-success"
+          : "text-bg-warning";
+    const actions = disabled
+      ? ["Enable"]
+      : live
+        ? ["Stop stream", "Disable"]
+        : ["Disable", "Start Stream"];
+    setClass(`#cameraConfigStatus${camera.id}`, `badge ${badgeClass}`);
+    setText(`#cameraConfigStatus${camera.id}`, label);
+    $(`#cameraConfigActions${camera.id}`).html(
+      actions.map((action) => `<li><button type="button" class="dropdown-item">${action}</button></li>`).join(""),
+    );
+  });
+}
+
+async function saveCameraConfig(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  if (!form.reportValidity()) return;
+  try {
+    const fields = Object.fromEntries(new FormData(form).entries());
+    const cameras = [1, 2, 3].map((camera) => ({
+      id: camera,
+      streamId: fields[`camera${camera}StreamId`],
+      name: fields[`camera${camera}Name`],
+      syncOffsetMs: Number(fields[`camera${camera}SyncOffsetMs`]),
+    }));
+    const response = await mockServer.saveCameraConfig({
+      ring: Number(fields.ring),
+      cameras,
+    });
+    state.cameras = state.cameras.map((camera) => ({
+      ...camera,
+      ...response.data.cameras.find((saved) => saved.id === camera.id),
+    }));
+    renderCameraOptions();
+    timelineController.renderTracks();
+    bootstrap.Modal.getInstance(document.getElementById("cameraConfigModal"))?.hide();
+    toast("Camera configuration saved.", "success");
   } catch (error) {
     toast(error.message, "danger");
   }
