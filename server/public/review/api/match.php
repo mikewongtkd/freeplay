@@ -30,6 +30,8 @@ function ivr_match_payload(array $row): array
         'division' => $row['division'] ?? '',
         'stage' => $row['stage'] ?? '',
         'round' => $row['round_number'] === null ? null : (int) $row['round_number'],
+        'referee' => $row['referee'] ?? '',
+        'reviewJury' => $row['review_jury'] ?? '',
         'chung' => ['name' => $row['chung_name'] ?? '', 'team' => $row['chung_team'] ?? '', 'quota' => (int) $row['chung_quota']],
         'hong' => ['name' => $row['hong_name'] ?? '', 'team' => $row['hong_team'] ?? '', 'quota' => (int) $row['hong_quota']],
     ];
@@ -129,14 +131,15 @@ try {
     $hongId = $saveCompetitor($existing === null || $existing['hong_competitor_id'] === null ? null : (int) $existing['hong_competitor_id'], $hongName, trim((string) ($body['hongTeam'] ?? '')));
     $values = [
         $matchNumber, trim((string) ($body['division'] ?? '')) ?: null, trim((string) ($body['stage'] ?? '')) ?: null, $round,
+        trim((string) ($body['referee'] ?? '')) ?: null, trim((string) ($body['reviewJury'] ?? '')) ?: null,
         $chungId, $hongId, max(0, (int) ($body['chungQuota'] ?? 0)), max(0, (int) ($body['hongQuota'] ?? 0)),
         (int) round($start * 1000000),
     ];
     if ($existing !== null) {
-        $statement = $db->prepare('UPDATE ivr_matches SET ring_id=?,match_number=?,division=?,stage=?,round_number=?,chung_competitor_id=?,hong_competitor_id=?,chung_quota=?,hong_quota=?,recording_start_epoch_us=?,status=\'active\',updated_at=CURRENT_TIMESTAMP WHERE id=?');
+        $statement = $db->prepare('UPDATE ivr_matches SET ring_id=?,match_number=?,division=?,stage=?,round_number=?,referee=?,review_jury=?,chung_competitor_id=?,hong_competitor_id=?,chung_quota=?,hong_quota=?,recording_start_epoch_us=?,status=\'active\',updated_at=CURRENT_TIMESTAMP WHERE id=?');
         $statement->execute([$ringId, ...$values, (int) $existing['id']]);
     } else {
-        $statement = $db->prepare('INSERT INTO ivr_matches(ring_id,match_number,division,stage,round_number,chung_competitor_id,hong_competitor_id,chung_quota,hong_quota,recording_start_epoch_us,status) VALUES (?,?,?,?,?,?,?,?,?,?,\'active\')');
+        $statement = $db->prepare('INSERT INTO ivr_matches(ring_id,match_number,division,stage,round_number,referee,review_jury,chung_competitor_id,hong_competitor_id,chung_quota,hong_quota,recording_start_epoch_us,status) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,\'active\')');
         $statement->execute([$ringId, ...$values]);
     }
     $db->commit();

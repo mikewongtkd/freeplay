@@ -93,6 +93,8 @@ CREATE TABLE IF NOT EXISTS ivr_matches (
     division TEXT,
     stage TEXT,
     round_number INTEGER CHECK (round_number IS NULL OR round_number > 0),
+    referee TEXT,
+    review_jury TEXT,
     chung_competitor_id INTEGER,
     hong_competitor_id INTEGER,
     chung_quota INTEGER NOT NULL DEFAULT 1 CHECK (chung_quota >= 0),

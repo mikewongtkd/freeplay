@@ -43,6 +43,9 @@
         <div class="col-md-3"><label class="form-label" for="matchRound">Round</label><input id="matchRound" name="round" class="form-control" type="number" min="1" required></div>
         <div class="col-md-3"><label class="form-label" for="matchStage">Stage</label><input id="matchStage" name="stage" class="form-control" placeholder="Quarterfinal"></div>
         <div class="col-12"><label class="form-label" for="matchDivision">Division</label><input id="matchDivision" name="division" class="form-control" placeholder="Senior Black Belt · Men -68 kg"></div>
+        <div class="col-12"><h3 class="fs-6 text-secondary mb-0">IVR Officials</h3></div>
+        <div class="col-md-6"><label class="form-label" for="matchReferee">Referee</label><input id="matchReferee" name="referee" class="form-control"></div>
+        <div class="col-md-6"><label class="form-label" for="matchReviewJury">Review Jury</label><input id="matchReviewJury" name="reviewJury" class="form-control"></div>
         <div class="col-12"><h3 class="fs-6 text-primary mb-0">Chung</h3></div>
         <div class="col-md-5"><label class="form-label" for="matchChungName">Competitor name</label><input id="matchChungName" name="chungName" class="form-control" required></div>
         <div class="col-md-5"><label class="form-label" for="matchChungTeam">Team</label><input id="matchChungTeam" name="chungTeam" class="form-control"></div>

@@ -1219,6 +1219,8 @@ function fillMatchForm() {
   $("#matchRound").val(match.round || "");
   $("#matchStage").val(match.stage || "");
   $("#matchDivision").val(match.division || "");
+  $("#matchReferee").val(match.referee || "");
+  $("#matchReviewJury").val(match.reviewJury || "");
   $("#matchChungName").val(match.chung?.name || "");
   $("#matchChungTeam").val(match.chung?.team || "");
   $("#matchChungQuota").val(match.chung?.quota ?? 1);

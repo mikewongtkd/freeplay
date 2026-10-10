@@ -20,6 +20,9 @@ function ivr_db(): PDO
         if ($schema === false) throw new RuntimeException("IVR database schema not found at {$schemaPath}.");
         $pdo->exec($schema);
     }
+    $matchColumns = array_column($pdo->query('PRAGMA table_info(ivr_matches)')->fetchAll(), 'name');
+    if (!in_array('referee', $matchColumns, true)) $pdo->exec('ALTER TABLE ivr_matches ADD COLUMN referee TEXT');
+    if (!in_array('review_jury', $matchColumns, true)) $pdo->exec('ALTER TABLE ivr_matches ADD COLUMN review_jury TEXT');
     return $pdo;
 }
 
