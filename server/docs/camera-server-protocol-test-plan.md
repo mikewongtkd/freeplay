@@ -1552,7 +1552,7 @@ test/load-tests.js
 test/test-utils.js
 
 freeplay.js
-data/sql/schema.sql
+deploy/db/schema.sql
 
 public/tests.php
 public/api/tests.php

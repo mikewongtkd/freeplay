@@ -2089,7 +2089,7 @@ freeplay.js
 package.json
 README.md
 
-data/sql/schema.sql
+deploy/db/schema.sql
 
 public/index.php
 public/camera.php
