@@ -15,7 +15,7 @@ function ivr_db(): PDO
     $pdo->exec('PRAGMA busy_timeout=5000');
     $hasIvrSchema = $pdo->query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='ivr_tournaments'")->fetchColumn();
     if (!$hasIvrSchema) {
-        $schemaPath = getenv('FREEPLAY_SCHEMA') ?: '/data/sql/schema.sql';
+        $schemaPath = getenv('FREEPLAY_SCHEMA') ?: '/deploy/db/schema.sql';
         $schema = @file_get_contents($schemaPath);
         if ($schema === false) throw new RuntimeException("IVR database schema not found at {$schemaPath}.");
         $pdo->exec($schema);
