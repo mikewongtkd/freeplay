@@ -38,6 +38,22 @@ let mcvDriftMs = 0;
 const mcvMediaStates = new Map(
   [1, 2, 3].map((camera) => [camera, { status: "idle", error: null }]),
 );
+function recordMcvCameraStatus(cameraId, mediaState) {
+  const camera = state.cameras.find((item) => item.id === cameraId);
+  if (!camera) return;
+  const modality = ["ready", "playing", "paused"].includes(mediaState)
+    ? "displayed"
+    : "unavailable";
+  camera.realtimeStatus = mediaState;
+  camera.realtimeSegments ??= [];
+  if (camera.realtimeSegments.at(-1)?.status !== modality) {
+    camera.realtimeSegments.push({
+      start: serverClock.now(),
+      status: modality,
+    });
+  }
+  timelineController.renderTracks();
+}
 const mediaController = new MediaController({
   video: document.getElementById("scvMedia"),
   scene: document.getElementById("scvScene"),
@@ -87,6 +103,7 @@ const mcvEntries = [1, 2, 3].map((camera) => ({
         mediaState === "error"
           ? detail?.message || "Replay media error."
           : null;
+      recordMcvCameraStatus(camera, mediaState);
       updateCameraValues();
       renderStatus();
     },
@@ -97,6 +114,7 @@ const mcvLiveController = new McvLiveController(mcvEntries, {
     const current = mcvMediaStates.get(camera);
     current.status = mediaState;
     current.error = detail?.message || null;
+    recordMcvCameraStatus(camera, mediaState);
     updateCameraValues();
     renderStatus();
   },

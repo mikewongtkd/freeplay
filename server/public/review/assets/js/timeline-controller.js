@@ -50,6 +50,25 @@ function marker(review, type, time, label, className) {
   return `<button class="annotation-marker ${className}" style="left:${px(time)}px" data-review-id="${review.id}" data-time="${time}" title="${label}: ${timeLabel(time, true)}"><span>${label}</span></button>`;
 }
 
+function cameraStatusSegments(camera) {
+  const segments = [],
+    end = state.timelineRange.end;
+  let cursor = state.timelineRange.start,
+    status = "unavailable";
+  (camera.realtimeSegments || []).forEach((transition) => {
+    if (transition.start <= cursor) {
+      status = transition.status;
+      return;
+    }
+    if (transition.start >= end) return;
+    segments.push({ start: cursor, end: transition.start, status });
+    cursor = transition.start;
+    status = transition.status;
+  });
+  segments.push({ start: cursor, end, status });
+  return segments;
+}
+
 function ensureTicks() {
   const container = document.getElementById("timelineTicks");
   if (container.children.length === tickCount) return;
@@ -74,6 +93,12 @@ export const timelineController = {
     $("#timelineTracks").html(
       state.cameras
         .map((camera) => {
+          const statusSegments = cameraStatusSegments(camera)
+            .map(
+              (segment) =>
+                `<span class="track-segment ${segment.status}" data-start="${segment.start}" data-end="${segment.end}"></span>`,
+            )
+            .join("");
           const gaps = (camera.gaps || [])
             .filter((gap) => gap.end >= state.timelineRange.start)
             .map(
@@ -81,7 +106,7 @@ export const timelineController = {
                 `<span class="track-gap" data-start="${gap.start}" data-end="${gap.end}"></span>`,
             )
             .join("");
-          return `<div class="timeline-track" data-camera-track="${camera.id}"><span class="track-label">CAM ${camera.id}</span><div class="track-line">${gaps}</div></div>`;
+          return `<div class="timeline-track" data-camera-track="${camera.id}"><span class="track-label">CAM ${camera.id}</span><div class="track-line">${statusSegments}${gaps}</div></div>`;
         })
         .join(""),
     );
@@ -92,10 +117,16 @@ export const timelineController = {
     state.cameras.forEach((camera) => {
       const displayed =
         state.currentView === "MCV" || state.selectedCamera === camera.id;
+      const realtimeAvailable = ["ready", "playing", "paused"].includes(
+        camera.realtimeStatus,
+      );
+      const unavailable =
+        state.currentView === "MCV" ? !realtimeAvailable : !camera.available;
       $(`[data-camera-track="${camera.id}"] .track-line`)
-        .toggleClass("displayed", displayed)
-        .toggleClass("available", !displayed)
-        .toggleClass("unavailable", !camera.available);
+        .toggleClass("segmented", state.currentView === "MCV")
+        .toggleClass("displayed", state.currentView !== "MCV" && displayed)
+        .toggleClass("available", state.currentView !== "MCV" && !displayed)
+        .toggleClass("unavailable", state.currentView !== "MCV" && unavailable);
     });
   },
   renderAnnotations() {
@@ -157,6 +188,10 @@ export const timelineController = {
       node.style.left = `${px(Number(node.dataset.start))}px`;
       node.style.width = `${Math.max(1, px(Number(node.dataset.end)) - px(Number(node.dataset.start)))}px`;
     });
+    document.querySelectorAll("#timeline .track-segment").forEach((node) => {
+      node.style.left = `${px(Number(node.dataset.start))}px`;
+      node.style.width = `${Math.max(1, px(Number(node.dataset.end)) - px(Number(node.dataset.start)))}px`;
+    });
   },
   updateDynamic() {
     const scroll = document.getElementById("timelineScroll");
@@ -164,6 +199,13 @@ export const timelineController = {
       scroll.scrollWidth - scroll.clientWidth - scroll.scrollLeft <= 2;
     document.getElementById("timeline").style.width = `${timelineWidth()}px`;
     if (pinnedToLive) scroll.scrollLeft = scroll.scrollWidth;
+    document
+      .querySelectorAll("#timeline .track-line.segmented")
+      .forEach((line) => {
+        const segments = line.querySelectorAll(".track-segment");
+        if (segments.length)
+          segments[segments.length - 1].dataset.end = state.timelineRange.end;
+      });
     this.updatePositions();
     $("#playbackCursor").css("left", `${px(state.playbackCursor)}px`);
     $("#liveEdge").css("left", `${px(state.liveEdge)}px`);

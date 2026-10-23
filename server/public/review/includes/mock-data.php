@@ -27,7 +27,7 @@ function ivr_mock_match(int $ring): array
         ],
         'cameras' => [
             ['id' => 1, 'streamId' => "ring{$ring}_cam1", 'name' => 'Wide (Center)', 'available' => true, 'status' => 'streaming', 'syncOffsetMs' => 0, 'gaps' => []],
-            ['id' => 2, 'streamId' => "ring{$ring}_cam2", 'name' => 'Side (Chung)', 'available' => true, 'status' => 'streaming', 'syncOffsetMs' => 12, 'gaps' => [['start' => $now - 39, 'end' => $now - 36]]],
+            ['id' => 2, 'streamId' => "ring{$ring}_cam2", 'name' => 'Side (Chung)', 'available' => true, 'status' => 'streaming', 'syncOffsetMs' => 12, 'gaps' => []],
             ['id' => 3, 'streamId' => "ring{$ring}_cam3", 'name' => 'Side (Hong)', 'available' => true, 'status' => 'streaming', 'syncOffsetMs' => -8, 'gaps' => []],
         ],
         'operator' => ['reviewJury' => 'Prototype Operator'],
