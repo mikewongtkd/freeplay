@@ -38,6 +38,8 @@ function ivr_mock_match(int $ring): array
 function ivr_mock_pssel(int $ring): array
 {
     $now = microtime(true);
+    return [];
+    /*
     return [
         ['id' => 'p1', 'type' => 'match_start', 'label' => 'Match start', 'time' => $now - 66, 'side' => null, 'score' => '0–0'],
         ['id' => 'p2', 'type' => 'score', 'label' => 'Chung +2', 'time' => $now - 49, 'side' => 'chung', 'score' => '2–0'],
@@ -46,6 +48,7 @@ function ivr_mock_pssel(int $ring): array
         ['id' => 'p5', 'type' => 'resume', 'label' => 'Kye-sok', 'time' => $now - 18, 'side' => null, 'score' => '3–0'],
         ['id' => 'p6', 'type' => 'score', 'label' => 'Hong +3', 'time' => $now - 9, 'side' => 'hong', 'score' => '3–3'],
     ];
+    */
 }
 
 function ivr_scenarios(): array
