@@ -161,6 +161,25 @@
   </form></div>
 </div>
 
+<div class="modal fade" id="startMatchRoundModal" tabindex="-1" aria-labelledby="startMatchRoundTitle" aria-describedby="startMatchRoundDescription" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered"><form id="startMatchRoundForm" class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title fs-5" id="startMatchRoundTitle"><i class="fa-solid fa-flag-checkered text-primary me-2"></i>Start Match/Round?</h2>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancel match or round start"></button>
+    </div>
+    <div class="modal-body">
+      <p id="startMatchRoundDescription">This will establish the current server time as the beginning of the timeline.</p>
+      <dl class="row mb-0 small">
+        <dt class="col-5">Timeline start</dt><dd id="startMatchRoundTime" class="col-7 text-end font-monospace">—</dd>
+      </dl>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+      <button type="submit" class="btn btn-primary"><i class="fa-solid fa-flag-checkered"></i> Confirm Start</button>
+    </div>
+  </form></div>
+</div>
+
 <div class="modal fade" id="deleteRequestModal" tabindex="-1" aria-labelledby="deleteRequestTitle" aria-describedby="deleteRequestDescription" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered"><form id="deleteRequestForm" class="modal-content">
     <div class="modal-header">

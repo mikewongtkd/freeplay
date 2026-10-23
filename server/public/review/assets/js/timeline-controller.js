@@ -30,6 +30,7 @@ function gapAt(camera, time) {
   );
 }
 function marker(review, type, time, label, className) {
+  if (time < state.timelineRange.start) return "";
   return `<button class="annotation-marker ${className}" style="left:${pct(time)}%" data-review-id="${review.id}" data-time="${time}" title="${label}: ${timeLabel(time, true)}"><span>${label}</span></button>`;
 }
 
@@ -58,6 +59,7 @@ export const timelineController = {
       state.cameras
         .map((camera) => {
           const gaps = (camera.gaps || [])
+            .filter((gap) => gap.end >= state.timelineRange.start)
             .map(
               (gap) =>
                 `<span class="track-gap" data-start="${gap.start}" data-end="${gap.end}"></span>`,
@@ -84,6 +86,7 @@ export const timelineController = {
     const lanes = { chung: 0, hong: 0 };
     $("#timelineAnnotations").html(
       state.reviewHistory
+        .filter((review) => review.windowEnd >= state.timelineRange.start)
         .map((review) => {
           const className = `${review.side || "chung"} ${review.issueType === "technical" ? "technical" : ""} ${review.origin === "referee" ? "referee" : ""}`;
           const lane = lanes[review.side || "chung"]++ % 3,
@@ -117,6 +120,7 @@ export const timelineController = {
   renderPsselEvents() {
     $("#psselEvents").html(
       state.psselEvents
+        .filter((event) => event.time >= state.timelineRange.start)
         .map(
           (event) =>
             `<button class="pssel-marker pssel-${event.type} ${event.side || ""}" data-pssel-id="${event.id}" data-time="${event.time}" title="${event.label} · ${timeLabel(event.time, true)}${event.score ? ` · ${event.score}` : ""}"><i class="fa-solid ${event.type === "score" ? "fa-bolt" : event.type === "penalty" ? "fa-square" : event.type === "pause" ? "fa-pause" : event.type === "resume" ? "fa-play" : "fa-flag"}"></i></button>`,

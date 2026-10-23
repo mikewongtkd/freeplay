@@ -33,5 +33,8 @@
     <button class="btn btn-control" data-action="pan" data-x="0" data-y="10" title="Pan down"><i class="fa-solid fa-arrow-down"></i></button>
     <button class="btn btn-control" data-action="fullscreen" title="Full screen"><i class="fa-solid fa-expand"></i></button>
   </div>
+  <div class="toolbar-group btn-group" role="group" aria-label="Match and round controls">
+    <button class="btn btn-control" data-action="start-match-round"><i class="fa-solid fa-flag-checkered"></i> Start Match/Round</button>
+  </div>
   <div class="playback-readout"><span id="playbackState">LIVE</span><strong id="cursorReadout">--:--:--.---</strong></div>
 </section>

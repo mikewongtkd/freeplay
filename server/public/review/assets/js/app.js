@@ -236,6 +236,40 @@ function confirmReviewWindowMove(review, cursorTime, duration) {
   });
 }
 
+let matchRoundStartConfirmationPending = false;
+function confirmMatchRoundStart() {
+  if (matchRoundStartConfirmationPending) return Promise.resolve(false);
+  const element = document.getElementById("startMatchRoundModal"),
+    form = document.getElementById("startMatchRoundForm");
+  if (!element || !form) return Promise.resolve(false);
+  matchRoundStartConfirmationPending = true;
+  setText("#startMatchRoundTime", formatTime(serverClock.now()));
+  const modal = bootstrap.Modal.getOrCreateInstance(element);
+  return new Promise((resolve) => {
+    let settled = false;
+    const cleanup = () => {
+      form.removeEventListener("submit", submit);
+      element.removeEventListener("hidden.bs.modal", hidden);
+    };
+    const finish = (accepted) => {
+      if (settled) return;
+      settled = true;
+      matchRoundStartConfirmationPending = false;
+      cleanup();
+      resolve(accepted);
+    };
+    const submit = (event) => {
+      event.preventDefault();
+      finish(true);
+      modal.hide();
+    };
+    const hidden = () => finish(false);
+    form.addEventListener("submit", submit);
+    element.addEventListener("hidden.bs.modal", hidden);
+    modal.show();
+  });
+}
+
 let deleteRequestConfirmationPending = false;
 function confirmRequestDeletion(review) {
   if (deleteRequestConfirmationPending) return Promise.resolve(false);
@@ -999,6 +1033,38 @@ async function dispatch(action, element) {
     case "go-live":
       playbackController.goLive();
       break;
+    case "start-match-round": {
+      if (!(await confirmMatchRoundStart())) break;
+      const start = serverClock.now();
+      const match = state.match;
+      const response = await mockServer.saveMatch({
+        matchId: match.id || "",
+        ring: state.ring,
+        start,
+        matchNumber: match.number,
+        round: match.round,
+        stage: match.stage || "",
+        division: match.division || "",
+        referee: match.referee || "",
+        reviewJury: match.reviewJury || "",
+        chungName: match.chung?.name || "",
+        chungTeam: match.chung?.team || "",
+        chungQuota: match.chung?.quota ?? 1,
+        hongName: match.hong?.name || "",
+        hongTeam: match.hong?.team || "",
+        hongQuota: match.hong?.quota ?? 1,
+      });
+      state.match = response.data.match;
+      state.timelineRange.start = start;
+      state.timelineStartSource = "match/round start";
+      state.playbackCursor = Math.max(state.playbackCursor, start);
+      timelineController.renderTracks();
+      timelineController.renderAnnotations();
+      timelineController.renderPsselEvents();
+      updateTimeSensitiveValues();
+      toast("Match/round start recorded.", "success");
+      break;
+    }
     case "fit":
       playbackController.fit();
       break;
