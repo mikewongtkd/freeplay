@@ -3,6 +3,7 @@ import { playbackController } from "./playback-controller.js";
 
 const $ = window.jQuery;
 const tickCount = 7;
+const pixelsPerSecond = 10;
 function pct(time) {
   const span = Math.max(
     0.001,
@@ -11,6 +12,21 @@ function pct(time) {
   return Math.max(
     0,
     Math.min(100, ((time - state.timelineRange.start) / span) * 100),
+  );
+}
+function px(time) {
+  return Math.max(
+    0,
+    Math.min(
+      state.timelineRange.end - state.timelineRange.start,
+      time - state.timelineRange.start,
+    ),
+  ) * pixelsPerSecond;
+}
+function timelineWidth() {
+  return Math.max(
+    1,
+    (state.timelineRange.end - state.timelineRange.start) * pixelsPerSecond,
   );
 }
 function timeLabel(time, milliseconds = false) {
@@ -31,7 +47,7 @@ function gapAt(camera, time) {
 }
 function marker(review, type, time, label, className) {
   if (time < state.timelineRange.start) return "";
-  return `<button class="annotation-marker ${className}" style="left:${pct(time)}%" data-review-id="${review.id}" data-time="${time}" title="${label}: ${timeLabel(time, true)}"><span>${label}</span></button>`;
+  return `<button class="annotation-marker ${className}" style="left:${px(time)}px" data-review-id="${review.id}" data-time="${time}" title="${label}: ${timeLabel(time, true)}"><span>${label}</span></button>`;
 }
 
 function ensureTicks() {
@@ -123,7 +139,7 @@ export const timelineController = {
         .filter((event) => event.time >= state.timelineRange.start)
         .map(
           (event) =>
-            `<button class="pssel-marker pssel-${event.type} ${event.side || ""}" data-pssel-id="${event.id}" data-time="${event.time}" title="${event.label} · ${timeLabel(event.time, true)}${event.score ? ` · ${event.score}` : ""}"><i class="fa-solid ${event.type === "score" ? "fa-bolt" : event.type === "penalty" ? "fa-square" : event.type === "pause" ? "fa-pause" : event.type === "resume" ? "fa-play" : "fa-flag"}"></i></button>`,
+            `<button class="pssel-marker pssel-${event.type} ${event.side || ""}" style="left:${px(event.time)}px" data-pssel-id="${event.id}" data-time="${event.time}" title="${event.label} · ${timeLabel(event.time, true)}${event.score ? ` · ${event.score}` : ""}"><i class="fa-solid ${event.type === "score" ? "fa-bolt" : event.type === "penalty" ? "fa-square" : event.type === "pause" ? "fa-pause" : event.type === "resume" ? "fa-play" : "fa-flag"}"></i></button>`,
         )
         .join(""),
     );
@@ -131,21 +147,26 @@ export const timelineController = {
   },
   updatePositions() {
     document.querySelectorAll("#timeline [data-time]").forEach((node) => {
-      node.style.left = `${pct(Number(node.dataset.time))}%`;
+      node.style.left = `${px(Number(node.dataset.time))}px`;
     });
     document.querySelectorAll("#timeline .review-window").forEach((node) => {
-      node.style.left = `${pct(Number(node.dataset.start))}%`;
-      node.style.width = `${Math.max(0.7, pct(Number(node.dataset.end)) - pct(Number(node.dataset.start)))}%`;
+      node.style.left = `${px(Number(node.dataset.start))}px`;
+      node.style.width = `${Math.max(1, px(Number(node.dataset.end)) - px(Number(node.dataset.start)))}px`;
     });
     document.querySelectorAll("#timeline .track-gap").forEach((node) => {
-      node.style.left = `${pct(Number(node.dataset.start))}%`;
-      node.style.width = `${Math.max(0.4, pct(Number(node.dataset.end)) - pct(Number(node.dataset.start)))}%`;
+      node.style.left = `${px(Number(node.dataset.start))}px`;
+      node.style.width = `${Math.max(1, px(Number(node.dataset.end)) - px(Number(node.dataset.start)))}px`;
     });
   },
   updateDynamic() {
+    const scroll = document.getElementById("timelineScroll");
+    const pinnedToLive =
+      scroll.scrollWidth - scroll.clientWidth - scroll.scrollLeft <= 2;
+    document.getElementById("timeline").style.width = `${timelineWidth()}px`;
+    if (pinnedToLive) scroll.scrollLeft = scroll.scrollWidth;
     this.updatePositions();
-    $("#playbackCursor").css("left", `${pct(state.playbackCursor)}%`);
-    $("#liveEdge").css("left", `${pct(state.liveEdge)}%`);
+    $("#playbackCursor").css("left", `${px(state.playbackCursor)}px`);
+    $("#liveEdge").css("left", `${px(state.liveEdge)}px`);
     $("#timeline").attr("aria-valuenow", pct(state.playbackCursor).toFixed(1));
     ensureTicks();
     [...document.getElementById("timelineTicks").children].forEach(
@@ -154,6 +175,7 @@ export const timelineController = {
           state.timelineRange.start +
           ((state.timelineRange.end - state.timelineRange.start) * i) /
             (tickCount - 1);
+        tick.style.left = `${px(time)}px`;
         tick.textContent = timeLabel(time);
       },
     );
