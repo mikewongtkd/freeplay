@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly APP_DIR="/usr/local/freeplay"
+readonly UNIT="freeplay.service"
+
+usage() {
+    cat <<'EOF'
+Usage: freeplay COMMAND
+
+Manage the FreePlay systemd service.
+
+Commands:
+  start           Start FreePlay
+  stop            Stop FreePlay
+  restart         Restart FreePlay
+  status          Show detailed service status
+  enable          Enable FreePlay at boot
+  disable         Disable FreePlay at boot
+  enable-now      Enable and start FreePlay
+  disable-now     Disable and stop FreePlay
+  is-active       Report whether FreePlay is running
+  is-enabled      Report whether FreePlay is enabled at boot
+  daemon-reload   Reload systemd unit definitions
+  logs            Follow the FreePlay journal
+EOF
+}
+
+require_installation() {
+    if [[ ! -d "$APP_DIR" ]]; then
+        echo "FreePlay server directory not found: $APP_DIR" >&2
+        exit 1
+    fi
+}
+
+if [[ $# -ne 1 ]]; then
+    usage >&2
+    exit 2
+fi
+
+command="$1"
+case "$command" in
+    start)
+        require_installation
+        systemctl start "$UNIT"
+        ;;
+    stop)
+        systemctl stop "$UNIT"
+        ;;
+    restart)
+        require_installation
+        systemctl restart "$UNIT"
+        ;;
+    status)
+        systemctl --no-pager --full status "$UNIT"
+        ;;
+    enable)
+        require_installation
+        systemctl enable "$UNIT"
+        ;;
+    disable)
+        systemctl disable "$UNIT"
+        ;;
+    enable-now)
+        require_installation
+        systemctl enable --now "$UNIT"
+        ;;
+    disable-now)
+        systemctl disable --now "$UNIT"
+        ;;
+    is-active)
+        systemctl is-active "$UNIT"
+        ;;
+    is-enabled)
+        systemctl is-enabled "$UNIT"
+        ;;
+    daemon-reload)
+        systemctl daemon-reload
+        ;;
+    logs)
+        journalctl --unit "$UNIT" --follow
+        ;;
+    help|-h|--help)
+        usage
+        ;;
+    *)
+        echo "Unknown command: $command" >&2
+        usage >&2
+        exit 2
+        ;;
+esac
