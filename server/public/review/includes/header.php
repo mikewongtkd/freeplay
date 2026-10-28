@@ -24,9 +24,9 @@ $headerMode = $headerMode ?? 'review';
     <span class="header-divider" aria-hidden="true"></span>
     <span class="ivr-title text-truncate">Instant Video Replay (IVR)</span>
   </div>
-  <?php if ($headerMode === 'matches'): ?>
-    <div class="match-context d-none d-lg-flex align-items-center gap-2" aria-label="Tournament match list context">
-      <strong><?= htmlspecialchars($tournamentName ?? 'Current tournament', ENT_QUOTES, 'UTF-8') ?></strong><span>·</span><span><?= $ring === null ? 'All rings' : 'Ring ' . (int) $ring ?></span>
+  <?php if (in_array($headerMode, ['matches', 'report'], true)): ?>
+    <div class="match-context d-none d-lg-flex align-items-center gap-2" aria-label="Tournament context">
+      <strong><?= htmlspecialchars($tournamentName ?? 'Current tournament', ENT_QUOTES, 'UTF-8') ?></strong><span>·</span><span><?= htmlspecialchars($headerContext ?? ($ring === null ? 'All rings' : 'Ring ' . (int) $ring), ENT_QUOTES, 'UTF-8') ?></span>
     </div>
   <?php else: ?>
     <div class="match-context d-none d-lg-flex align-items-center gap-2" aria-label="Match context">
@@ -34,8 +34,10 @@ $headerMode = $headerMode ?? 'review';
     </div>
   <?php endif; ?>
   <div class="d-flex align-items-center gap-2">
-  <?php if ($headerMode === 'matches'): ?>
-    <?php if ($ring !== null): ?><a class="btn btn-sm btn-header" href="/review/matches.php"><i class="fa-solid fa-layer-group"></i> All Rings</a><?php endif; ?>
+  <?php if (in_array($headerMode, ['matches', 'report'], true)): ?>
+    <?php if ($headerMode === 'matches' && $ring !== null): ?><a class="btn btn-sm btn-header" href="/review/matches.php"><i class="fa-solid fa-layer-group"></i> All Rings</a><?php endif; ?>
+    <?php if ($headerMode === 'matches'): ?><a class="btn btn-sm btn-header" href="/review/report.php<?= $ring === null ? '' : '?ring=' . (int) $ring ?>"><i class="fa-solid fa-clipboard-list"></i> Reviews</a><?php endif; ?>
+    <?php if ($headerMode === 'report'): ?><a class="btn btn-sm btn-header" href="/review/matches.php"><i class="fa-solid fa-list"></i> Matches</a><?php endif; ?>
     <a class="btn btn-sm btn-header" href="/index.php"><i class="fa-solid fa-table-cells-large"></i> Dashboard</a>
   <?php else: ?>
     <time id="headerClock" class="d-none d-md-inline small"></time>

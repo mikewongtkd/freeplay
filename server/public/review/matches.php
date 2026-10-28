@@ -23,6 +23,7 @@ if ($ringParameterPresent) {
         $ring = $ringValue;
     }
 }
+$headerContext = $ring === null ? 'All rings' : 'Ring ' . $ring;
 
 try {
     $db = ivr_db();
