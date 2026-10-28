@@ -34,6 +34,34 @@
     "Segoe UI",
     sans-serif;
 }
+.ivr-list-body {
+  min-height: 100vh;
+  overflow: auto;
+  background: #dbe6f0;
+  color: var(--ivr-ink);
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+}
+.matches-shell {
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 1.25rem;
+}
+.match-list-card {
+  border-color: var(--ivr-border);
+  box-shadow: 0 1px 4px #00152a1f;
+}
+.match-list-card .table {
+  margin-bottom: 0;
+}
+.match-list-card .table > :not(caption) > * > * {
+  padding: 0.7rem 0.75rem;
+  vertical-align: middle;
+}
 .skip-link {
   position: fixed;
   z-index: 2000;
