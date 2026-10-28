@@ -201,6 +201,23 @@
   </form></div>
 </div>
 
+<?php if ($matchRequestError !== null): ?>
+<div class="modal fade" id="matchRequestErrorModal" tabindex="-1" aria-labelledby="matchRequestErrorTitle" aria-describedby="matchRequestErrorDescription" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title fs-5" id="matchRequestErrorTitle"><i class="fa-solid fa-circle-exclamation text-danger me-2"></i><?= htmlspecialchars($matchRequestError['title'], ENT_QUOTES, 'UTF-8') ?></h2>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Dismiss match error"></button>
+    </div>
+    <div class="modal-body">
+      <p id="matchRequestErrorDescription" class="mb-0"><?= htmlspecialchars($matchRequestError['message'], ENT_QUOTES, 'UTF-8') ?></p>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+    </div>
+  </div></div>
+</div>
+<?php endif; ?>
+
 <div class="offcanvas offcanvas-end" tabindex="-1" id="developerPanel" aria-labelledby="developerTitle">
   <div class="offcanvas-header"><div><h2 class="offcanvas-title fs-5" id="developerTitle">Prototype scenarios</h2><div class="small text-secondary">Mock data and workflow controls</div></div><button class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button></div>
   <div class="offcanvas-body">

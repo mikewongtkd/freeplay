@@ -20,9 +20,14 @@ async function request(path, options = {}) {
 }
 
 export const mockServer = {
-  async bootstrap(ring) {
+  async bootstrap(ring, matchNumber = null, round = 1) {
+    const matchQuery = new URLSearchParams({ ring: String(ring) });
+    if (matchNumber) {
+      matchQuery.set("match", matchNumber);
+      matchQuery.set("round", String(round));
+    }
     const [match, pssel, reviews] = await Promise.all([
-      request(`match.php?ring=${encodeURIComponent(ring)}`),
+      request(`match.php?${matchQuery.toString()}`),
       request(`pssel.php?ring=${encodeURIComponent(ring)}`),
       request(`review.php?ring=${encodeURIComponent(ring)}`),
     ]);

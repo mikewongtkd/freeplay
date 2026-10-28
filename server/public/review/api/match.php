@@ -3,9 +3,10 @@ declare(strict_types=1);
 require __DIR__ . '/../includes/api-common.php';
 $ring = ivr_ring();
 
-function ivr_saved_match(PDO $db, int $ring): ?array
+function ivr_saved_match(PDO $db, int $ring, ?string $matchNumber = null): ?array
 {
-    $statement = $db->prepare(<<<'SQL'
+    $matchFilter = $matchNumber === null ? '' : ' AND m.match_number = :match_number';
+    $statement = $db->prepare(<<<SQL
         SELECT m.*, r.ring_number,
                chung.display_name AS chung_name, chung.team_name AS chung_team,
                hong.display_name AS hong_name, hong.team_name AS hong_team
@@ -13,23 +14,25 @@ function ivr_saved_match(PDO $db, int $ring): ?array
         JOIN ivr_rings r ON r.id = m.ring_id
         LEFT JOIN ivr_competitors chung ON chung.id = m.chung_competitor_id
         LEFT JOIN ivr_competitors hong ON hong.id = m.hong_competitor_id
-        WHERE r.ring_number = :ring
+        WHERE r.ring_number = :ring{$matchFilter}
         ORDER BY CASE m.status WHEN 'active' THEN 0 WHEN 'paused' THEN 1 WHEN 'scheduled' THEN 2 ELSE 3 END,
                  m.updated_at DESC, m.id DESC
         LIMIT 1
         SQL);
-    $statement->execute(['ring' => $ring]);
+    $parameters = ['ring' => $ring];
+    if ($matchNumber !== null) $parameters['match_number'] = $matchNumber;
+    $statement->execute($parameters);
     return $statement->fetch() ?: null;
 }
 
-function ivr_match_payload(array $row): array
+function ivr_match_payload(array $row, ?int $roundOverride = null): array
 {
     return [
         'id' => (int) $row['id'],
         'number' => $row['match_number'],
         'division' => $row['division'] ?? '',
         'stage' => $row['stage'] ?? '',
-        'round' => $row['round_number'] === null ? null : (int) $row['round_number'],
+        'round' => $roundOverride ?? ($row['round_number'] === null ? null : (int) $row['round_number']),
         'referee' => $row['referee'] ?? '',
         'reviewJury' => $row['review_jury'] ?? '',
         'chung' => ['name' => $row['chung_name'] ?? '', 'team' => $row['chung_team'] ?? '', 'quota' => (int) $row['chung_quota']],
@@ -68,14 +71,30 @@ try {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    $requestedMatchNumber = trim((string) ($_GET['match'] ?? ''));
+    $requestedMatchNumber = $requestedMatchNumber === '' ? null : $requestedMatchNumber;
+    $roundValue = filter_input(INPUT_GET, 'round', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    $requestedRound = $roundValue === false || $roundValue === null ? 1 : $roundValue;
     $model = ivr_mock_match($ring);
     $model['cameras'] = ivr_apply_saved_cameras($db, $ring, $model['cameras']);
-    $saved = ivr_saved_match($db, $ring);
+    $saved = ivr_saved_match($db, $ring, $requestedMatchNumber);
+    if ($requestedMatchNumber !== null && $saved === null) {
+        ivr_json(['ok' => false, 'error' => ['code' => 'match_not_found', 'message' => "Match {$requestedMatchNumber} was not found for Ring {$ring}."]], 404);
+    }
     if ($saved !== null) {
-        $model['match'] = ivr_match_payload($saved);
+        $model['match'] = ivr_match_payload($saved, $requestedMatchNumber === null ? null : $requestedRound);
         if ($saved['recording_start_epoch_us'] !== null) {
-            $model['timeline']['start'] = (int) $saved['recording_start_epoch_us'] / 1000000;
-            $model['timeline']['startSource'] = 'saved match start';
+            $recordingStart = (int) $saved['recording_start_epoch_us'] / 1000000;
+            $model['timeline']['start'] = $recordingStart;
+            $model['timeline']['recordingStart'] = $recordingStart;
+            $model['timeline']['roundStart'] = $recordingStart;
+            $model['timeline']['startSource'] = "match {$saved['match_number']} round {$model['match']['round']} recording start";
+        }
+        if ($saved['ended_at_epoch_us'] !== null) {
+            $recordingEnd = (int) $saved['ended_at_epoch_us'] / 1000000;
+            $model['timeline']['end'] = $recordingEnd;
+            $model['timeline']['liveEdge'] = $recordingEnd;
+            $model['timeline']['recordingEnd'] = $recordingEnd;
         }
         $model['prototype'] = false;
     }

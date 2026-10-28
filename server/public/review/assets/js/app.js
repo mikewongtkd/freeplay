@@ -1126,7 +1126,11 @@ async function dispatch(action, element) {
 
 async function bootstrapApp() {
   try {
-    const data = await mockServer.bootstrap(window.FREEPLAY_IVR?.ring || 1),
+    const data = await mockServer.bootstrap(
+        window.FREEPLAY_IVR?.ring || 1,
+        window.FREEPLAY_IVR?.match || null,
+        window.FREEPLAY_IVR?.round || 1,
+      ),
       model = data.match;
     serverClock.anchor(model.timeline.liveEdge, "bootstrap");
     state.ring = model.ring;
@@ -1137,6 +1141,7 @@ async function bootstrapApp() {
       start: model.timeline.start,
       end: model.timeline.end,
     };
+    state.timelineFixedEnd = Number.isFinite(model.timeline.recordingEnd);
     state.timelineStartSource = model.timeline.startSource;
     state.liveEdge = model.timeline.liveEdge;
     state.playbackCursor = model.timeline.liveEdge;

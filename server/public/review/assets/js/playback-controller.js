@@ -53,6 +53,7 @@ export const playbackController = {
     notify("go-live");
   },
   syncServerTime(serverSeconds) {
+    if (state.timelineFixedEnd) return;
     state.liveEdge = Number(serverSeconds);
     if (!activeReview()?.rst) state.timelineRange.end = state.liveEdge;
     if (state.playbackState === "live") state.playbackCursor = state.liveEdge;

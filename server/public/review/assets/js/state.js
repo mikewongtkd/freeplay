@@ -23,6 +23,7 @@ export const state = {
   reviewResult: null,
   psselEvents: [],
   timelineRange: { start: 0, end: 0 },
+  timelineFixedEnd: false,
   timelineStartSource: "page opened",
   selectedCamera: 1,
   playbackState: "live",
