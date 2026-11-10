@@ -1,6 +1,6 @@
 <section id="mcvView" class="view-panel" aria-label="Multi Camera View">
-  <div class="row g-1 h-100 m-0 mcv-layout">
-    <div class="mcv-grid col-lg-10 col-12">
+  <div class="mcv-layout">
+    <div class="mcv-grid">
       <?php for ($camera = 1; $camera <= 3; $camera++): ?>
         <article class="video-tile camera-tile" data-camera-tile="<?= $camera ?>" tabindex="0" role="button" aria-label="Open Camera <?= $camera ?> in Single Camera View">
           <div id="mcvScene<?= $camera ?>" class="simulated-video camera-scene camera-scene-<?= $camera ?>">
@@ -13,9 +13,11 @@
           </div>
         </article>
       <?php endfor; ?>
+    </div>
+    <div class="mcv-review-row">
       <?php require __DIR__ . '/review-panel.php'; ?>
     </div>
-    <div class="col-lg-2 col-12 mcv-summary-column">
+    <div class="mcv-summary-row">
       <?php require __DIR__ . '/review-summary.php'; ?>
     </div>
   </div>

@@ -603,7 +603,7 @@ function renderViews() {
   $("#ivrMain").toggleClass("scv-active", !mcv);
   const panel = document.getElementById("reviewPanel");
   const destination = mcv
-      ? document.querySelector("#mcvView .mcv-grid")
+      ? document.querySelector("#mcvView .mcv-review-row")
       : null;
   if (destination && panel.parentElement !== destination) destination.append(panel);
 }

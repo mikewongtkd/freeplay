@@ -177,23 +177,23 @@
 .mcv-layout {
   height: 100%;
   min-height: 0;
-  overflow: hidden;
-}
-.mcv-grid {
-  height: 100%;
-  min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto auto;
+  align-content: start;
   gap: 5px;
-}
-.mcv-summary-column {
-  height: 100%;
-  min-height: 0;
   overflow: auto;
 }
-.mcv-summary-column > .review-summary {
-  min-height: 100%;
+.mcv-grid {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 5px;
+}
+.mcv-grid > .camera-tile {
+  aspect-ratio: 16/9;
+}
+.mcv-summary-row > .review-summary {
   background: var(--ivr-panel);
   border: 1px solid var(--ivr-border);
   border-radius: 0.5rem;

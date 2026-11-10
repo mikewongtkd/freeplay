@@ -49,12 +49,7 @@
   }
   .mcv-grid {
     height: auto;
-    min-height: 100%;
-    grid-template-columns: 1fr;
-  }
-  .mcv-summary-column {
-    height: auto;
-    overflow: visible;
+    min-height: 0;
   }
   .camera-tile {
     aspect-ratio: 16/9;
