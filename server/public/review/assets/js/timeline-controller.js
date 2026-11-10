@@ -39,6 +39,11 @@ function timeLabel(time, milliseconds = false) {
     ...(milliseconds ? { fractionalSecondDigits: 3 } : {}),
   });
 }
+function elapsedLabel(time) {
+  const seconds = Math.max(0, Math.floor(time - state.timelineRange.start));
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}:${String( seconds % 60 ).padStart( 2, "0" )}`;
+}
 function gapAt(camera, time) {
   return (
     !camera.available ||
@@ -213,12 +218,10 @@ export const timelineController = {
     ensureTicks();
     [...document.getElementById("timelineTicks").children].forEach(
       (tick, i) => {
-        const time =
-          state.timelineRange.start +
-          ((state.timelineRange.end - state.timelineRange.start) * i) /
-            (tickCount - 1);
+        const relativeTime = (state.timelineRange.end - state.timelineRange.start) * (i / (tickCount - 1));
+        const time = state.timelineRange.start + relativeTime;
         tick.style.left = `${px(time)}px`;
-        tick.textContent = timeLabel(time);
+        tick.textContent = elapsedLabel(time);
       },
     );
     const endSource = activeReview()?.rst

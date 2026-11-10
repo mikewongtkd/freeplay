@@ -264,3 +264,60 @@
     backdrop-filter: blur(5px);
   }
 }
+
+/* Reserve room for elapsed-time labels and the horizontal scrollbar. */
+.timeline-panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.timeline-heading-row {
+  flex: 0 0 21px;
+}
+.timeline-scroll,
+.scv-active .timeline-scroll {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+.timeline-align {
+  height: 100%;
+}
+.timeline-scroll .timeline {
+  height: 100%;
+}
+.timeline-ticks {
+  bottom: 18px;
+}
+.timeline-tracks {
+  top: 26px;
+}
+.timeline-track {
+  height: 16px;
+}
+.review-window.hong {
+  top: 78px;
+}
+.annotation-marker,
+.timeline-marker {
+  height: 74px;
+}
+.pssel-events {
+  top: 98px;
+}
+.scv-active .timeline-tracks {
+  top: 18px;
+}
+.scv-active .timeline-track {
+  height: 10px;
+}
+.scv-active .review-window.hong {
+  top: 40px;
+}
+.scv-active .annotation-marker,
+.scv-active .timeline-marker {
+  height: 30px;
+}
+.scv-active .pssel-events {
+  top: 54px;
+}

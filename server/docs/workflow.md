@@ -1,0 +1,94 @@
+# Current IVR review workflow
+
+This document describes the currently implemented review UI and API as of November 10, 2026. It is a baseline for changing the workflow, review window, and Action Under Review (AUR) behavior, rather than a specification of proposed behavior.
+
+## 1. Starting the review system and entering match details
+
+1. Open the review page for the appropriate ring and check the match and round. Use **Match** in the Review Request card to change match details when necessary.
+2. Choose the request **Origin**: Coach (the default) or Referee.
+3. Choose the **Issue Type**: Standard (the default) or Technical.
+
+## 2. Creating a review request
+
+1. Click **Chung** or **Hong** for the requesting side. The keyboard equivalents are **C** and **H**.
+
+The request mark (RM) indicates the server-clock time when the coach stands and raises their card, indicating a request to review the video. The RM therefore marks the end of the review window. Creating a request does not start the formal review or its response clock. The card currently has no request-reason input; the API uses “Reason pending” when no reason is supplied.
+
+The review window ends at RM and extends backward by the configured duration:
+
+| Origin | Default duration | Window |
+| --- | --- | --- |
+| Coach | 5 seconds | RM − 5 seconds through RM |
+| Referee | 10 seconds | RM − 10 seconds through RM |
+
+These durations come from `public/review/config/prototype.php`; Technical does not independently change the duration.
+
+If the proposed window overlaps an existing window for the same side, the UI asks whether to move that existing window. Confirming updates its RM and window boundaries, preserving the existing duration instead of creating another request. Canceling leaves it unchanged. This overlap check includes review history, not just pending requests.
+
+With no open request, a new request is automatically **Selected**. Otherwise it is **Pending**. When no formal review is active, creation pauses playback at RM. A request created during an active review joins the queue while the active review remains displayed.
+
+## 3. Select and start the formal review
+
+1. Select the request in **Pending Review Queue**, if it is not already selected. Selection moves playback to its window start.
+2. Check its origin, issue type, RM, and window boundaries in **Review Summary**.
+3. Click **Start Review**, or press **S**.
+
+Starting changes the request to **Active**, records the server time as Review Start Time (RST), starts the response clock, and seeks to the window start. Only one formal review can be active per ring. Selecting another request is blocked until the active review is completed. The timeline's end is held at RST during the active review; RST does not replace the request window's end at RM.
+
+Before starting, a request can instead be **Resolved without Review**. This preserves the request and records the disposition without creating an RST or formal review duration. **Delete Request** asks for confirmation and removes the request; the UI offers deletion for unfinished requests, including an active one.
+
+## 4. Find and mark the AUR
+
+1. Inspect footage around the request window. Click a camera or press **1**, **2**, or **3** for Single Camera View; press **M** to return to Multi Camera View.
+2. Seek using the timeline and backward-seek controls. Use **Space** to play or pause and **Left/Right Arrow** to step frames. Single Camera View also provides zoom, pan, fit, and fullscreen controls.
+3. Position the common playback cursor on the action being reviewed.
+4. Click **Mark AUR**, or press **A**. The cursor timestamp becomes the AUR.
+
+AUR can be marked only for an **Active** or **Completed** formal review. A pending or selected request must first be started; a request resolved without review cannot receive an AUR through this operation.
+
+Marking AUR does not move or resize the review window. For a coach request, an AUR before the window start or after its end is accepted but flagged with an outside-window warning. The boundary timestamps themselves count as inside. Referee requests do not receive this flag.
+
+If an AUR already exists, the UI asks for confirmation before replacing it. The server retains the previous AUR and replacement timestamp in AUR history. A completed review's AUR can also be replaced without restarting its response clock.
+
+Use **Back to AUR** (**B**, also **R**) to return the cursor to the saved AUR. **W** jumps to the window start. AUR is a separate marker from RM, the window boundaries, and RST.
+
+## 5. Report the review result
+
+During an active review, choose one of the result buttons in Review Summary:
+
+- **Accepted**
+- **Rejected**
+- **Rejected: IVR Issue**
+
+Recording a result changes the review to **Completed**, records the decision time, and calculates the response duration from RST to the decision time. Playback returns to live. The active-review lock is released so another queued request can be selected and started.
+
+The current implementation does not require an AUR or completed annotation before accepting a formal result. The result records the review disposition; annotation is a separate step. The response-clock display is shown while the review is active and hidden after finalization.
+
+## 6. Complete the annotation later
+
+Annotation can be deferred until after the immediate review work. It is available for both **Completed** and **Resolved without Review** requests.
+
+1. Return to the finalized request by selecting its review window or marker on the timeline. Finish any active review before selecting a different request. The pending queue contains unfinished requests, so it is not the list of completed reviews.
+2. In Review Summary, open **Post-review annotation → Complete IVR Sheet**.
+3. Check the match number and round, then fill in the Review Jury, request reason, applicable Gam-jeom type, explanation, and notes.
+4. Click **Save annotation**. The annotation can be reopened and updated later.
+
+The form displays the request side/origin, formal result, and action time as read-only fields. Action time uses AUR when present and otherwise falls back to RM. Match number and round are initially populated from the current page context, so check them when returning to an older request. Existing annotation values populate the jury, reason, Gam-jeom, explanation, and notes fields; unsaved working notes can supply the initial notes value.
+
+Saving annotation does not restart the response clock or change the formal result. It merges the submitted annotation into the request and records an annotation update timestamp.
+
+### Limitation on returning at a later date
+
+The interactive review API currently stores requests, decisions, AUR history, and annotations in PHP session data, grouped by ring. Returning later depends on that session still retaining the request; durable recovery across sessions or dates is not implemented by this API.
+
+The Reviews report reads database records and offers **Open match in IVR**, but that link opens a match and round, not a specific review. The session-backed review API does not load the report's database review into the interactive workflow. Therefore, completing annotation at a later date is currently supported only while the original request remains available in the session and selectable in the UI.
+
+## Implementation references
+
+- `public/review/views/review-panel.php`, `review-queue.php`, and `review-summary.php`: request controls, queue, results, and annotation entry point.
+- `public/review/assets/js/app.js`: UI actions, confirmations, summary rendering, and annotation form handling.
+- `public/review/assets/js/review-controller.js`: request selection, playback transitions, AUR, results, and annotation operations.
+- `public/review/assets/js/keyboard-controller.js`: keyboard shortcuts.
+- `public/review/api/review.php`: review states, window calculation, AUR history, decisions, and annotation validation.
+- `public/review/includes/api-common.php`: session storage and selected/active review identities.
+- `public/review/report.php`: database-backed review report and match links.
