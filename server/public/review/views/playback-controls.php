@@ -9,13 +9,6 @@
     <button id="playPauseButton" class="btn btn-primary btn-control primary-control" data-action="play-pause"><i id="playPauseIcon" class="fa-solid fa-play"></i><span id="playPauseLabel">Play</span><br><kbd>Space</kbd></button>
     <button class="btn btn-control" data-action="step-frame" data-direction="1" title="Next frame">Frame <i class="fa-solid fa-forward-step"></i><br><kbd><i class="fa-solid fa-arrow-right"></i></kbd></button>
   </div>
-  <div class="toolbar-group rate-group btn-group" role="group" aria-label="Playback speed">
-    <button class="btn btn-control" data-action="set-rate" data-rate="-0.5">0.5× <i class="fa-solid fa-backward"></i></button>
-    <button class="btn btn-control" data-action="set-rate" data-rate="0.5">0.5×</button>
-    <button class="btn btn-control active" data-action="set-rate" data-rate="1">1×</button>
-    <button class="btn btn-control" data-action="set-rate" data-rate="2">2×</button>
-    <button class="btn btn-control" data-action="set-rate" data-rate="5">5×</button>
-  </div>
   <div class="toolbar-group review-nav-group btn-group" role="group" aria-label="Review navigation">
     <button class="btn btn-control" data-action="jump-window-start" title="Go to the beginning of Review Window"><i class="fa-solid fa-backward-step"></i> Window Start<br><kbd>W</kbd></button>
     <button class="btn btn-control" data-action="jump-window-end" title="Go to the end of Review Window"><i class="fa-solid fa-forward-step"></i> Window End<br><kbd>E</kbd></button>
@@ -31,7 +24,7 @@
     <button class="btn btn-control" data-action="pan" data-x="10" data-y="0" title="Pan right"><i class="fa-solid fa-arrow-right"></i></button>
     <button class="btn btn-control" data-action="pan" data-x="0" data-y="-10" title="Pan up"><i class="fa-solid fa-arrow-up"></i></button>
     <button class="btn btn-control" data-action="pan" data-x="0" data-y="10" title="Pan down"><i class="fa-solid fa-arrow-down"></i></button>
-    <button class="btn btn-control" data-action="fullscreen" title="Full screen"><i class="fa-solid fa-expand"></i></button>
+    <button class="btn btn-control" data-action="fullscreen" title="Full screen"><i class="fa-solid fa-expand"></i><br><kbd>F</kbd></button>
   </div>
   <div class="toolbar-group btn-group" role="group" aria-label="Match and round controls">
     <button class="btn btn-control" data-action="start-match-round"><i class="fa-solid fa-flag-checkered"></i> Start Match/Round</button>

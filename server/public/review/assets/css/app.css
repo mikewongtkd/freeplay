@@ -179,8 +179,7 @@
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto auto auto;
-  align-content: start;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 5px;
   overflow: auto;
 }
@@ -193,10 +192,39 @@
 .mcv-grid > .camera-tile {
   aspect-ratio: 16/9;
 }
-.mcv-summary-row > .review-summary {
+.mcv-controls-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 0;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+.mcv-controls-row > *,
+.mcv-review-column {
+  min-width: 0;
+  min-height: 0;
+}
+.mcv-review-column > .review-panel {
+  height: 100%;
+}
+.mcv-controls-row > .review-summary {
+  overflow: auto;
   background: var(--ivr-panel);
   border: 1px solid var(--ivr-border);
   border-radius: 0.5rem;
+}
+.request-match-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.request-match-controls > .badge {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 .video-tile {
   min-width: 0;
@@ -354,7 +382,7 @@
 }
 .review-panel {
   min-height: 0;
-  overflow: auto;
+  overflow: none;
   background: var(--ivr-panel);
   border: 1px solid var(--ivr-border);
   border-radius: 0.5rem;

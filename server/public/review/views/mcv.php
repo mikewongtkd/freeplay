@@ -14,10 +14,11 @@
         </article>
       <?php endfor; ?>
     </div>
-    <div class="mcv-review-row">
-      <?php require __DIR__ . '/review-panel.php'; ?>
-    </div>
-    <div class="mcv-summary-row">
+    <div class="mcv-controls-row">
+      <div class="mcv-review-column">
+        <?php require __DIR__ . '/review-panel.php'; ?>
+      </div>
+      <?php require __DIR__ . '/review-queue.php'; ?>
       <?php require __DIR__ . '/review-summary.php'; ?>
     </div>
   </div>

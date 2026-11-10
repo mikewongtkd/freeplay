@@ -1,15 +1,16 @@
 <aside id="reviewPanel" class="review-panel" aria-label="Request and review controls">
   <div class="panel-section request-actions" data-visible-when="monitoring">
-    <div class="d-flex justify-content-between align-items-center">
-     <h2 class="panel-title">Review Request</h2>
-     <span class="badge bg-secondary ms-auto" id="requestMatchNum">Loading Match Data...</span>
+    <h2 class="panel-title">Review Request</h2>
+    <div class="request-match-controls mb-2">
+     <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="modal" data-bs-target="#matchModal"><i class="fa-solid fa-pen-to-square"></i> Match</button>
+     <span class="badge bg-secondary" id="requestMatchNum">Loading Match Data...</span>
     </div>
     <div class="panel-kicker" id="requestDivInfo">Loading Match Data...</div>
     <div class="btn-group w-100 mb-2">
       <button class="btn btn-chung action-button" data-action="create-request" data-side="chung"><i class="fa-solid fa-flag"></i> Chung <kbd>C</kbd></button>
       <button class="btn btn-hong action-button" data-action="create-request" data-side="hong"><i class="fa-solid fa-flag"></i> Hong <kbd>H</kbd></button>
     </div>
-    <div class="row w-100 mb-2">
+    <div class="row g-2 mb-2">
       <div class="col-6">
         <fieldset class="request-option-group w-100">
           <legend>Origin</legend>
@@ -32,12 +33,6 @@
           </div>
       </fieldset>
     </div>
-  </div>
-  <div class="panel-kicker">Pending Review Queue</div>
-  <div id="pendingReviewList" class="pending-review-list" aria-live="polite"></div>
-  <div class="btn-group w-100" role="group" aria-label="Review navigation">
-    <button id="previousReviewButton" class="btn btn-outline-secondary flex-fill" data-action="previous-review"><i class="fa-solid fa-backward-fast"></i> Previous Review</button>
-    <button id="nextReviewButton" class="btn btn-outline-secondary flex-fill" data-action="next-review">Next Review <i class="fa-solid fa-forward-fast"></i></button>
   </div>
   </div>
 </aside>

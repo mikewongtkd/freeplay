@@ -18,6 +18,15 @@ const commands = {
     document
       .querySelector('[data-action="create-request"][data-side="chung"]')
       ?.click(),
+  f: () => {
+    let element = document.querySelector(".scv-video");
+    if( document.fullscreenElement === element) {
+      document.exitFullscreen();
+      return;
+    } else {
+      element?.requestFullscreen?.();
+    }
+  },
   h: () =>
     document
       .querySelector('[data-action="create-request"][data-side="hong"]')
