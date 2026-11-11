@@ -2,7 +2,7 @@ import { state, activeReview } from "./state.js";
 import { playbackController } from "./playback-controller.js";
 
 const $ = window.jQuery;
-const tickCount = 7;
+const tickIntervalSeconds = 10;
 const pixelsPerSecond = 10;
 function pct(time) {
   const span = Math.max(
@@ -76,11 +76,13 @@ function cameraStatusSegments(camera) {
 
 function ensureTicks() {
   const container = document.getElementById("timelineTicks");
+  const duration = Math.max(0, state.timelineRange.end - state.timelineRange.start);
+  const tickCount = Math.floor(duration / tickIntervalSeconds) + 1;
   if (container.children.length === tickCount) return;
   const fragment = document.createDocumentFragment();
   for (let i = 0; i < tickCount; i++) {
     const span = document.createElement("span");
-    span.style.left = `${(i * 100) / (tickCount - 1)}%`;
+    span.style.left = `${i * tickIntervalSeconds * pixelsPerSecond}px`;
     fragment.append(span);
   }
   container.replaceChildren(fragment);
@@ -218,7 +220,7 @@ export const timelineController = {
     ensureTicks();
     [...document.getElementById("timelineTicks").children].forEach(
       (tick, i) => {
-        const relativeTime = (state.timelineRange.end - state.timelineRange.start) * (i / (tickCount - 1));
+        const relativeTime = i * tickIntervalSeconds;
         const time = state.timelineRange.start + relativeTime;
         tick.style.left = `${px(time)}px`;
         tick.textContent = elapsedLabel(time);
