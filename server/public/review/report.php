@@ -145,7 +145,7 @@ require __DIR__ . '/includes/header.php';
       <article class="card match-list-card">
         <div class="card-header d-flex flex-wrap align-items-center justify-content-between gap-2">
           <div class="d-flex flex-wrap align-items-center gap-2">
-            <strong><?= htmlspecialchars((string) $review['public_id'], ENT_QUOTES, 'UTF-8') ?></strong>
+            <strong><?= htmlspecialchars(preg_replace('/^(R\d+)-\d{6}$/', '$1', (string) $review['public_id']), ENT_QUOTES, 'UTF-8') ?></strong>
             <span class="badge <?= $review['side'] === 'chung' ? 'text-bg-primary' : 'text-bg-danger' ?>"><?= htmlspecialchars(ucfirst((string) $review['side']), ENT_QUOTES, 'UTF-8') ?></span>
             <span class="badge <?= ivr_report_status_class((string) $review['status']) ?>"><?= htmlspecialchars(ucwords(str_replace('_', ' ', (string) $review['status'])), ENT_QUOTES, 'UTF-8') ?></span>
           </div>

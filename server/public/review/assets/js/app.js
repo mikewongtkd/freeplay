@@ -1,8 +1,11 @@
+import { requestReason, updateRequestReasons, updateRequestReasonDetails, fillAnnotationReasons, updateAnnotationReasonDetails, annotationReason } from "./request-reasons.js";
 import {
   state,
   subscribe,
   replaceReviews,
   selectedReview,
+  matchReviews,
+  reviewName,
   activeReview,
   notify,
   syncSelectedReview,
@@ -60,7 +63,7 @@ const mediaController = new MediaController({
   onTime: (epochSeconds) => {
     if (state.currentView === "MCV") return;
     if (state.playbackState === "live") return;
-    const limit = selectedReview()?.rm;
+    const limit = (selectedReview() || activeReview())?.rm;
     if (limit != null && epochSeconds >= limit && state.isPlaying) {
       playbackController.seekTo(limit);
       return;
@@ -227,6 +230,8 @@ function openRequestModal(side) {
   timelineController.renderAnnotations();
   const form = document.getElementById("requestForm");
   form.reset();
+  document.getElementById("requestReason").value = "Reason pending";
+  updateRequestReasons();
   setText("#requestModalContext", `${side === "chung" ? "Chung" : "Hong"} · ${formatTime(pendingRequest.timestamp)}`);
   bootstrap.Modal.getOrCreateInstance(document.getElementById("requestModal")).show();
 }
@@ -239,8 +244,9 @@ async function submitRequest(event) {
   const button = form.querySelector('[type="submit"]');
   button.disabled = true;
   try {
+    const fields = Object.fromEntries(new FormData(form));
     await reviewController.createRequest(pendingRequest.side, {
-      ...Object.fromEntries(new FormData(form)), timestamp: pendingRequest.timestamp,
+      ...fields, reason: requestReason(fields), timestamp: pendingRequest.timestamp,
     });
     pendingRequest.saving = false;
     bootstrap.Modal.getInstance(document.getElementById("requestModal")).hide();
@@ -294,7 +300,7 @@ function confirmRequestDeletion(review) {
     confirm = document.getElementById("deleteRequestConfirm");
   if (!element || !form || !confirm) return Promise.resolve(false);
   deleteRequestConfirmationPending = true;
-  setText("#deleteRequestId", `${review.id} · ${review.side === "chung" ? "Chung" : "Hong"}`);
+  setText("#deleteRequestId", `${reviewName(review)} · ${review.side === "chung" ? "Chung" : "Hong"}`);
   setText("#deleteRequestRm", formatTime(review.rm));
   const modal = bootstrap.Modal.getOrCreateInstance(element);
   return new Promise((resolve) => {
@@ -476,7 +482,7 @@ function updateScvTransform() {
 }
 
 function renderReview() {
-  const review = selectedReview(),
+  const review = selectedReview() || activeReview(),
     has = !!review,
     active = review?.status === "active",
     selectable = ["pending", "selected"].includes(review?.status),
@@ -532,39 +538,22 @@ function renderReview() {
 
 function renderPendingQueue() {
   const locked = !!state.activeReviewId;
-  $("#pendingReviewList").html(
-    state.pendingRequests.length
-      ? state.pendingRequests
-          .map(
-            (review) =>
-              `<button class="btn btn-sm ${review.id === state.selectedReviewId ? "btn-primary" : "btn-outline-secondary"}" data-action="select-review" data-review-id="${review.id}" ${locked ? "disabled" : ""}><strong>${review.side === "chung" ? "Chung" : "Hong"}</strong> ${review.id}<span>${originLabels[review.origin]} · ${issueTypeLabels[review.issueType]} · ${review.reason || "Reason pending"}</span></button>`,
-          )
-          .join("")
-      : '<span class="empty-copy">No pending requests</span>',
-  );
-  if (!state.currentRequest) {
-    $("#previousReviewButton").prop(
-      "disabled",
-      !state.reviewHistory.some(
-        (review) => review.rm < state.playbackCursor,
-      ),
-    );
-    $("#nextReviewButton").prop(
-      "disabled",
-      !state.reviewHistory.some(
-        (review) => review.rm > state.playbackCursor,
-      ),
-    );
-  } else {
-    $("#previousReviewButton,#nextReviewButton").prop(
-      "disabled",
-      locked || state.pendingRequests.length < 2,
-    );
-  }
+  const reviews = matchReviews();
+  const escape = value => $("<div>").text(String(value ?? "")).html();
+  $("#pendingReviewList").html(reviews.length ? reviews.map(review => {
+    const selected = review.id === state.currentRequest;
+    const status = selected && review.status === "pending" ? "selected" : review.status;
+    const label = status.replaceAll("_", " ");
+    return `<button class="btn btn-sm ${selected ? (review.side === "hong" ? "btn-hong" : "btn-primary") : "btn-outline-secondary"}" data-action="select-review" data-review-id="${escape(review.id)}" ${locked && review.id !== state.activeReviewId ? "disabled" : ""}><strong>${review.side === "chung" ? "Chung" : "Hong"}</strong> ${escape(reviewName(review))} <span class="badge text-bg-secondary">${escape(label)}</span><span>${escape(originLabels[review.origin])} · ${escape(issueTypeLabels[review.issueType])} · ${escape(review.reason || "Reason pending")}</span></button>`;
+  }).join("") : '<span class="empty-copy">No requests for this match and round</span>');
+  const i = reviews.findIndex(review => review.id === state.currentRequest);
+  $("#previousReviewButton").prop("disabled", locked || !(i >= 0 ? i > 0 : reviews.some(review => review.rm < state.playbackCursor)));
+  $("#nextReviewButton").prop("disabled", locked || !(i >= 0 ? i < reviews.length - 1 : reviews.some(review => review.rm > state.playbackCursor)));
+  $("#unselectReviewButton").prop("disabled", !state.currentRequest);
 }
 
 function updateReviewClock() {
-  const review = selectedReview();
+  const review = activeReview() || selectedReview();
   if (!review?.rst) return;
   const elapsed =
     review.status === "active"
@@ -624,15 +613,10 @@ function updatePlaybackValues() {
 }
 
 function renderStatus() {
-  const review = selectedReview(),
-    pieces = [];
+  const pieces = [];
   if (state.scenario)
     pieces.push(
       `<span class="status-pill"><i class="fa-solid fa-diagram-project"></i> Scenario ${state.scenario}</span>`,
-    );
-  if (review)
-    pieces.push(
-      `<span class="status-pill ${review.side}">${review.side === "chung" ? "Chung" : "Hong"} · ${originLabels[review.origin]} · ${review.id}</span>`,
     );
   if (state.syncWarning)
     pieces.push(
@@ -981,7 +965,7 @@ async function dispatch(action, element) {
       const review = selectedReview();
       if (!review || !(await confirmRequestDeletion(review))) break;
       if (await reviewController.deleteRequest())
-        toast(`Request ${review.id} deleted.`, "success");
+        toast(`Request ${reviewName(review)} deleted.`, "success");
       break;
     }
     case "set-result":
@@ -994,6 +978,9 @@ async function dispatch(action, element) {
             ? "warning"
             : "danger",
       );
+      break;
+    case "unselect-review":
+      await reviewController.deselect(true);
       break;
     case "previous-review":
       reviewController.previous();
@@ -1203,6 +1190,8 @@ async function bootstrapApp() {
       event.stopPropagation();
       psselController.goTo(this.dataset.psselId);
     });
+    $("#requestOrigin, #requestIssueType").on("change", updateRequestReasons);
+    $("#requestReason").on("change", updateRequestReasonDetails);
     $("#requestForm").on("submit", submitRequest);
     $("#requestModal").on("hide.bs.modal", (event) => {
       if (pendingRequest?.saving) event.preventDefault();
@@ -1221,6 +1210,7 @@ async function bootstrapApp() {
     });
     $("#annotationModal").on("show.bs.modal", fillAnnotation);
     $("#annotationForm").on("submit", saveAnnotation);
+    $("#annotationReason").on("change", updateAnnotationReasonDetails);
     $("#matchModal").on("show.bs.modal", fillMatchForm);
     $("#matchReset").on("click", resetMatchForm);
     $("#matchForm").on("submit", saveMatch);
@@ -1267,12 +1257,7 @@ function fillAnnotation() {
     review.annotation?.reviewJury || "Prototype Operator",
   );
   $("#annotationResult").val(resultLabels[review.result] || "Pending");
-  $("#annotationReason").val(
-    review.annotation?.reason ||
-      review.issues?.[0] ||
-      "Other / official correction",
-  );
-  $("#annotationGamjeom").val(review.annotation?.gamJeomType || "");
+  fillAnnotationReasons(review);
   $("#annotationExplanation").val(review.annotation?.explanation || "");
   $("#annotationNotes").val(
     review.annotation?.notes || $("#workingNotes").val() || "",
@@ -1280,14 +1265,19 @@ function fillAnnotation() {
 }
 async function saveAnnotation(event) {
   event.preventDefault();
-  const annotation = Object.fromEntries(
-    new FormData(event.currentTarget).entries(),
-  );
-  await reviewController.annotate(annotation);
-  bootstrap.Modal.getInstance(
-    document.getElementById("annotationModal"),
-  )?.hide();
-  toast("Post-review annotation saved.", "success");
+  const form = event.currentTarget;
+  if (!form.reportValidity()) return;
+  const review = selectedReview();
+  if (!review) return;
+  try {
+    const annotation = Object.fromEntries(new FormData(form).entries());
+    annotation.reason = annotationReason(review, annotation);
+    await reviewController.annotate(annotation);
+    bootstrap.Modal.getInstance(document.getElementById("annotationModal"))?.hide();
+    toast("Post-review annotation saved.", "success");
+  } catch (error) {
+    toast(error.message, "warning");
+  }
 }
 
 function fillMatchForm() {
@@ -1330,6 +1320,7 @@ async function saveMatch(event) {
     state.match = response.data.match;
     state.round = response.data.match.round;
     renderHeaderStructure();
+    renderReview();
     bootstrap.Modal.getInstance(document.getElementById("matchModal"))?.hide();
     toast("Match information saved.", "success");
   } catch (error) {

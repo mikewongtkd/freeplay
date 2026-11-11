@@ -39,6 +39,7 @@ $reviews =& ivr_ring_reviews($ring);
 
 if ($action === 'reset') {
     $reviews = [];
+    unset($_SESSION['ivr_review_sequences'][$ring]);
     ivr_review_response($reviews);
 }
 
@@ -54,11 +55,17 @@ if ($action === 'create-request') {
         ivr_json(['ok' => false, 'error' => ['code' => 'invalid_timestamp', 'message' => 'Review request timestamp is invalid.']], 400);
     }
     $requestedEpochUs = sprintf('%.0f', $requestedTimestamp * 1000000);
-    $id = 'R' . str_pad((string) (count($reviews) + 1), 3, '0', STR_PAD_LEFT) . '-' . substr($now['epochUs'], -6);
+    $sequence = (int) ($_SESSION['ivr_review_sequences'][$ring] ?? 0);
+    foreach ($reviews as $existing) {
+        if (preg_match('/^R(\d+)-/', (string) $existing['id'], $matches)) $sequence = max($sequence, (int) $matches[1]);
+    }
+    $_SESSION['ivr_review_sequences'][$ring] = ++$sequence;
+    $id = 'R' . str_pad((string) $sequence, 3, '0', STR_PAD_LEFT) . '-' . substr($now['epochUs'], -6);
     $hasOpenRequest = ivr_has_status($reviews, ['selected', 'active']);
     $issues = array_values(array_slice(array_filter((array) ($body['issues'] ?? []), 'is_string'), 0, 2));
     $review = [
         'id' => $id, 'ring' => $ring, 'side' => $side, 'origin' => $origin, 'issueType' => $issueType, 'reason' => $reason,
+        'matchNumber' => trim((string) ($body['matchNumber'] ?? '')), 'round' => max(1, (int) ($body['round'] ?? 1)),
         'isCoachRequest' => $isCoach, 'rm' => $requestedTimestamp, 'rmEpochUs' => $requestedEpochUs,
         'aur' => null, 'aurHistory' => [], 'rst' => null, 'decisionAt' => null, 'result' => null,
         'status' => ($hasOpenRequest || !empty($body['preserveSelection'])) ? 'pending' : 'selected', 'issues' => $issues ?: [$reason],

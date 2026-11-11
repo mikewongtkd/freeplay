@@ -1,4 +1,4 @@
-import { state, activeReview } from "./state.js";
+import { state, activeReview, reviewName } from "./state.js";
 import { playbackController } from "./playback-controller.js";
 
 const $ = window.jQuery;
@@ -52,7 +52,7 @@ function gapAt(camera, time) {
 }
 function marker(review, type, time, label, className) {
   if (time < state.timelineRange.start) return "";
-  return `<button class="annotation-marker ${className}" style="left:${px(time)}px" data-review-id="${review.id}" data-time="${time}" title="${label}: ${timeLabel(time, true)}"><span>${label}</span></button>`;
+  return `<button class="annotation-marker ${className}" style="left:${px(time)}px" data-review-id="${review.id}" data-time="${time}" title="${reviewName(review)} · ${label}: ${timeLabel(time, true)}"><span>${label}</span></button>`;
 }
 
 function cameraStatusSegments(camera) {

@@ -1,8 +1,8 @@
 <div id="reviewSummary" class="review-summary" aria-label="Review request summary">
   <div class="panel-section review-summary">
-    <h2 class="panel-title mb-0">Review Summary</h2>
+    <h2 class="panel-title mb-0">Review Request Details</h2>
     <span id="reviewStatusBadge" class="badge text-bg-secondary">NO REQUEST</span>
-    <div id="reviewEmpty" class="empty-copy">Create or select a Request Mark to begin.</div>
+    <div id="reviewEmpty" class="empty-copy">Create or select a Review Request.</div>
     <dl id="reviewMetadata" class="review-metadata d-none">
       <div><dt>Origin</dt><dd id="metaOrigin">—</dd></div>
       <div><dt>Issue Type</dt><dd id="metaIssueType">—</dd></div>

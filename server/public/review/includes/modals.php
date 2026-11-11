@@ -8,7 +8,15 @@
       <label class="form-label" for="requestIssueType">Issue type</label>
       <select id="requestIssueType" name="issueType" class="form-select mb-3" required><option value="standard">Standard</option><option value="technical">Technical</option></select>
       <label class="form-label" for="requestReason">Reason</label>
-      <input id="requestReason" name="reason" class="form-control" value="Reason pending" required>
+      <select id="requestReason" name="reason" class="form-select" required><option>Reason pending</option></select>
+      <div id="requestReasonOtherGroup" class="mt-3 d-none">
+        <label class="form-label" for="requestReasonOther">Other reason details</label>
+        <input id="requestReasonOther" name="reasonOther" class="form-control" disabled>
+      </div>
+      <div id="requestGamJeomGroup" class="mt-3 d-none">
+        <label class="form-label" for="requestGamJeomReason">Opponent's <em>gam-jeom</em></label>
+        <select id="requestGamJeomReason" name="gamJeomReason" class="form-select" disabled></select>
+      </div>
     </div>
     <div class="modal-footer"><span class="small text-secondary me-auto"><kbd>Esc</kbd> cancel · <kbd>Enter</kbd> save</span><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Create request</button></div>
   </form></div>
@@ -123,8 +131,15 @@
         <div class="col-md-4"><label class="form-label" for="annotationActionTime">Action time</label><input id="annotationActionTime" name="actionTime" class="form-control" readonly></div>
         <div class="col-md-6"><label class="form-label" for="annotationIdentity">Request identity / origin</label><input id="annotationIdentity" name="identity" class="form-control" readonly></div>
         <div class="col-md-6"><label class="form-label" for="annotationJury">Review Jury</label><input id="annotationJury" name="reviewJury" class="form-control"></div>
-        <div class="col-12"><label class="form-label" for="annotationReason">Request reason</label><select id="annotationReason" name="reason" class="form-select"><option>Falling Down</option><option>Crossing the Boundary Line</option><option>Attacking After Kal-yeo</option><option>Attacking the Fallen Opponent</option><option>Technical Points</option><option>Invalidation of points following a Gam-jeom</option><option>Gam-jeom given to the wrong player</option><option>Punch Misidentification</option><option>Head kick (Head PSS not in use)</option><option>Pretending Injury</option><option>Technical Issue</option><option>Other / official correction</option></select></div>
-        <div class="col-md-6"><label class="form-label" for="annotationGamjeom">Gam-jeom type, if applicable</label><input id="annotationGamjeom" name="gamJeomType" class="form-control"></div>
+        <div class="col-12"><label class="form-label" for="annotationReason">Request reason</label><select id="annotationReason" name="reason" class="form-select" required></select></div>
+        <div id="annotationReasonOtherGroup" class="col-12 d-none">
+          <label class="form-label" for="annotationReasonOther">Other reason details</label>
+          <input id="annotationReasonOther" name="reasonOther" class="form-control" disabled>
+        </div>
+        <div id="annotationGamJeomGroup" class="col-12 d-none">
+          <label class="form-label" for="annotationGamJeomReason">Opponent's <em>gam-jeom</em></label>
+          <select id="annotationGamJeomReason" name="gamJeomReason" class="form-select" disabled></select>
+        </div>
         <div class="col-md-6"><label class="form-label" for="annotationResult">Result</label><input id="annotationResult" name="result" class="form-control" readonly></div>
         <div class="col-12"><label class="form-label" for="annotationExplanation">Explanation</label><textarea id="annotationExplanation" name="explanation" class="form-control" rows="3"></textarea></div>
         <div class="col-12"><label class="form-label" for="annotationNotes">Notes</label><textarea id="annotationNotes" name="notes" class="form-control" rows="2"></textarea></div>

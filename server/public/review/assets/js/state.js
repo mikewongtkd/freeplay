@@ -106,3 +106,17 @@ export function syncSelectedReview() {
   state.reviewResult = review?.result ?? null;
   state.reviewStatus = review?.status || "monitoring";
 }
+
+export function matchReviews() {
+  const number = String(state.match?.number ?? "");
+  const round = Number(state.match?.round ?? state.round ?? 1);
+  return state.reviewHistory.filter(review => {
+    if (review.matchNumber == null || review.round == null)
+      return review.rm >= state.timelineRange.start;
+    return String(review.matchNumber) === number && Number(review.round) === round;
+  }).sort((a, b) => a.rm - b.rm);
+}
+
+export function reviewName(review) {
+  return String(review.id).replace(/^(R\d+)-\d{6}$/, "$1");
+}

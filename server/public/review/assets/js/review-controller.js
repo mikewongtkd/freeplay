@@ -5,6 +5,7 @@ import {
   selectedReview,
   activeReview,
   queuedReview,
+  matchReviews,
 } from "./state.js";
 import { mockServer } from "./mock-server.js";
 import { playbackController } from "./playback-controller.js";
@@ -43,6 +44,8 @@ export const reviewController = {
       const response = await mockServer.createRequest({
         ring: state.ring,
         side,
+        matchNumber: state.match?.number ?? "",
+        round: state.match?.round ?? state.round ?? 1,
         origin: options.origin || "coach",
         issueType: options.issueType || "standard",
         reason: options.reason || options.issues?.[0] || "",
@@ -92,7 +95,7 @@ export const reviewController = {
     });
   },
   async deleteRequest() {
-    const review = selectedReview();
+    const review = selectedReview() || activeReview();
     if (!review) return false;
     return execute(async () => {
       useResponse(
@@ -155,8 +158,14 @@ export const reviewController = {
       return updated;
     });
   },
-  async deselect() {
-    if (state.activeReviewId) return false;
+  async deselect(allowActive = false) {
+    if (state.activeReviewId) {
+      if (!allowActive) return false;
+      state.currentRequest = null;
+      syncDisplayedReview();
+      notify("review-selected");
+      return true;
+    }
     return execute(async () => {
       const response = await mockServer.review("deselect", { ring: state.ring });
       replaceReviews(response.data.reviews, null, response.data.workflow);
@@ -189,30 +198,20 @@ export const reviewController = {
     return true;
   },
   previous() {
-    if (!state.currentRequest) {
-      const target = state.reviewHistory
-        .filter((review) => review.rm < state.playbackCursor)
-        .sort((a, b) => b.rm - a.rm)[0];
-      if (target) return this.selectReview(target.id);
-      return;
-    }
     if (state.activeReviewId) return;
-    const pending = state.pendingRequests;
-    const i = pending.findIndex((review) => review.id === state.currentRequest);
-    if (i > 0) this.selectReview(pending[i - 1].id);
+    const reviews = matchReviews();
+    const i = reviews.findIndex(review => review.id === state.currentRequest);
+    const target = i >= 0 ? reviews[i - 1]
+      : [...reviews].reverse().find(review => review.rm < state.playbackCursor);
+    if (target) return this.selectReview(target.id);
   },
   next() {
-    if (!state.currentRequest) {
-      const target = state.reviewHistory
-        .filter((review) => review.rm > state.playbackCursor)
-        .sort((a, b) => a.rm - b.rm)[0];
-      if (target) return this.selectReview(target.id);
-      return;
-    }
     if (state.activeReviewId) return;
-    const pending = state.pendingRequests;
-    const i = pending.findIndex((review) => review.id === state.currentRequest);
-    if (i >= 0 && i < pending.length - 1) this.selectReview(pending[i + 1].id);
+    const reviews = matchReviews();
+    const i = reviews.findIndex(review => review.id === state.currentRequest);
+    const target = i >= 0 ? reviews[i + 1]
+      : reviews.find(review => review.rm > state.playbackCursor);
+    if (target) return this.selectReview(target.id);
   },
   jumpAur() {
     const review = selectedReview();

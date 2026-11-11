@@ -9,7 +9,7 @@ function activeReview() {
 function clamp(time) {
   return Math.max(
     state.timelineRange.start,
-    Math.min(state.timelineRange.end, selectedReview()?.rm ?? Infinity, time),
+    Math.min(state.timelineRange.end, (selectedReview() || activeReview())?.rm ?? Infinity, time),
   );
 }
 
@@ -68,7 +68,7 @@ export const playbackController = {
       state.playbackCursor + deltaSeconds * state.playbackRate,
     );
     state.playbackCursor = next;
-    if (next >= Math.min(state.timelineRange.end, selectedReview()?.rm ?? Infinity) || next <= state.timelineRange.start) {
+    if (next >= Math.min(state.timelineRange.end, (selectedReview() || activeReview())?.rm ?? Infinity) || next <= state.timelineRange.start) {
       state.isPlaying = false;
       state.playbackState = "paused";
     }

@@ -115,3 +115,90 @@ test('timeline uses RM markers and a side-specific connector without windows', a
   timelineController.renderAnnotations();
   assert.doesNotMatch(elements.get('#timelineAnnotations'), /aur-connector|provisional/);
 });
+
+test('queue filters match and round and includes finalized requests', async () => {
+  const { state, matchReviews } = await import(moduleUrl('state.js'));
+  Object.assign(state, { match: { number: '101', round: 2 }, timelineRange: { start: 100, end: 200 },
+    reviewHistory: [
+      { id: 'completed', matchNumber: '101', round: 2, status: 'completed', rm: 130 },
+      { id: 'pending', matchNumber: '101', round: 2, status: 'pending', rm: 120 },
+      { id: 'other-round', matchNumber: '101', round: 1, status: 'completed', rm: 150 },
+      { id: 'other-match', matchNumber: '102', round: 2, status: 'pending', rm: 160 },
+    ] });
+  assert.deepEqual(matchReviews().map(r => r.id), ['pending', 'completed']);
+  const { reviewController: review } = await import(moduleUrl('review-controller.js'));
+  await review.selectReview('completed');
+  assert.equal(state.currentRequest, 'completed');
+  assert.equal(state.playbackCursor, 130);
+});
+
+test('Unselect clears active display selection while retaining formal review and RM limit', async () => {
+  const { state, selectedReview } = await import(moduleUrl('state.js'));
+  const { reviewController: review } = await import(moduleUrl('review-controller.js'));
+  const { playbackController: playback } = await import(moduleUrl('playback-controller.js'));
+  Object.assign(state, { currentRequest: 'active', activeReviewId: 'active',
+    timelineRange: { start: 50, end: 150 }, playbackCursor: 110,
+    reviewHistory: [{ id: 'active', rm: 120, rst: 150, status: 'active' }] });
+  assert.equal(await review.deselect(true), true);
+  assert.equal(selectedReview(), null);
+  assert.equal(state.activeReviewId, 'active');
+  assert.equal(state.timelineRange.end, 150);
+  playback.seekTo(140);
+  assert.equal(state.playbackCursor, 120);
+  assert.equal(await review.selectReview('other'), false);
+});
+
+
+test('review names omit the internal suffix and preserve the sequence', async () => {
+  const { reviewName } = await import(moduleUrl('state.js'));
+  assert.equal(reviewName({ id: 'R001-123456' }), 'R001');
+  assert.equal(reviewName({ id: 'R012-654321' }), 'R012');
+  assert.equal(reviewName({ id: 'R1000-654321' }), 'R1000');
+});
+
+test('request reasons depend on origin and type and retain conditional details', async () => {
+  const { reasonOptions, requestReason, opponentGamJeomReasons } = await import(moduleUrl('request-reasons.js'));
+  assert.deepEqual(reasonOptions('coach', 'standard'), [
+    'Reason pending', 'Technical points', 'Punch misidentification', 'Head Kick (no head PSS)',
+    'Invalidation of gam-jeom and points reinstated',
+    'Restoring points scored before a gam-jeom', 'gam-jeom given to the wrong player',
+    'Gam-jeom for the opponent', "Invalidation of opponent's technical points",
+    "Invalidation of opponent's points following a gam-jeom", 'Other',
+  ]);
+  assert.deepEqual(reasonOptions('referee', 'standard'), [
+    'Head kick after count', 'Pretending injury', 'Judge request technical',
+    'Last action in the last 5 seconds',
+  ]);
+  for (const origin of ['coach', 'referee']) {
+    assert.deepEqual(reasonOptions(origin, 'technical'), [
+      'Reason pending', 'PSS test', 'Phantom points', 'Time', 'Scoreboard entry',
+    ]);
+    assert.throws(() => requestReason({ origin, issueType: 'technical', reason: 'Other', reasonOther: 'Details' }));
+  }
+  const base = { origin: 'coach', issueType: 'standard' };
+  assert.equal(requestReason({ ...base, reason: 'Other', reasonOther: '  Video unavailable  ' }), 'Other: Video unavailable');
+  assert.throws(() => requestReason({ ...base, reason: 'Other', reasonOther: '   ' }));
+  for (const gamJeomReason of opponentGamJeomReasons) {
+    assert.equal(requestReason({ ...base, reason: 'Gam-jeom for the opponent', gamJeomReason }), `Gam-jeom for the opponent: ${gamJeomReason}`);
+  }
+  assert.throws(() => requestReason({ ...base, reason: 'Gam-jeom for the opponent' }));
+  assert.equal(requestReason({ ...base, reason: 'Reason pending', reasonOther: 'Ignored', gamJeomReason: 'Ignored' }), 'Reason pending');
+});
+
+test('annotation reasons share request options and preserve saved details and legacy reasons', async () => {
+  const { annotationReason, parseReason, reasonOptions } = await import(moduleUrl('request-reasons.js'));
+  const coach = { origin: 'coach', issueType: 'standard', reason: 'Reason pending' };
+  assert.ok(reasonOptions('coach', 'standard').includes('Head Kick (no head PSS)'));
+  assert.equal(annotationReason(coach, { reason: 'Head Kick (no head PSS)' }), 'Head Kick (no head PSS)');
+  for (const saved of ['Other: Camera obstruction', 'Gam-jeom for the opponent: Falling down']) {
+    const parsed = parseReason(saved);
+    assert.equal(annotationReason(coach, {
+      reason: parsed.reason, reasonOther: parsed.detail, gamJeomReason: parsed.detail,
+    }), saved);
+  }
+  assert.throws(() => annotationReason(coach, { reason: 'Other', reasonOther: ' ' }));
+  assert.throws(() => annotationReason({ origin: 'referee', issueType: 'technical' }, { reason: 'Other', reasonOther: 'Details' }));
+  const legacy = { origin: 'coach', issueType: 'standard', annotation: { reason: 'Other / official correction' } };
+  assert.equal(annotationReason(legacy, { reason: 'Other / official correction' }), 'Other / official correction');
+  assert.equal(annotationReason(legacy, { reason: 'Technical points' }), 'Technical points');
+});

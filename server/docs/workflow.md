@@ -16,10 +16,10 @@ The bottom timeline labels show elapsed minutes:seconds from the timeline start 
 
 1. When the referee announces the request to the IVR operator, click **Chung** or **Hong**, or press **C** or **H**.
 2. The initial button press captures server-clock time as RM, regardless of the playback cursor, and displays a provisional timeline marker.
-3. In the request modal, choose **Origin** (Coach by default), **Issue type** (Standard by default), and a **Reason**. “Reason pending” is a valid default reason. Origin and issue type are entered in the modal, not the Review Request card.
+3. In the request modal, choose **Origin** (Coach by default), **Issue type** (Standard by default), and a **Reason** from the dropdown. Reasons depend on origin and type: coach/standard offers “Reason pending,” the standard review reasons including “Head Kick (no head PSS),” and Other; referee/standard offers its four referee reasons; either origin with Technical offers “Reason pending,” PSS test, Phantom points, Time, and Scoreboard entry. Other requires text details, while “Gam-jeom for the opponent” requires a second dropdown for Falling down, Crossing the boundary line, Attacking after kal-yeo, or Attacking the fallen opponent. These details are saved as part of the request reason. Origin and issue type are entered in the modal, not the Review Request card.
 4. Submit the form or press **Enter** to save the request. **Esc**, Cancel, or closing the modal discards the provisional marker without saving a request. The modal cannot be dismissed while a save is in progress; a failed save leaves it available for retry.
 
-Creating a request does not start formal review or its response clock. The saved RM is a dark blue line for Chung or dark red for Hong. Each request is separate; there is no same-side overlap check.
+Creating a request does not start formal review or its response clock. The saved RM is a dark blue line for Chung or dark red for Hong. Each request is separate; there is no same-side overlap check. Display names are R001, R002, and so on in creation order within the ring session; the internal ID suffix is hidden. Deleting a request does not reuse its number. Review selection is indicated in the Review Queue rather than the status strip above the cameras.
 
 If neither a request is displayed/selected nor a formal review is active, the new request is automatically **Selected**, and playback pauses at RM. Otherwise it becomes **Pending**, preserving the existing displayed request, camera position, and playback. A displayed completed request also causes a new request to join the queue.
 
@@ -27,7 +27,7 @@ If neither a request is displayed/selected nor a formal review is active, the ne
 
 Selection for display and an **Active** formal review are separate concepts. Selecting a completed request for annotation does not restart formal review.
 
-1. Select an unfinished request in **Pending Review Queue**, or click its RM on the timeline. Selecting a pending request gives it **Selected** status; a previously selected unfinished request returns to **Pending**.
+1. Select an unfinished request in **Review Queue**, or click its RM on the timeline. Selecting a pending request gives it **Selected** status; a previously selected unfinished request returns to **Pending**.
 2. Selection seeks to RM and pauses playback. Clicking another annotation marker (AUR or RST) also selects its request and seeks toward that marker, subject to the RM playback limit.
 3. Check origin, issue type, reason, and RM in **Review Summary**.
 4. Click **Start Review**, or press **S**.
@@ -44,11 +44,15 @@ Selecting a request alone does not freeze timeline growth. During formal review,
 - During formal review, clicking after RM instead parks the cursor at RM and keeps the review selected, with its clock and lock intact.
 - **Go Live** (**L**) clears selection and resumes live playback when no formal review is active. During an active review it instead pauses at RM, preserving the active review.
 
-Previous/Next Review navigation uses RM instead of window boundaries. With no request displayed, it finds the nearest earlier/later request relative to the cursor. With a request displayed, it navigates the pending queue. Navigation to another review is blocked during formal review.
+Previous/Next Review navigation uses RM instead of window boundaries. With no request displayed, it finds the nearest earlier/later request relative to the cursor. With a request displayed, it navigates all requests for the current match and round in RM order. Navigation to another review is blocked during formal review.
 
 Before starting, an unfinished request can instead be **Resolved without Review**. This preserves the request and records the disposition without an RST or formal review duration. It remains displayed until the user navigates away or returns live.
 
 **Delete Request** requires confirmation and removes the request and its markers. The UI offers deletion for unfinished requests, including an active review; deleting an active review releases its lock and allows timeline growth to resume. Finalized requests have no delete button in the UI.
+
+The Review Queue lists all request statuses, including Pending, Selected, Active, Completed, and Resolved without Review. New requests store their match number and round for filtering; older session requests without these fields are included when their RM is at or after the current timeline start.
+
+**Unselect**, between Previous and Next Review, clears the display selection without moving the cursor. It is disabled when nothing is selected. Unselecting an active review preserves its formal status, response clock, timeline freeze, and lock; the active review remains in Review Summary, and playback remains limited to its RM.
 
 ## 4. Find and mark the AUR
 
@@ -81,12 +85,14 @@ Neither AUR nor completed annotation is required to submit a formal result. The 
 
 Annotation can be deferred until after the immediate review work. It is available for both **Completed** and **Resolved without Review** requests.
 
-1. Return to the finalized request by selecting its RM on the timeline. Finish any active review before selecting a different request. The pending queue contains unfinished requests, not completed history.
+1. Return to the finalized request by selecting its RM on the timeline. Finish any active review before selecting a different request. The Review Queue includes unfinished and finalized requests for the current match and round, with status labels.
 2. In Review Summary, open **Post-review annotation → Complete IVR Sheet**.
-3. Check the match number and round, then fill in the Review Jury, request reason, applicable Gam-jeom type, explanation, and notes.
+3. Check the match number and round, then fill in the Review Jury, request reason, applicable Opponent’s gam-jeom selection, explanation, and notes.
 4. Click **Save annotation**. The annotation can be reopened and updated later.
 
 Request side/origin, formal result, and action time are read-only in the form. Action time uses AUR when present, otherwise RM. Match number and round are initially populated from current page context, so check them when returning to an older request.
+
+The annotation reason dropdown uses the same origin/type-specific lists as request creation, based on the selected review. Other requires text details, and “Gam-jeom for the opponent” shows the same four-option dropdown. Saved details are restored on reopening. Historical reasons not in the current lists remain available so they are not silently replaced.
 
 Existing annotation values populate the jury, reason, Gam-jeom, explanation, and notes fields. Without a saved annotation reason, the form uses the request's first issue; without a saved jury, it defaults to “Prototype Operator.” Unsaved working notes can supply the initial notes value.
 
@@ -107,6 +113,7 @@ Durable review recovery and annotation across sessions or dates is a forthcoming
 - `public/review/views/playback-controls.php`: playback, AUR, live, and match/round controls.
 - `public/review/assets/js/app.js`: UI actions, request timestamp capture, modal handling, timeline clicks, media synchronization, summary rendering, and annotation form handling.
 - `public/review/assets/js/review-controller.js`: request selection/queuing, formal review transitions, AUR, results, and annotation operations.
+- `public/review/assets/js/request-reasons.js`: origin/type reason options, conditional detail fields, and reason formatting.
 - `public/review/assets/js/state.js`: displayed, selected, and active review identities.
 - `public/review/assets/js/playback-controller.js`: RM playback limits, live return, and timeline freezing during formal review.
 - `public/review/assets/js/timeline-controller.js`: RM/RST/AUR markers, connectors, elapsed-time ticks, and timeline positions.
