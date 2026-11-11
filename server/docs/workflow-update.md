@@ -1,6 +1,6 @@
 # IVR workflow
 
-This document describes the intended workflow to be implemented as part of the review workflow, UI, and API updates for how users actually use the FreePlay review system. Key changes will include the workflow itself, the review window definition and behavior, and Action Under Review (AUR) definition and behavior.
+This document describes the intended workflow to be implemented as part of the review workflow, UI, and API updates for how users actually use the FreePlay review system. Key changes will include the workflow itself, removal of the review window concept, and Action Under Review (AUR) definition and behavior.
 
 ## 1. Starting the review system and entering match details
 
@@ -14,7 +14,7 @@ This document describes the intended workflow to be implemented as part of the r
 
 Previously, the request mark (RM) used to designated the time when a coach stood and showed their card, indicating that they are requesting a video review, and it used to coincide with then end of the review window. The procedure was then to wait until the referee discussed the nature of the request with the coach before announcing and then relaying the request to the IVR operator, who then records the request information and starts the formal review process. Creating a request does not start the formal review or its response clock. The request currently has no reason (request-reason input); the API uses “Reason pending” when no reason is supplied.
 
-The current interpretation of the correct procedure is that the request mark indicates the server-clock time when the referee announces the request to the IVR operator. The request mark therefore no longer matches the end of the review window, and in fact the review window requirement of 5 or 10 seconds durations is widely ignored in practical usage. A general rule of thumb is that if the action is 20 seconds or more from the time the coach stands then the request is categorically denied, however this is a guide and not part of the formal procedure, so we cannot account for this in the software system. By having included an option to delete a request, we have effectively empowered the IVR operator (the user) to make and record this decision.
+The current interpretation of the correct procedure is that the request mark indicates the server-clock time when the referee announces the request to the IVR operator. The request mark therefore no longer matches the end of the review window, and in fact the review window requirement of 5 or 10 seconds durations is widely ignored in practical usage. A general rule of thumb is that if the action is 20 seconds or more from the time the coach stands then the request is categorically denied, however this is a guide and not part of the formal procedure, so we cannot account for this in the software system. As a consequence of this updated behavior, we must remove the concept of the review window in the system. By having included an option to delete a request, we have effectively empowered the IVR operator (the user) to make and record this decision.
 
 Currently, creating a request still does not start the formal review or its response clock, but should display a modal requiring an origin (coach or referee, with coach as the default response) and reason (request-reason input). Leaving the default answer as "Reason pending" is a valid response. Creating a request also no longer creates a review window, it simply leaves a review marker line (dark blue for chung, dark red for hong) on the timeline. Clicking on the line selects the review request (i.e. makes the review request *active*) and the camera views shall show the video at that point in time. Clicking elsewhere on the timeline deselects any active review request and shows the video at that point in time in the camera views.
 
@@ -28,19 +28,20 @@ The review selection behavior also needs updating. Selection moves the playback 
 2. Check its origin, issue type, RM, and window boundaries in **Review Summary**.
 3. Click **Start Review**, or press **S**.
 
-Starting changes the request to **Active**, records the server time as Review Start Time (RST), starts the response clock, and seeks to the window start. Only one formal review can be active per ring. Selecting another request is blocked until the active review is completed. The timeline's end is held at RST during the active review; RST does not replace the request window's end at RM.
+Starting changes the request to **Active**, records the server time as Review Start Time (RST), starts the response clock, and seeks to the window start. Only one formal review can be active per ring. Selecting another request is blocked until the active review is completed. The timeline's end is held at RST during the active review; RST does not replace the request window's end at RM. While a review request is active, the timeline changes color to match the request: light blue if the request is for *Chung* (blue) or light red if the request is for *Hong* (red).
 
 Before starting, a request can instead be **Resolved without Review**. This preserves the request and records the disposition without creating an RST or formal review duration. **Delete Request** asks for confirmation and removes the request; the UI offers deletion for unfinished requests, including an active one.
 
 ## 3. Find and mark the AUR
 
-1. Inspect footage around the request window. Click a camera or press **1**, **2**, or **3** for Single Camera View; press **M** to return to Multi Camera View.
+1. Inspect footage before the RM. Click a camera or press **1**, **2**, or **3** for Single Camera View; press **M** to return to Multi Camera View.
 2. Seek using the timeline and backward-seek controls. Use **Space** to play or pause and **Left/Right Arrow** to step frames. Single Camera View also provides zoom, pan, fit, and fullscreen controls.
 3. Position the common playback cursor on the action being reviewed.
 4. Click **Mark AUR**, or press **A**. The cursor timestamp becomes the AUR.
 
 AUR can be marked only for an **Active** or **Completed** formal review. A pending or selected request must first be started; a request resolved without review cannot receive an AUR through this operation.
 
+Marking the AUR 
 Marking AUR does not move or resize the review window. For a coach request, an AUR before the window start or after its end is accepted but flagged with an outside-window warning. The boundary timestamps themselves count as inside. Referee requests do not receive this flag.
 
 If an AUR already exists, the UI asks for confirmation before replacing it. The server retains the previous AUR and replacement timestamp in AUR history. A completed review's AUR can also be replaced without restarting its response clock.
