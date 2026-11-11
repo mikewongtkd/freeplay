@@ -25,7 +25,8 @@
     <button class="btn btn-control" data-action="fullscreen" title="Full screen"><i class="fa-solid fa-expand"></i><br><kbd>F</kbd></button>
   </div>
   <div class="toolbar-group btn-group" role="group" aria-label="Match and round controls">
-    <button class="btn btn-control" data-action="start-match-round"><i class="fa-solid fa-flag-checkered"></i> Start Match/Round</button>
+    <button class="btn btn-control" id="startRoundButton" data-action="start-match-round"><i class="fa-solid fa-flag-checkered"></i> Start Round</button>
+    <button id="stopRoundButton" class="btn btn-danger btn-control d-none" data-action="stop-round"><i class="fa-solid fa-stop"></i> Stop Round</button>
   </div>
   <div class="playback-readout"><span id="playbackState">LIVE</span><strong id="cursorReadout">--:--:--.---</strong></div>
 </section>

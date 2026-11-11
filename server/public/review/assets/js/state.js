@@ -4,6 +4,7 @@ export const state = {
   ring: 1,
   match: null,
   round: null,
+  roundPhase: "ready",
   currentView: "MCV",
   cameras: [],
   playbackCursor: 0,

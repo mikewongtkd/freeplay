@@ -333,3 +333,15 @@
 .aur-connector.hong { top: 94px; background: #f6a3b3; }
 .scv-active .aur-connector { top: 17px; }
 .scv-active .aur-connector.hong { top: 45px; }
+
+.request-mark > span {
+  white-space: nowrap;
+}
+.request-mark.chung > span {
+  top: auto;
+  bottom: calc(100% + 3px);
+}
+.request-mark.hong > span {
+  top: calc(100% + 3px);
+  bottom: auto;
+}

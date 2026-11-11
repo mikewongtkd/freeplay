@@ -173,7 +173,7 @@
 <div class="modal fade" id="startMatchRoundModal" tabindex="-1" aria-labelledby="startMatchRoundTitle" aria-describedby="startMatchRoundDescription" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered"><form id="startMatchRoundForm" class="modal-content">
     <div class="modal-header">
-      <h2 class="modal-title fs-5" id="startMatchRoundTitle"><i class="fa-solid fa-flag-checkered text-primary me-2"></i>Start Match/Round?</h2>
+      <h2 class="modal-title fs-5" id="startMatchRoundTitle"><i class="fa-solid fa-flag-checkered text-primary me-2"></i>Start Round?</h2>
       <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancel match or round start"></button>
     </div>
     <div class="modal-body">
@@ -235,4 +235,12 @@
     <button class="btn btn-outline-danger w-100" data-action="reset-prototype"><i class="fa-solid fa-rotate-left"></i> Reset prototype session</button>
     <div class="alert alert-info mt-3 small mb-0"><strong>Prototype only.</strong> Video, playback, PSSEL data, server timestamps, persistence, and result APIs are simulated. No adjudication is automated.</div>
   </div>
+</div>
+
+<div class="modal fade" id="advanceRoundModal" tabindex="-1" aria-labelledby="advanceRoundTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered"><form id="advanceRoundForm" class="modal-content">
+    <div class="modal-header"><h2 class="modal-title fs-5" id="advanceRoundTitle">Advance to the Next Round?</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancel"></button></div>
+    <div class="modal-body">The timeline is frozen. Advance the round number and prepare to start the next round?</div>
+    <div class="modal-footer"><span class="small text-secondary me-auto"><kbd>Esc</kbd> cancel · <kbd>Enter</kbd> advance</span><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Next Round</button></div>
+  </form></div>
 </div>

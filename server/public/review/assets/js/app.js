@@ -1,3 +1,4 @@
+import { roundController } from "./round-controller.js";
 import { requestReason, updateRequestReasons, updateRequestReasonDetails, fillAnnotationReasons, updateAnnotationReasonDetails, annotationReason } from "./request-reasons.js";
 import {
   state,
@@ -288,6 +289,36 @@ function confirmMatchRoundStart() {
     const hidden = () => finish(false);
     form.addEventListener("submit", submit);
     element.addEventListener("hidden.bs.modal", hidden);
+    modal.show();
+  });
+}
+
+let roundAdvancePending = false;
+function confirmRoundAdvance() {
+  if (roundAdvancePending) return Promise.resolve(false);
+  roundAdvancePending = true;
+  const element = document.getElementById("advanceRoundModal");
+  const form = document.getElementById("advanceRoundForm");
+  const modal = bootstrap.Modal.getOrCreateInstance(element);
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = accepted => {
+      if (settled) return;
+      settled = true;
+      roundAdvancePending = false;
+      form.removeEventListener("submit", submit);
+      element.removeEventListener("hidden.bs.modal", hidden);
+      element.removeEventListener("keydown", keydown);
+      resolve(accepted);
+    };
+    const submit = event => { event.preventDefault(); finish(true); modal.hide(); };
+    const hidden = () => finish(false);
+    const keydown = event => {
+      if (event.key === "Enter") { event.preventDefault(); form.requestSubmit(); }
+    };
+    form.addEventListener("submit", submit);
+    element.addEventListener("hidden.bs.modal", hidden);
+    element.addEventListener("keydown", keydown);
     modal.show();
   });
 }
@@ -592,7 +623,13 @@ function renderViews() {
   if (destination && panel.parentElement !== destination) destination.append(panel);
 }
 
+function renderRoundControls() {
+  $("#startRoundButton").toggleClass("d-none", state.roundPhase !== "ready");
+  $("#stopRoundButton").toggleClass("d-none", !["running", "stopped"].includes(state.roundPhase));
+}
+
 function updatePlaybackValues() {
+  renderRoundControls();
   if (renderedPlaying !== state.isPlaying) {
     setClass(
       "#playPauseIcon",
@@ -1042,14 +1079,27 @@ async function dispatch(action, element) {
         hongQuota: match.hong?.quota ?? 1,
       });
       state.match = response.data.match;
-      state.timelineRange.start = start;
-      state.timelineStartSource = "match/round start";
-      state.playbackCursor = Math.max(state.playbackCursor, start);
+      roundController.started(start);
+      renderRoundControls();
+      renderHeaderStructure();
+      renderReview();
       timelineController.renderTracks();
       timelineController.renderAnnotations();
       timelineController.renderPsselEvents();
       updateTimeSensitiveValues();
-      toast("Match/round start recorded.", "success");
+      toast("Round start recorded.", "success");
+      break;
+    }
+    case "stop-round": {
+      const needsConfirmation = roundController.stop(serverClock.now());
+      renderRoundControls();
+      updateTimeSensitiveValues();
+      if (needsConfirmation && await confirmRoundAdvance()) {
+        roundController.advance();
+        renderRoundControls();
+        renderHeaderStructure();
+        renderReview();
+      }
       break;
     }
     case "fit":

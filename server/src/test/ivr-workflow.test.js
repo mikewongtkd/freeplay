@@ -99,12 +99,14 @@ test('timeline uses RM markers and a side-specific connector without windows', a
   }) };
   global.document = { querySelectorAll: () => [] };
   const { timelineController } = await import(moduleUrl('timeline-controller.js'));
-  Object.assign(state, { timelineRange: { start: 50, end: 150 }, currentRequest: '1',
+  Object.assign(state, { timelineRange: { start: 50, end: 150 }, currentRequest: 'R001-123456',
     activeReviewId: null, provisionalRequest: null,
-    reviewHistory: [{ id: '1', side: 'hong', rm: 120, aur: 110, status: 'completed' }] });
+    reviewHistory: [{ id: 'R001-123456', side: 'hong', rm: 120, aur: 110, status: 'completed' }] });
   timelineController.renderAnnotations();
   const html = elements.get('#timelineAnnotations');
-  assert.match(html, /request-mark hong.*selected/);
+  assert.match(html, /request-mark hong/);
+  assert.match(html, /<span>R001<\/span>/);
+  assert.doesNotMatch(html, /<span>RM<\/span>/);
   assert.match(html, /aur-connector hong" data-start="110" data-end="120"/);
   assert.doesNotMatch(html, /review-window/);
   state.provisionalRequest = { side: 'chung', rm: 140 };
@@ -161,7 +163,7 @@ test('request reasons depend on origin and type and retain conditional details',
   assert.deepEqual(reasonOptions('coach', 'standard'), [
     'Reason pending', 'Technical points', 'Punch misidentification', 'Head Kick (no head PSS)',
     'Invalidation of gam-jeom and points reinstated',
-    'Restoring points scored before a gam-jeom', 'gam-jeom given to the wrong player',
+    'Restoring points scored before a gam-jeom', 'Gam-jeom given to the wrong player',
     'Gam-jeom for the opponent', "Invalidation of opponent's technical points",
     "Invalidation of opponent's points following a gam-jeom", 'Other',
   ]);
@@ -201,4 +203,38 @@ test('annotation reasons share request options and preserve saved details and le
   const legacy = { origin: 'coach', issueType: 'standard', annotation: { reason: 'Other / official correction' } };
   assert.equal(annotationReason(legacy, { reason: 'Other / official correction' }), 'Other / official correction');
   assert.equal(annotationReason(legacy, { reason: 'Technical points' }), 'Technical points');
+});
+
+test('round controls freeze on stop, retain freeze on cancel, and advance through round three', async () => {
+  const { state } = await import(moduleUrl('state.js'));
+  const { roundController: round } = await import(moduleUrl('round-controller.js'));
+  Object.assign(state, { match: { number: '101', round: 1 }, roundPhase: 'ready',
+    timelineRange: { start: 50, end: 100 }, timelineFixedEnd: false });
+  round.started(100);
+  assert.equal(state.roundPhase, 'running');
+  assert.equal(state.timelineFixedEnd, false);
+  assert.equal(round.stop(140), true);
+  assert.equal(state.roundPhase, 'stopped');
+  assert.equal(state.timelineFixedEnd, true);
+  assert.equal(state.timelineRange.end, 140);
+  assert.equal(state.isPlaying, false);
+  // Cancel takes no further action; retrying Stop must preserve the original end.
+  assert.equal(round.stop(160), true);
+  assert.equal(state.timelineRange.end, 140);
+  round.advance();
+  assert.equal(state.match.round, 2);
+  assert.equal(state.round, 2);
+  assert.equal(state.roundPhase, 'ready');
+  assert.equal(state.timelineFixedEnd, true);
+  round.started(180);
+  assert.equal(state.timelineRange.start, 180);
+  assert.equal(state.timelineFixedEnd, false);
+  round.stop(220);
+  round.advance();
+  assert.equal(state.match.round, 3);
+  round.started(240);
+  assert.equal(round.stop(280), false);
+  assert.equal(state.roundPhase, 'finished');
+  round.advance();
+  assert.equal(state.match.round, 3);
 });

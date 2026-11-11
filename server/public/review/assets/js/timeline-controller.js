@@ -52,7 +52,7 @@ function gapAt(camera, time) {
 }
 function marker(review, type, time, label, className) {
   if (time < state.timelineRange.start) return "";
-  return `<button class="annotation-marker ${className}" style="left:${px(time)}px" data-review-id="${review.id}" data-time="${time}" title="${reviewName(review)} · ${label}: ${timeLabel(time, true)}"><span>${label}</span></button>`;
+  return `<button class="annotation-marker ${className}" style="left:${px(time)}px" data-review-id="${review.id}" data-time="${time}" title="${reviewName(review)} · ${label}: ${timeLabel(time, true)}"><span>${type === "rm" ? reviewName(review) : label}</span></button>`;
 }
 
 function cameraStatusSegments(camera) {
