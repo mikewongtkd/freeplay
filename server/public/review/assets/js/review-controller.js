@@ -16,10 +16,9 @@ function useResponse(response, selectedId) {
     serverClock.anchor(serverTime.epochSeconds, "review-response");
   const displayedId =
     response.data.workflow?.activeReviewId ||
-    selectedId ||
-    response.data.review?.id;
+    (selectedId ?? state.currentRequest ?? response.data.workflow?.selectedReviewId);
   replaceReviews(response.data.reviews, displayedId, response.data.workflow);
-  state.timelineRange.end = activeReview()?.rst || state.liveEdge;
+  if (!activeReview()) state.timelineRange.end = state.liveEdge;
   return response.data.review;
 }
 async function execute(operation) {
@@ -39,7 +38,8 @@ export const reviewController = {
   },
   async createRequest(side, options = {}) {
     return execute(async () => {
-      const preserveActiveContext = !!state.activeReviewId;
+      const previousId = state.currentRequest;
+      const preserveActiveContext = !!(previousId || state.activeReviewId);
       const response = await mockServer.createRequest({
         ring: state.ring,
         side,
@@ -48,16 +48,16 @@ export const reviewController = {
         reason: options.reason || options.issues?.[0] || "",
         issues: options.issues || [],
         linkedReviewId: options.linkedReviewId || null,
-        timestamp: Number(options.timestamp ?? state.playbackCursor),
-        existingReviewId: options.existingReviewId || null,
+        timestamp: Number(options.timestamp ?? serverClock.now()),
+        preserveSelection: preserveActiveContext,
       });
-      const review = useResponse(response);
+      const review = useResponse(response, previousId);
       if (!preserveActiveContext) {
         state.playbackCursor = review.rm;
         state.playbackState = "paused";
         state.isPlaying = false;
       }
-      notify("request-created");
+      notify(preserveActiveContext ? "request-queued" : "request-created");
       return review;
     });
   },
@@ -69,7 +69,9 @@ export const reviewController = {
         await mockServer.startReview({ ring: state.ring, reviewId: review.id }),
         review.id,
       );
-      playbackController.seekTo(active.windowStart, false);
+      state.timelineRange.end = active.rst;
+      state.isPlaying = false;
+      state.playbackState = "paused";
       notify("review-started");
       return active;
     });
@@ -153,6 +155,18 @@ export const reviewController = {
       return updated;
     });
   },
+  async deselect() {
+    if (state.activeReviewId) return false;
+    return execute(async () => {
+      const response = await mockServer.review("deselect", { ring: state.ring });
+      replaceReviews(response.data.reviews, null, response.data.workflow);
+      state.currentRequest = null;
+      syncDisplayedReview();
+      state.timelineRange.end = state.liveEdge;
+      notify("review-selected");
+      return true;
+    });
+  },
   async selectReview(id, moveCursor = true) {
     const target = state.reviewHistory.find((review) => review.id === id);
     if (!target || (state.activeReviewId && state.activeReviewId !== id))
@@ -169,27 +183,17 @@ export const reviewController = {
       syncDisplayedReview();
     }
     const review = selectedReview();
-    state.timelineRange.end = activeReview()?.rst || state.liveEdge;
-    if (moveCursor) playbackController.seekTo(review.windowStart, false);
-    notify("review-selected");
-    return true;
-  },
-  displayReview(id, moveCursor = true) {
-    const review = state.reviewHistory.find((item) => item.id === id);
-    if (!review) return false;
-    state.currentRequest = review.id;
-    syncDisplayedReview();
-    state.timelineRange.end = activeReview()?.rst || state.liveEdge;
-    if (moveCursor) playbackController.seekTo(review.windowStart, false);
+    if (!activeReview()) state.timelineRange.end = state.liveEdge;
+    if (moveCursor) playbackController.seekTo(review.rm, false);
     notify("review-selected");
     return true;
   },
   previous() {
     if (!state.currentRequest) {
       const target = state.reviewHistory
-        .filter((review) => review.windowEnd < state.playbackCursor)
-        .sort((a, b) => b.windowEnd - a.windowEnd)[0];
-      if (target) this.displayReview(target.id);
+        .filter((review) => review.rm < state.playbackCursor)
+        .sort((a, b) => b.rm - a.rm)[0];
+      if (target) return this.selectReview(target.id);
       return;
     }
     if (state.activeReviewId) return;
@@ -200,23 +204,15 @@ export const reviewController = {
   next() {
     if (!state.currentRequest) {
       const target = state.reviewHistory
-        .filter((review) => review.windowStart > state.playbackCursor)
-        .sort((a, b) => a.windowStart - b.windowStart)[0];
-      if (target) this.displayReview(target.id);
+        .filter((review) => review.rm > state.playbackCursor)
+        .sort((a, b) => a.rm - b.rm)[0];
+      if (target) return this.selectReview(target.id);
       return;
     }
     if (state.activeReviewId) return;
     const pending = state.pendingRequests;
     const i = pending.findIndex((review) => review.id === state.currentRequest);
     if (i >= 0 && i < pending.length - 1) this.selectReview(pending[i + 1].id);
-  },
-  jumpWindowStart() {
-    const review = selectedReview();
-    if (review) playbackController.seekTo(review.windowStart);
-  },
-  jumpWindowEnd() {
-    const review = selectedReview();
-    if (review) playbackController.seekTo(review.windowEnd);
   },
   jumpAur() {
     const review = selectedReview();
@@ -226,9 +222,6 @@ export const reviewController = {
 
 function syncDisplayedReview() {
   const review = selectedReview();
-  state.reviewWindow = review
-    ? { start: review.windowStart, end: review.windowEnd }
-    : null;
   state.aur = review?.aur ?? null;
   state.rst = review?.rst ?? null;
   state.reviewStatus = review?.status || "monitoring";

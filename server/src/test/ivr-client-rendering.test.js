@@ -17,7 +17,7 @@ test('clock pulse does not broadcast or invoke a full renderer', () => {
 
 test('review panel is moved only when its view destination changes', () => {
   const app = read('assets/js/app.js');
-  assert.match(app, /if \(panel\.parentElement !== destination\) destination\.append\(panel\)/);
+  assert.match(app, /if \(destination && panel\.parentElement !== destination\) destination\.append\(panel\)/);
 });
 
 test('timeline separates structural rendering from dynamic positioning', () => {
@@ -41,24 +41,24 @@ test('FR-053 clock uses a monotonic client delta from a server anchor', () => {
 
 test('review workflow keeps displayed, selected, and active identities separate', () => {
   const state = read('assets/js/state.js');
-  assert.match(state, /currentRequest: null, selectedReviewId: null, activeReviewId: null/);
-  assert.match(state, /review\.status === 'selected'/);
-  assert.match(state, /review\.status === 'active'/);
+  assert.match(state, /currentRequest: null,\s+selectedReviewId: null,\s+activeReviewId: null/);
+  assert.match(state, /review\.status === "selected"/);
+  assert.match(state, /review\.status === "active"/);
 });
 
 test('active review alone freezes the timeline and completion returns to live', () => {
   const review = read('assets/js/review-controller.js');
   const playback = read('assets/js/playback-controller.js');
-  assert.match(review, /state\.timelineRange\.end = activeReview\(\)\?\.rst \|\| state\.liveEdge/);
+  assert.match(review, /state\.timelineRange\.end = active\.rst/);
   assert.match(review, /playbackController\.goLive\(\)/);
   assert.match(playback, /if \(!activeReview\(\)\?\.rst\) state\.timelineRange\.end = state\.liveEdge/);
-  assert.match(playback, /state\.isPlaying = true; state\.playbackRate = 1; state\.playbackState = 'live'/);
+  assert.match(playback, /state\.isPlaying = true;\s+state\.playbackRate = 1;\s+state\.playbackState = "live"/);
 });
 
 test('SCV Go Live continuously polls and bounds its MSE buffer', () => {
   const app = read('assets/js/app.js');
   const media = read('assets/js/media-controller.js');
-  assert.match(app, /mediaController\.goLive\(state\.liveEdge/);
+  assert.match(app, /mediaController\s*\.goLive\(state\.liveEdge/);
   assert.match(media, /LIVE_POLL_MS/);
   assert.match(media, /pollLive\(signal\)/);
   assert.match(media, /this\.sourceBuffer\.remove\(0, removeBefore\)/);
@@ -98,24 +98,21 @@ test('replacing an AUR requires keyboard-accessible confirmation', () => {
   const app = read('assets/js/app.js');
   const keyboard = read('assets/js/keyboard-controller.js');
   const modals = read('includes/modals.php');
-  assert.match(app, /review\?\.aur != null && !await confirmAurReplacement/);
-  assert.match(app, /event\.key !== 'Enter'/);
+  assert.match(app, /review\?\.aur != null &&\s+!\(await confirmAurReplacement/);
+  assert.match(app, /event\.key !== "Enter"/);
   assert.match(app, /hidden\.bs\.modal/);
   assert.match(keyboard, /data-action="mark-aur"/);
   assert.match(modals, /id="replaceAurModal"/);
   assert.match(modals, /<kbd>Esc<\/kbd> cancel · <kbd>Enter<\/kbd> replace/);
 });
 
-test('review requests use the cursor and confirm same-side window moves', () => {
+test('request modal captures server time and replaces window move handling', () => {
   const app = read('assets/js/app.js');
-  const controller = read('assets/js/review-controller.js');
   const modals = read('includes/modals.php');
-  assert.match(app, /state\.playbackState === "live" \? serverClock\.now\(\) : state\.playbackCursor/);
-  assert.match(app, /review\.side === side && proposedWindowStart <= review\.windowEnd && timestamp >= review\.windowStart/);
-  assert.match(app, /confirmReviewWindowMove\(overlapping, timestamp, moveDuration\)/);
-  assert.match(controller, /timestamp: Number\(options\.timestamp \?\? state\.playbackCursor\)/);
-  assert.match(controller, /existingReviewId: options\.existingReviewId \|\| null/);
-  assert.match(modals, /id="moveReviewWindowModal"/);
+  assert.match(app, /pendingRequest = \{ side, timestamp: serverClock\.now\(\) \}/);
+  assert.match(app, /openRequestModal\(element\.dataset\.side\)/);
+  assert.match(modals, /id="requestForm"/);
+  assert.doesNotMatch(app, /confirmReviewWindowMove|windowStart|windowEnd/);
 });
 
 test('delete request requires confirmation and updates the server-backed review list', () => {

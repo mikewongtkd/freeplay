@@ -295,9 +295,6 @@
 .timeline-track {
   height: 16px;
 }
-.review-window.hong {
-  top: 78px;
-}
 .annotation-marker,
 .timeline-marker {
   height: 74px;
@@ -311,9 +308,6 @@
 .scv-active .timeline-track {
   height: 10px;
 }
-.scv-active .review-window.hong {
-  top: 40px;
-}
 .scv-active .annotation-marker,
 .scv-active .timeline-marker {
   height: 30px;
@@ -321,3 +315,21 @@
 .scv-active .pssel-events {
   top: 54px;
 }
+
+/* Selected request markers and their associated action. */
+.timeline-panel.review-chung { background: #e4f1ff; }
+.timeline-panel.review-hong { background: #ffe8ed; }
+.request-mark.chung { background: #034d93; color: #034d93; }
+.request-mark.hong { background: #8c1025; color: #8c1025; }
+.request-mark.selected { outline: 2px solid currentColor; outline-offset: 2px; }
+.request-mark.locked { cursor: not-allowed; opacity: 0.5; }
+.aur-connector {
+  position: absolute;
+  top: 22px;
+  height: 2px;
+  background: #84bfff;
+  pointer-events: none;
+}
+.aur-connector.hong { top: 94px; background: #f6a3b3; }
+.scv-active .aur-connector { top: 17px; }
+.scv-active .aur-connector.hong { top: 45px; }

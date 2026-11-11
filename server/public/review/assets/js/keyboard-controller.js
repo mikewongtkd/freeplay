@@ -13,7 +13,7 @@ const commands = {
   m: () => cameraController.showMCV(),
   a: () => document.querySelector('[data-action="mark-aur"]')?.click(),
   b: () => reviewController.jumpAur(),
-  l: () => playbackController.goLive(),
+  l: () => document.querySelector('[data-action="go-live"]')?.click(),
   c: () =>
     document
       .querySelector('[data-action="create-request"][data-side="chung"]')
@@ -32,13 +32,11 @@ const commands = {
       .querySelector('[data-action="create-request"][data-side="hong"]')
       ?.click(),
   s: () => reviewController.startReview(),
-  w: () => reviewController.jumpWindowStart(),
-  e: () => reviewController.jumpWindowEnd(),
-  r: () => reviewController.jumpAur(),
 };
 
 export function installKeyboard() {
   document.addEventListener("keydown", (event) => {
+    if (document.querySelector(".modal.show")) return;
     if (
       ["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName) ||
       event.target.isContentEditable

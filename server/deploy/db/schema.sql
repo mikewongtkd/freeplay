@@ -134,25 +134,19 @@ CREATE TABLE IF NOT EXISTS ivr_review_requests (
     status TEXT NOT NULL DEFAULT 'pending'
         CHECK (status IN ('pending', 'selected', 'active', 'completed', 'resolved_without_review', 'cancelled')),
     request_mark_epoch_us INTEGER NOT NULL,
-    window_start_epoch_us INTEGER NOT NULL,
-    window_end_epoch_us INTEGER NOT NULL,
     review_start_epoch_us INTEGER,
     aur_epoch_us INTEGER,
-    aur_outside_window INTEGER NOT NULL DEFAULT 0 CHECK (aur_outside_window IN (0, 1)),
     cameras_available_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(cameras_available_json)),
     cameras_reviewed_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(cameras_reviewed_json)),
     operator_identity TEXT,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CHECK (window_end_epoch_us >= window_start_epoch_us),
-    CHECK (request_mark_epoch_us >= window_start_epoch_us AND request_mark_epoch_us <= window_end_epoch_us),
     FOREIGN KEY (ring_id) REFERENCES ivr_rings(id) ON DELETE RESTRICT,
     FOREIGN KEY (match_id) REFERENCES ivr_matches(id) ON DELETE SET NULL,
     FOREIGN KEY (linked_review_id) REFERENCES ivr_review_requests(id) ON DELETE SET NULL
 );
 CREATE INDEX IF NOT EXISTS idx_ivr_review_requests_ring_status ON ivr_review_requests(ring_id, status);
 CREATE INDEX IF NOT EXISTS idx_ivr_review_requests_match_time ON ivr_review_requests(match_id, request_mark_epoch_us);
-CREATE INDEX IF NOT EXISTS idx_ivr_review_requests_window ON ivr_review_requests(ring_id, window_start_epoch_us, window_end_epoch_us);
 
 CREATE TABLE IF NOT EXISTS ivr_review_decisions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

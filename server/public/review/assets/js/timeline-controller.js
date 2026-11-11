@@ -137,23 +137,20 @@ export const timelineController = {
     });
   },
   renderAnnotations() {
-    const lanes = { chung: 0, hong: 0 };
     $("#timelineAnnotations").html(
       state.reviewHistory
-        .filter((review) => review.windowEnd >= state.timelineRange.start)
+        .filter((review) => review.rm >= state.timelineRange.start)
         .map((review) => {
           const className = `${review.side || "chung"} ${review.issueType === "technical" ? "technical" : ""} ${review.origin === "referee" ? "referee" : ""}`;
-          const lane = lanes[review.side || "chung"]++ % 3,
-            shift = lane * 4 * (review.side === "hong" ? -1 : 1);
           const locked =
             state.activeReviewId && state.activeReviewId !== review.id;
-          let html = `<button class="review-window ${className} ${review.id === state.currentRequest ? "selected" : ""} ${review.id === state.activeReviewId ? "active" : ""} ${locked ? "locked" : ""}" style="--lane-shift:${shift}px" data-review-id="${review.id}" data-start="${review.windowStart}" data-end="${review.windowEnd}" title="${locked ? "Pending while another review is active" : `Select ${review.id}`}" ${locked ? 'aria-disabled="true"' : ""}><span>${review.id}</span></button>`;
+          let html = "";
           html += marker(
             review,
             "rm",
             review.rm,
             "RM",
-            `request-mark ${className}`,
+            `request-mark ${className} ${review.id === state.currentRequest ? "selected" : ""} ${locked ? "locked" : ""}`,
           );
           if (review.rst)
             html += marker(review, "rst", review.rst, "RST", "rst-mark");
@@ -163,12 +160,19 @@ export const timelineController = {
               "aur",
               review.aur,
               "AUR",
-              `aur-mark ${review.aurOutsideWindow ? "outside" : ""}`,
+              "aur-mark",
             );
+          if (review.id === state.currentRequest && review.aur != null) {
+            html += `<div class="aur-connector ${review.side}" data-start="${Math.min(review.rm, review.aur)}" data-end="${Math.max(review.rm, review.aur)}"></div>`;
+          }
           return html;
         })
         .join(""),
     );
+    if (state.provisionalRequest) {
+      const draft = state.provisionalRequest;
+      $("#timelineAnnotations").append(`<div class="annotation-marker request-mark ${draft.side} provisional" data-time="${draft.rm}"><span>RM</span></div>`);
+    }
     this.updatePositions();
   },
   renderPsselEvents() {
@@ -187,7 +191,7 @@ export const timelineController = {
     document.querySelectorAll("#timeline [data-time]").forEach((node) => {
       node.style.left = `${px(Number(node.dataset.time))}px`;
     });
-    document.querySelectorAll("#timeline .review-window").forEach((node) => {
+    document.querySelectorAll("#timeline .aur-connector").forEach((node) => {
       node.style.left = `${px(Number(node.dataset.start))}px`;
       node.style.width = `${Math.max(1, px(Number(node.dataset.end)) - px(Number(node.dataset.start)))}px`;
     });
@@ -214,6 +218,7 @@ export const timelineController = {
           segments[segments.length - 1].dataset.end = state.timelineRange.end;
       });
     this.updatePositions();
+    $(".timeline-panel").toggleClass("review-chung", activeReview()?.side === "chung").toggleClass("review-hong", activeReview()?.side === "hong");
     $("#playbackCursor").css("left", `${px(state.playbackCursor)}px`);
     $("#liveEdge").css("left", `${px(state.liveEdge)}px`);
     $("#timeline").attr("aria-valuenow", pct(state.playbackCursor).toFixed(1));

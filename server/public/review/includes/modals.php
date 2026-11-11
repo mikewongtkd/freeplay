@@ -1,10 +1,26 @@
+<div class="modal fade" id="requestModal" tabindex="-1" aria-labelledby="requestModalTitle" aria-hidden="true">
+  <div class="modal-dialog"><form id="requestForm" class="modal-content">
+    <div class="modal-header"><h2 id="requestModalTitle" class="modal-title fs-5">Review request</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancel request"></button></div>
+    <div class="modal-body">
+      <p id="requestModalContext" class="small text-secondary"></p>
+      <label class="form-label" for="requestOrigin">Origin</label>
+      <select id="requestOrigin" name="origin" class="form-select mb-3" required><option value="coach">Coach</option><option value="referee">Referee</option></select>
+      <label class="form-label" for="requestIssueType">Issue type</label>
+      <select id="requestIssueType" name="issueType" class="form-select mb-3" required><option value="standard">Standard</option><option value="technical">Technical</option></select>
+      <label class="form-label" for="requestReason">Reason</label>
+      <input id="requestReason" name="reason" class="form-control" value="Reason pending" required>
+    </div>
+    <div class="modal-footer"><span class="small text-secondary me-auto"><kbd>Esc</kbd> cancel · <kbd>Enter</kbd> save</span><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Create request</button></div>
+  </form></div>
+</div>
+
 <div class="modal fade" id="legendModal" tabindex="-1" aria-labelledby="legendTitle" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
     <div class="modal-header"><h2 class="modal-title fs-5" id="legendTitle">Timeline legend</h2><button class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
     <div class="modal-body legend-list">
-      <p><span class="legend-swatch review-window-chung"></span><strong>Chung Review Window</strong> — five seconds before RM through RM.</p>
-      <p><span class="legend-swatch review-window-hong"></span><strong>Hong Review Window</strong> — five seconds before RM through RM.</p>
-      <p><span class="legend-swatch review-window-official"></span><strong>Official request</strong> — operational context; not a coach quota event.</p>
+      <p><strong>Chung RM</strong> — dark blue request marker.</p>
+      <p><strong>Hong RM</strong> — dark red request marker.</p>
+      <p><span class="legend-swatch"></span><strong>Official request</strong> — operational context; not a coach quota event.</p>
       <p><span class="legend-swatch aur"></span><strong>AUR</strong> — Action Under Review at the common cursor.</p>
       <p><span class="legend-swatch cursor"></span><strong>Playback Cursor</strong> — current logical time for every camera.</p>
       <p><span class="legend-swatch live"></span><strong>Live Edge</strong> — newest available server time.</p>
@@ -22,7 +38,7 @@
       <kbd>1 / 2 / 3</kbd><span>Show camera</span><kbd>M</kbd><span>Multi Camera View</span>
       <kbd>C / H</kbd><span>Chung / Hong request</span><kbd>S</kbd><span>Start selected review</span>
       <kbd>A</kbd><span>Mark AUR</span><kbd>L</kbd><span>Go Live</span>
-      <kbd>W</kbd><span>Review Window start</span><kbd>R</kbd><span>Return to AUR</span>
+      <kbd>B</kbd><span>Return to AUR</span>
       <kbd>Alt+Arrows</kbd><span>Pan in SCV</span><kbd>+ / −</kbd><span>Zoom in / out in SCV</span>
     </div></div>
   </div></div>
@@ -139,28 +155,6 @@
   </form></div>
 </div>
 
-<div class="modal fade" id="moveReviewWindowModal" tabindex="-1" aria-labelledby="moveReviewWindowTitle" aria-describedby="moveReviewWindowDescription" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered"><form id="moveReviewWindowForm" class="modal-content">
-    <div class="modal-header">
-      <h2 class="modal-title fs-5" id="moveReviewWindowTitle"><i class="fa-solid fa-triangle-exclamation text-warning me-2"></i>Move existing review window?</h2>
-      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancel review window move"></button>
-    </div>
-    <div class="modal-body">
-      <p id="moveReviewWindowDescription">The cursor is within an existing review window for the same team. Confirm that you intend to move that window to end at the cursor.</p>
-      <dl class="row mb-0 small">
-        <dt class="col-5">Review</dt><dd id="moveReviewWindowId" class="col-7 text-end">—</dd>
-        <dt class="col-5">Current window</dt><dd id="moveReviewWindowExisting" class="col-7 text-end font-monospace">—</dd>
-        <dt class="col-5">New window</dt><dd id="moveReviewWindowNew" class="col-7 text-end font-monospace">—</dd>
-      </dl>
-    </div>
-    <div class="modal-footer">
-      <span class="small text-secondary me-auto"><kbd>Esc</kbd> cancel · <kbd>Enter</kbd> move</span>
-      <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-      <button id="moveReviewWindowConfirm" type="submit" class="btn btn-warning"><i class="fa-solid fa-arrows-left-right"></i> Move Window</button>
-    </div>
-  </form></div>
-</div>
-
 <div class="modal fade" id="startMatchRoundModal" tabindex="-1" aria-labelledby="startMatchRoundTitle" aria-describedby="startMatchRoundDescription" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered"><form id="startMatchRoundForm" class="modal-content">
     <div class="modal-header">
@@ -187,10 +181,10 @@
       <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancel request deletion"></button>
     </div>
     <div class="modal-body">
-      <p id="deleteRequestDescription">This permanently removes the request and its review window from the timeline.</p>
+      <p id="deleteRequestDescription">This permanently removes the request and its markers from the timeline.</p>
       <dl class="row mb-0 small">
         <dt class="col-5">Request</dt><dd id="deleteRequestId" class="col-7 text-end">—</dd>
-        <dt class="col-5">Review window</dt><dd id="deleteRequestWindow" class="col-7 text-end font-monospace">—</dd>
+        <dt class="col-5">Request time</dt><dd id="deleteRequestRm" class="col-7 text-end font-monospace">—</dd>
       </dl>
     </div>
     <div class="modal-footer">

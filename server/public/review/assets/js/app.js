@@ -60,9 +60,14 @@ const mediaController = new MediaController({
   onTime: (epochSeconds) => {
     if (state.currentView === "MCV") return;
     if (state.playbackState === "live") return;
+    const limit = selectedReview()?.rm;
+    if (limit != null && epochSeconds >= limit && state.isPlaying) {
+      playbackController.seekTo(limit);
+      return;
+    }
     state.playbackCursor = Math.max(
       state.timelineRange.start,
-      Math.min(state.timelineRange.end, epochSeconds),
+      Math.min(state.timelineRange.end, limit ?? Infinity, epochSeconds),
     );
     updateTimeSensitiveValues();
   },
@@ -214,44 +219,37 @@ function confirmAurReplacement(review, replacementTime) {
   });
 }
 
-let reviewWindowConfirmationPending = false;
-function confirmReviewWindowMove(review, cursorTime, duration) {
-  if (reviewWindowConfirmationPending) return Promise.resolve(false);
-  const element = document.getElementById("moveReviewWindowModal"),
-    form = document.getElementById("moveReviewWindowForm"),
-    confirm = document.getElementById("moveReviewWindowConfirm");
-  if (!element || !form || !confirm) return Promise.resolve(false);
-  reviewWindowConfirmationPending = true;
-  setText("#moveReviewWindowId", `${review.id} · ${review.side === "chung" ? "Chung" : "Hong"}`);
-  setText("#moveReviewWindowExisting", `${formatTime(review.windowStart)} – ${formatTime(review.windowEnd)}`);
-  setText("#moveReviewWindowNew", `${formatTime(cursorTime - duration)} – ${formatTime(cursorTime)}`);
-  const modal = bootstrap.Modal.getOrCreateInstance(element);
-  return new Promise((resolve) => {
-    let settled = false;
-    const cleanup = () => {
-      form.removeEventListener("submit", submit);
-      element.removeEventListener("hidden.bs.modal", hidden);
-      element.removeEventListener("shown.bs.modal", shown);
-    };
-    const finish = (accepted) => {
-      if (settled) return;
-      settled = true;
-      reviewWindowConfirmationPending = false;
-      cleanup();
-      resolve(accepted);
-    };
-    const submit = (event) => {
-      event.preventDefault();
-      finish(true);
-      modal.hide();
-    };
-    const hidden = () => finish(false);
-    const shown = () => confirm.focus();
-    form.addEventListener("submit", submit);
-    element.addEventListener("hidden.bs.modal", hidden);
-    element.addEventListener("shown.bs.modal", shown);
-    modal.show();
-  });
+let pendingRequest = null;
+function openRequestModal(side) {
+  if (pendingRequest) return;
+  pendingRequest = { side, timestamp: serverClock.now() };
+  state.provisionalRequest = { side, rm: pendingRequest.timestamp };
+  timelineController.renderAnnotations();
+  const form = document.getElementById("requestForm");
+  form.reset();
+  setText("#requestModalContext", `${side === "chung" ? "Chung" : "Hong"} · ${formatTime(pendingRequest.timestamp)}`);
+  bootstrap.Modal.getOrCreateInstance(document.getElementById("requestModal")).show();
+}
+async function submitRequest(event) {
+  event.preventDefault();
+  if (!pendingRequest || pendingRequest.saving) return;
+  const form = event.currentTarget;
+  if (!form.reportValidity()) return;
+  pendingRequest.saving = true;
+  const button = form.querySelector('[type="submit"]');
+  button.disabled = true;
+  try {
+    await reviewController.createRequest(pendingRequest.side, {
+      ...Object.fromEntries(new FormData(form)), timestamp: pendingRequest.timestamp,
+    });
+    pendingRequest.saving = false;
+    bootstrap.Modal.getInstance(document.getElementById("requestModal")).hide();
+  } catch (error) {
+    toast(error.message, "warning");
+  } finally {
+    if (pendingRequest) pendingRequest.saving = false;
+    button.disabled = false;
+  }
 }
 
 let matchRoundStartConfirmationPending = false;
@@ -297,7 +295,7 @@ function confirmRequestDeletion(review) {
   if (!element || !form || !confirm) return Promise.resolve(false);
   deleteRequestConfirmationPending = true;
   setText("#deleteRequestId", `${review.id} · ${review.side === "chung" ? "Chung" : "Hong"}`);
-  setText("#deleteRequestWindow", `${formatTime(review.windowStart)} – ${formatTime(review.windowEnd)}`);
+  setText("#deleteRequestRm", formatTime(review.rm));
   const modal = bootstrap.Modal.getOrCreateInstance(element);
   return new Promise((resolve) => {
     let settled = false;
@@ -506,8 +504,6 @@ function renderReview() {
       review.reason || review.issues?.[0] || "Reason pending",
     );
     setText("#metaRm", formatTime(review.rm));
-    setText( "#metaWindowStart", formatTime(review.windowStart));
-    setText( "#metaWindowEnd", formatTime(review.windowEnd));
     setText(
       "#metaAur",
       review.aur == null ? "Not marked" : formatTime(review.aur),
@@ -517,7 +513,6 @@ function renderReview() {
       review.rst == null ? "Not started" : formatTime(review.rst),
     );
   }
-  $("#aurWarning").toggleClass("d-none", !review?.aurOutsideWindow);
   $("#startReviewButton")
     .prop("disabled", review?.status !== "selected" || !!state.activeReviewId)
     .toggleClass("d-none", active || final);
@@ -551,13 +546,13 @@ function renderPendingQueue() {
     $("#previousReviewButton").prop(
       "disabled",
       !state.reviewHistory.some(
-        (review) => review.windowEnd < state.playbackCursor,
+        (review) => review.rm < state.playbackCursor,
       ),
     );
     $("#nextReviewButton").prop(
       "disabled",
       !state.reviewHistory.some(
-        (review) => review.windowStart > state.playbackCursor,
+        (review) => review.rm > state.playbackCursor,
       ),
     );
   } else {
@@ -711,6 +706,7 @@ function renderForChange(_currentState, reason) {
     [
       "review-updated",
       "request-created",
+      "request-queued",
       "review-started",
       "review-selected",
     ].includes(reason)
@@ -756,7 +752,7 @@ function syncRealMedia(reason) {
       if (state.playbackState !== "live")
         mcvLiveController.stop({ reset: false });
       void mcvLiveController.setPlaying(state.isPlaying);
-    } else if (["seek", "frame-step", "review-started"].includes(reason)) {
+    } else if (["seek", "frame-step", "review-started", "review-selected", "request-created"].includes(reason)) {
       void mcvLiveController.seek(state.playbackCursor, {
         ring: state.ring,
         cameras: state.cameras,
@@ -807,7 +803,7 @@ function syncRealMedia(reason) {
     return;
   }
   if (
-    ["show-camera", "seek", "frame-step", "review-started"].includes(reason)
+    ["show-camera", "seek", "frame-step", "review-started", "review-selected", "request-created"].includes(reason)
   ) {
     void mediaController
       .seek(state.playbackCursor, {
@@ -822,7 +818,11 @@ function syncRealMedia(reason) {
 function animationStep(nowMs) {
   const delta = Math.min(0.25, (nowMs - lastFrameMs) / 1000);
   lastFrameMs = nowMs;
-  if (!mediaController.active) playbackController.advance(delta);
+  if (!mediaController.active) {
+    const wasPlaying = state.isPlaying;
+    playbackController.advance(delta);
+    if (wasPlaying && !state.isPlaying) notify("play-pause");
+  }
   updateTimeSensitiveValues();
   if (state.isPlaying && state.playbackState !== "live")
     animationFrame = requestAnimationFrame(animationStep);
@@ -962,23 +962,7 @@ async function dispatch(action, element) {
       cameraController.next();
       break;
     case "create-request": {
-      const side = element.dataset.side,
-        origin = $('input[name="requestOrigin"]:checked').val() || "coach",
-        timestamp = state.playbackState === "live" ? serverClock.now() : state.playbackCursor,
-        duration = Number(window.FREEPLAY_IVR?.config?.reviewWindowSeconds?.[origin] || (origin === "referee" ? 10 : 5)),
-        proposedWindowStart = timestamp - duration,
-        overlapping = [...state.reviewHistory].reverse().find(
-          (review) => review.side === side && proposedWindowStart <= review.windowEnd && timestamp >= review.windowStart,
-        ),
-        moveDuration = Number(overlapping?.windowDurationSeconds || duration);
-      if (overlapping && !(await confirmReviewWindowMove(overlapping, timestamp, moveDuration))) break;
-      await reviewController.createRequest(element.dataset.side, {
-        origin,
-        issueType: $('input[name="requestIssueType"]:checked').val(),
-        reason: $("#requestReason").val(),
-        timestamp,
-        existingReviewId: overlapping?.id || null,
-      });
+      openRequestModal(element.dataset.side);
       break;
     }
     case "select-review":
@@ -1042,13 +1026,11 @@ async function dispatch(action, element) {
         toast("Start a formal review before marking AUR.", "warning");
       break;
     }
-    case "jump-window-start":
-      reviewController.jumpWindowStart();
-      break;
     case "jump-aur":
       reviewController.jumpAur();
       break;
     case "go-live":
+      if (!state.activeReviewId) await reviewController.deselect();
       playbackController.goLive();
       break;
     case "start-match-round": {
@@ -1185,8 +1167,12 @@ async function bootstrapApp() {
     $("#cameraSelect").on("change", function () {
       cameraController.showCamera(Number(this.value));
     });
-    $("#timeline").on("click", function (event) {
+    $("#timeline").on("click", async function (event) {
       if ($(event.target).closest("button").length) return;
+      const time = timelineController.positionFromEvent(event);
+      if (!state.activeReviewId && selectedReview() && time > selectedReview().rm) {
+        try { await reviewController.deselect(); } catch (error) { toast(error.message, "warning"); return; }
+      }
       if (!timelineController.seekFromEvent(event)) {
         toast(
           "Selected camera has no video at that time. Choose another angle.",
@@ -1194,22 +1180,11 @@ async function bootstrapApp() {
         );
         return;
       }
-      const insideReviewWindow = state.reviewHistory.some(
-        (review) =>
-          state.playbackCursor >= review.windowStart &&
-          state.playbackCursor <= review.windowEnd,
-      );
-      if (!insideReviewWindow && state.currentRequest) {
-        state.currentRequest = null;
-        syncSelectedReview();
-        notify("review-selected");
-      } else if (!state.currentRequest) {
-        renderPendingQueue();
-      }
+      if (!state.currentRequest) renderPendingQueue();
     });
     $("#timeline").on(
       "click",
-      ".review-window,.annotation-marker",
+      ".annotation-marker",
       async function (event) {
         event.stopPropagation();
         try {
@@ -1227,6 +1202,22 @@ async function bootstrapApp() {
     $("#timeline").on("click", ".pssel-marker", function (event) {
       event.stopPropagation();
       psselController.goTo(this.dataset.psselId);
+    });
+    $("#requestForm").on("submit", submitRequest);
+    $("#requestModal").on("hide.bs.modal", (event) => {
+      if (pendingRequest?.saving) event.preventDefault();
+    });
+    $("#requestModal").on("hidden.bs.modal", () => {
+      pendingRequest = null;
+      state.provisionalRequest = null;
+      timelineController.renderAnnotations();
+    });
+    $("#requestModal").on("keydown", (event) => {
+      event.stopPropagation();
+      if (event.key === "Enter") {
+        event.preventDefault();
+        document.getElementById("requestForm").requestSubmit();
+      }
     });
     $("#annotationModal").on("show.bs.modal", fillAnnotation);
     $("#annotationForm").on("submit", saveAnnotation);

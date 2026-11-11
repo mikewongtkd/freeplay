@@ -10,12 +10,12 @@ export const state = {
   liveEdge: 0,
   playbackRate: 1,
   isPlaying: false,
+  provisionalRequest: null,
   currentRequest: null,
   selectedReviewId: null,
   activeReviewId: null,
   pendingRequests: [],
   reviewHistory: [],
-  reviewWindow: null,
   aur: null,
   rst: null,
   reviewClockSeconds: 0,
@@ -96,15 +96,11 @@ export function replaceReviews(
       ? preferred
       : state.activeReviewId ||
         state.selectedReviewId ||
-        reviews.at(-1)?.id ||
         null;
   syncSelectedReview();
 }
 export function syncSelectedReview() {
   const review = selectedReview();
-  state.reviewWindow = review
-    ? { start: review.windowStart, end: review.windowEnd }
-    : null;
   state.aur = review?.aur ?? null;
   state.rst = review?.rst ?? null;
   state.reviewResult = review?.result ?? null;

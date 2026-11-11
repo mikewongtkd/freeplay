@@ -712,15 +712,6 @@
   border-radius: 2px;
   flex: 0 0 auto;
 }
-.review-window-chung {
-  background: #087ff555;
-}
-.review-window-hong {
-  background: #e72e4b55;
-}
-.review-window-official {
-  background: #6f42c155;
-}
 .legend-swatch.aur {
   background: #111;
 }
@@ -796,15 +787,6 @@
 }
 .scv-active .timeline-track {
   height: 13px;
-}
-.scv-active .review-window {
-  height: 14px;
-}
-.scv-active .review-window.chung {
-  top: 1px;
-}
-.scv-active .review-window.hong {
-  top: 64px;
 }
 .scv-active .annotation-marker,
 .scv-active .playback-cursor,

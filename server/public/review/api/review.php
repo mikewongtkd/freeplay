@@ -49,40 +49,19 @@ if ($action === 'create-request') {
     $reason = trim((string) ($body['reason'] ?? '')) ?: 'Reason pending';
     $now = ivr_now();
     $isCoach = $origin === 'coach';
-    $duration = (float) ($config['reviewWindowSeconds'][$origin] ?? ($isCoach ? 5 : 10));
     $requestedTimestamp = isset($body['timestamp']) && is_numeric($body['timestamp']) ? (float) $body['timestamp'] : $now['epochSeconds'];
     if (!is_finite($requestedTimestamp) || $requestedTimestamp <= 0) {
         ivr_json(['ok' => false, 'error' => ['code' => 'invalid_timestamp', 'message' => 'Review request timestamp is invalid.']], 400);
     }
     $requestedEpochUs = sprintf('%.0f', $requestedTimestamp * 1000000);
-    $existingReviewId = trim((string) ($body['existingReviewId'] ?? ''));
-    if ($existingReviewId !== '') {
-        foreach ($reviews as &$existingReview) {
-            if (($existingReview['id'] ?? '') !== $existingReviewId) continue;
-            $proposedWindowStart = $requestedTimestamp - $duration;
-            if (($existingReview['side'] ?? '') !== $side || $proposedWindowStart > (float) $existingReview['windowEnd'] || $requestedTimestamp < (float) $existingReview['windowStart']) {
-                ivr_json(['ok' => false, 'error' => ['code' => 'window_confirmation_invalid', 'message' => 'The proposed request does not overlap the specified same-side review window.']], 409);
-            }
-            $existingDuration = (float) ($existingReview['windowDurationSeconds'] ?? $duration);
-            $existingReview['rm'] = $requestedTimestamp;
-            $existingReview['rmEpochUs'] = $requestedEpochUs;
-            $existingReview['windowStart'] = $requestedTimestamp - $existingDuration;
-            $existingReview['windowEnd'] = $requestedTimestamp;
-            $existingReview['windowDurationSeconds'] = $existingDuration;
-            ivr_review_response($reviews, $existingReview, $now);
-        }
-        unset($existingReview);
-        ivr_json(['ok' => false, 'error' => ['code' => 'review_not_found', 'message' => 'The review window to move was not found.']], 404);
-    }
     $id = 'R' . str_pad((string) (count($reviews) + 1), 3, '0', STR_PAD_LEFT) . '-' . substr($now['epochUs'], -6);
-    $hasOpenRequest = ivr_has_status($reviews, ['pending', 'selected', 'active']);
+    $hasOpenRequest = ivr_has_status($reviews, ['selected', 'active']);
     $issues = array_values(array_slice(array_filter((array) ($body['issues'] ?? []), 'is_string'), 0, 2));
     $review = [
         'id' => $id, 'ring' => $ring, 'side' => $side, 'origin' => $origin, 'issueType' => $issueType, 'reason' => $reason,
         'isCoachRequest' => $isCoach, 'rm' => $requestedTimestamp, 'rmEpochUs' => $requestedEpochUs,
-        'windowStart' => $requestedTimestamp - $duration, 'windowEnd' => $requestedTimestamp, 'windowDurationSeconds' => $duration,
         'aur' => null, 'aurHistory' => [], 'rst' => null, 'decisionAt' => null, 'result' => null,
-        'status' => $hasOpenRequest ? 'pending' : 'selected', 'issues' => $issues ?: [$reason],
+        'status' => ($hasOpenRequest || !empty($body['preserveSelection'])) ? 'pending' : 'selected', 'issues' => $issues ?: [$reason],
         'linkedReviewId' => $body['linkedReviewId'] ?? null, 'annotation' => [],
     ];
     $reviews[] = $review;
@@ -100,6 +79,13 @@ if( $action === 'delete-request' ) {
         }
     }
     if (!$found) ivr_json(['ok' => false, 'error' => ['code' => 'review_not_found', 'message' => 'The review request to delete was not found.']], 404);
+    ivr_review_response($reviews);
+}
+
+if ($action === 'deselect') {
+    if (ivr_has_status($reviews, ['active'])) ivr_json(['ok' => false, 'error' => ['code' => 'active_review_locked', 'message' => 'Complete the active review before deselecting it.']], 409);
+    foreach ($reviews as &$item) if (($item['status'] ?? '') === 'selected') $item['status'] = 'pending';
+    unset($item);
     ivr_review_response($reviews);
 }
 
@@ -131,7 +117,6 @@ switch ($action) {
             $review['aurHistory'][] = ['aur' => $review['aur'], 'replacedAt' => $now['epochSeconds'], 'replacedAtEpochUs' => $now['epochUs']];
         }
         $review['aur'] = (float) ($body['time'] ?? $now['epochSeconds']);
-        $review['aurOutsideWindow'] = $review['isCoachRequest'] && ($review['aur'] < $review['windowStart'] || $review['aur'] > $review['windowEnd']);
         break;
     case 'resolve-without-review':
         if (!in_array($review['status'], ['pending', 'selected'], true)) ivr_json(['ok' => false, 'error' => ['code' => 'invalid_state', 'message' => 'This disposition is available only before Start Review.']], 409);

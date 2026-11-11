@@ -1,4 +1,4 @@
-import { state, notify, update } from "./state.js";
+import { state, notify, update, selectedReview, syncSelectedReview } from "./state.js";
 
 const frame = 1 / 30;
 function activeReview() {
@@ -9,7 +9,7 @@ function activeReview() {
 function clamp(time) {
   return Math.max(
     state.timelineRange.start,
-    Math.min(state.timelineRange.end, time),
+    Math.min(state.timelineRange.end, selectedReview()?.rm ?? Infinity, time),
   );
 }
 
@@ -18,7 +18,7 @@ export const playbackController = {
     state.playbackCursor = clamp(Number(time));
     state.isPlaying = false;
     state.playbackState =
-      Math.abs(state.liveEdge - state.playbackCursor) < 0.05
+      !selectedReview() && Math.abs(state.liveEdge - state.playbackCursor) < 0.05
         ? "live"
         : "paused";
     if (emit) notify("seek");
@@ -46,6 +46,10 @@ export const playbackController = {
     notify("rate");
   },
   goLive() {
+    if (activeReview()) { this.seekTo(activeReview().rm); return; }
+    state.currentRequest = null;
+    syncSelectedReview();
+    state.timelineRange.end = state.liveEdge;
     state.playbackCursor = state.liveEdge;
     state.isPlaying = true;
     state.playbackRate = 1;
@@ -64,7 +68,7 @@ export const playbackController = {
       state.playbackCursor + deltaSeconds * state.playbackRate,
     );
     state.playbackCursor = next;
-    if (next >= state.timelineRange.end || next <= state.timelineRange.start) {
+    if (next >= Math.min(state.timelineRange.end, selectedReview()?.rm ?? Infinity) || next <= state.timelineRange.start) {
       state.isPlaying = false;
       state.playbackState = "paused";
     }

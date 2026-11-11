@@ -94,7 +94,7 @@ data dictionary.
 | IVR tournament and review | ivr\_ring\_cameras         | ring\_id, camera\_id | cameras, ivr\_rings                             | Many-to-many assignment of ingestion cameras to IVR rings, including sync offsets.                          |
 | IVR tournament and review | ivr\_competitors           | id                   | ivr\_tournaments                                | Tournament competitor/team identity.                                                                        |
 | IVR tournament and review | ivr\_matches               | id                   | ivr\_competitors, ivr\_rings                    | Match identity, participants, officials, quotas, lifecycle, and recording boundary.                         |
-| IVR tournament and review | ivr\_review\_requests      | id                   | ivr\_matches, ivr\_review\_requests, ivr\_rings | Formal review request, review window, AUR marker, camera usage, and workflow state.                         |
+| IVR tournament and review | ivr\_review\_requests      | id                   | ivr\_matches, ivr\_review\_requests, ivr\_rings | Formal review request, request marker, AUR marker, camera usage, and workflow state.                         |
 | IVR tournament and review | ivr\_review\_decisions     | id                   | ivr\_review\_requests                           | One terminal disposition and quota outcome for a review request.                                            |
 | IVR tournament and review | ivr\_review\_annotations   | id                   | ivr\_review\_requests                           | One post-review explanatory annotation for a review request.                                                |
 | IVR tournament and review | ivr\_review\_audit\_events | id                   | ivr\_review\_requests                           | Append-oriented audit trail for review workflow actions.                                                    |
@@ -512,7 +512,7 @@ idx\_ivr\_matches\_ring\_status (ring\_id, status)
 
 ### ivr\_review\_requests
 
-Formal review request, review window, AUR marker, camera usage, and
+Formal review request, request marker, AUR marker, camera usage, and
 workflow
 state.
 
@@ -530,19 +530,15 @@ state.
 | issues\_json             | TEXT            | NOT NULL, DEFAULT '\[\]'             |
 | status                   | TEXT            | NOT NULL, DEFAULT 'pending'          |
 | request\_mark\_epoch\_us | INTEGER         | NOT NULL                             |
-| window\_start\_epoch\_us | INTEGER         | NOT NULL                             |
-| window\_end\_epoch\_us   | INTEGER         | NOT NULL                             |
 | review\_start\_epoch\_us | INTEGER         | —                                    |
 | aur\_epoch\_us           | INTEGER         | —                                    |
-| aur\_outside\_window     | INTEGER         | NOT NULL, DEFAULT 0                  |
 | cameras\_available\_json | TEXT            | NOT NULL, DEFAULT '\[\]'             |
 | cameras\_reviewed\_json  | TEXT            | NOT NULL, DEFAULT '\[\]'             |
 | operator\_identity       | TEXT            | —                                    |
 | created\_at              | TEXT            | NOT NULL, DEFAULT CURRENT\_TIMESTAMP |
 | updated\_at              | TEXT            | NOT NULL, DEFAULT CURRENT\_TIMESTAMP |
 
-**Indexes:** idx\_ivr\_review\_requests\_window (ring\_id,
-window\_start\_epoch\_us, window\_end\_epoch\_us);
+**Indexes:**
 idx\_ivr\_review\_requests\_match\_time (match\_id,
 request\_mark\_epoch\_us); idx\_ivr\_review\_requests\_ring\_status
 (ring\_id, status)

@@ -45,9 +45,8 @@ try {
         $sql = <<<'SQL'
             SELECT rr.public_id, rr.side, rr.origin, rr.issue_type, rr.reason,
                    rr.issues_json, rr.status, rr.request_mark_epoch_us,
-                   rr.window_start_epoch_us, rr.window_end_epoch_us,
                    rr.review_start_epoch_us, rr.aur_epoch_us,
-                   rr.aur_outside_window, rr.cameras_available_json,
+                   rr.cameras_available_json,
                    rr.cameras_reviewed_json, rr.operator_identity,
                    r.ring_number, m.match_number, m.round_number,
                    d.result, d.decided_at_epoch_us, d.review_duration_ms,
@@ -160,10 +159,9 @@ require __DIR__ . '/includes/header.php';
           </div>
           <hr>
           <div class="row g-3 small">
-            <div class="col-md-3"><span class="text-secondary">Requested:</span><br><?= ivr_report_time($review['request_mark_epoch_us']) ?></div>
-            <div class="col-md-3"><span class="text-secondary">Review window:</span><br><?= ivr_report_time($review['window_start_epoch_us']) ?><br><?= ivr_report_time($review['window_end_epoch_us']) ?></div>
-            <div class="col-md-3"><span class="text-secondary">AUR:</span><br><?= ivr_report_time($review['aur_epoch_us']) ?><?= (int) $review['aur_outside_window'] === 1 ? ' <span class="badge text-bg-warning">Outside window</span>' : '' ?></div>
-            <div class="col-md-3"><span class="text-secondary">Decision:</span><br><?= ivr_report_time($review['decided_at_epoch_us']) ?><?= $review['review_duration_ms'] === null ? '' : '<br>' . number_format((int) $review['review_duration_ms'] / 1000, 3) . ' s' ?></div>
+            <div class="col-md-4"><span class="text-secondary">Requested:</span><br><?= ivr_report_time($review['request_mark_epoch_us']) ?></div>
+            <div class="col-md-4"><span class="text-secondary">AUR:</span><br><?= ivr_report_time($review['aur_epoch_us']) ?></div>
+            <div class="col-md-4"><span class="text-secondary">Decision:</span><br><?= ivr_report_time($review['decided_at_epoch_us']) ?><?= $review['review_duration_ms'] === null ? '' : '<br>' . number_format((int) $review['review_duration_ms'] / 1000, 3) . ' s' ?></div>
           </div>
           <?php if ($review['explanation'] || $review['notes'] || $review['recommendations']): ?>
           <div class="alert alert-light border mt-3 mb-0"><strong>Notes:</strong> <?= htmlspecialchars(implode(' · ', array_filter([$review['explanation'], $review['notes'], $review['recommendations']])), ENT_QUOTES, 'UTF-8') ?></div>
