@@ -1,252 +1,168 @@
-# Prompt for Gemini in Visual Studio: FreePlay Server / IVR Protocol Updates
+# FreePlay server / IVR implementation contract
 
-## System Architect's Attention Required
+Current implementation reference, November 11, 2026. This document replaces the earlier architecture-choice/implementation prompt. It describes implemented behavior, not a request to implement the previously proposed production API. See [ingestion protocol](server-protocol.md) for FPV1 and [current operator workflow](../ivr-review/workflow.md) for review UI details.
 
-The existing replay endpoint resolves indexed GOP rows but does not define a complete browser media-delivery contract or durable IVR workflow API. Decide the following before production implementation.
+## Implemented ownership and transport
 
-### 1. Replay media transport
+Node owns camera ingestion, completed-GOP RAM retention, disk/index lookup, and browser fMP4 delivery. PHP owns match/configuration administration and the session-backed review API. The browser uses HTTP manifests and tokenized media with Media Source Extensions (MSE); no replay WebSocket or generated per-request MP4 clip transport is implemented.
 
-**Choice A — Versioned HTTP fMP4 range/segment API (recommended for the first production IVR):** return a metadata manifest with opaque initialization/media-fragment URLs, then fetch media fragments over HTTP.
+The browser's `ReplayApi` defaults to `<page scheme>://<page hostname>:9000/api/ivr/v1`. `window.FREEPLAY_IVR.config.replayApiBase` overrides that base. This must be the full API base, not just a hostname. The PHP prototype config defaults the override to null. Camera switching and the multi-camera coordinator issue separate per-camera requests.
 
-- Pros: simplest Chrome integration; cacheable; debuggable; separates metadata and bytes; works with Media Source Extensions; avoids a permanent replay WebSocket.
-- Cons: requires fragment-token/URL lifecycle design; reverse review still needs client-side decoded-frame caching or repeated seeks; many small requests must be managed.
+## Capabilities
 
-**Choice B — Replay WebSocket carrying multiplexed fMP4 fragments:** open a replay session and push binary media plus control messages.
+```text
+GET /api/ivr/v1/capabilities
+```
 
-- Pros: low request overhead; explicit cancellation/backpressure; convenient server push for adjacent media.
-- Cons: more client/server state; harder HTTP caching and diagnostics; reconnect/recovery is more complex; multiplexing three cameras needs a new binary envelope.
-
-**Choice C — Generated per-request MP4 clips:** assemble downloadable/playable files for requested windows.
-
-- Pros: simple `<video>` usage and archival sharing.
-- Cons: startup and file-generation latency; artificial clip boundaries; weak fit for continuous navigation; additional disk/CPU churn. Do not choose this as the primary 30-second IVR path.
-
-### 2. Recent RAM versus disk retrieval ownership
-
-**Choice A — Node owns one replay API for RAM and disk (recommended):** Node resolves live cache and indexed storage and exposes one source-neutral contract to PHP/browser.
-
-- Pros: one timeline/retrieval implementation; recent-cache access is direct; source transitions can be transparent.
-- Cons: expands the Node service surface and requires safe concurrent file access.
-
-**Choice B — PHP handles disk and proxies recent requests to Node:** preserve the current PHP endpoint for historical disk rows.
-
-- Pros: smaller change to existing administration APIs.
-- Cons: duplicated range/quality logic; difficult seamless RAM-to-disk transitions; greater risk that clients observe inconsistent response shapes.
-
-### 3. IVR workflow persistence
-
-**Choice A — Add server-authoritative IVR resources to SQLite/API (recommended):** persist Request Mark, Review Window, RST, AUR, result, linkage, annotation, and integrity snapshot.
-
-- Pros: refresh recovery, auditability, deterministic multi-client behavior, and immutable results.
-- Cons: requires schema migration, authorization model, and concurrency/version handling.
-
-**Choice B — Keep workflow in the IVR browser:** use the server only for media.
-
-- Pros: minimal server work for demonstrations.
-- Cons: violates the requirements for authoritative timestamps, refresh recovery, auditability, and deterministic state. Suitable only for the existing prototype.
-
-### 4. PSSEL ownership
-
-**Choice A — Server webhook plus normalized query API (recommended):** adapters post events to the server, which filters/normalizes and maps them to the FreePlay timeline.
-
-- Pros: authoritative correlation and shared results for all IVR clients; adapters remain isolated.
-- Cons: requires clock-mapping/error handling and source authentication.
-
-**Choice B — Direct client integration:** browser connects to a PSS adapter.
-
-- Pros: less initial server code.
-- Cons: violates server abstraction, complicates trust/CORS, duplicates mapping, and weakens auditability. Do not select for production.
-
-## Your task
-
-You are working in the existing FreePlay server repository in Visual Studio. Implement the architect-approved choices without changing camera-to-server FPV1 semantics unless strictly necessary. Preserve continuous camera ingestion and recording. Do not expose filesystem paths, SQLite rows, or raw Android monotonic timestamps to the browser.
-
-Read these files before editing:
-
-- `docs/server-protocol.md`, especially Sections 38–41;
-- `docs/ivr-review/system-requirements.md`, especially FR-020–028, FR-040–052, FR-080–097 and the NFRs;
-- `docs/ivr-review/use-cases.md`;
-- `public/review/README.md`;
-- `public/api/replay.php`;
-- the replay cache, GOP index, fragmented-MP4 writer, database schema, and API routing code under `src/` and `public/api/`.
-
-## Required protocol behavior
-
-### A. Version and capabilities
-
-Provide `GET /api/ivr/capabilities` with a stable response including:
+Actual response shape:
 
 ```json
 {
+  "ok": true,
   "apiVersion": "1",
-  "serverTimeEpochUs": "1788298642354913",
+  "serverTimeEpochUs": "1788298642354000",
   "features": {
-    "multiCameraReplay": true,
-    "adjacentRanges": true,
-    "reviewPersistence": true,
-    "pssel": true
+    "multiCameraReplay": false,
+    "adjacentRanges": false,
+    "reviewPersistence": false,
+    "pssel": false
   },
-  "media": {
-    "container": "video/mp4",
-    "codec": "avc1",
-    "transport": "http-fmp4-mse"
-  }
+  "media": {"container":"video/mp4","codec":"avc1","transport":"http-fmp4-mse"},
+  "limits": {"maximumRangeSeconds":60}
 }
 ```
 
-Represent epoch-microsecond values as decimal strings in JSON so JavaScript does not lose integer precision.
+These false flags are intentional descriptions of the API: there is no single multi-camera manifest, opaque continuation API, durable review resource service, or production PSSEL service. The UI nevertheless coordinates three independent replay players.
 
-### B. Source-neutral multi-camera replay manifest
-
-Replace or version the current conceptual `GET /api/replay.php?ring=...` contract with:
+## Replay manifest
 
 ```text
-GET /api/ivr/v1/replay?ring=6&timeEpochUs=<decimal>&beforeSeconds=8&afterSeconds=4
+GET /api/ivr/v1/replay?ring=6&camera=2&timeEpochUs=1788298642354000&beforeSeconds=5&afterSeconds=5
 ```
 
-The manifest must:
+| Parameter | Current handling |
+| --- | --- |
+| `ring` | Required integer 1–14; this replay bound is hard-coded independently of ingestion's configurable maximum |
+| `camera` | Default 1; integer within configured cameras per ring |
+| `timeEpochUs` | Required digits-only decimal epoch-microsecond string |
+| `beforeSeconds`, `afterSeconds` | Default 5 each; finite, nonnegative, at most 30 each; total at most 60 |
 
-- resolve exactly the expected cameras for the ring;
-- distinguish the requested logical interval from the earlier decodable start;
-- return opaque media URLs or tokens, never database rows or file paths;
-- work identically when media comes from RAM, disk, or crosses their boundary;
-- include initialization data/resource identity required after codec-configuration changes;
-- expose ordered fragments with exact common-timeline start/end times;
-- expose completeness, gaps, sequence-loss estimates, session discontinuities, codec changes, and sync-quality metadata;
-- report unavailable ranges explicitly per camera;
-- include a bounded continuation mechanism for earlier/later adjacent media;
-- allow request cancellation and prevent unbounded server/client buffering;
-- remain read-only and not pause ingestion.
+HTTP parsing uses `searchParams.get(...) || default`, so a literal `"0"` is accepted while an empty duration parameter falls back to its default. Responses are JSON with `Cache-Control: no-store` and `Access-Control-Allow-Origin: *`. Epoch-microsecond and PTS fields in this versioned manifest are decimal strings. This does not apply universally to PHP workflow JSON, which uses floating-point epoch seconds.
 
-Suggested shape:
-
-```json
-{
-  "apiVersion": "1",
-  "ring": 6,
-  "requested": {
-    "timeEpochUs": "1788298642354913",
-    "logicalStartEpochUs": "1788298634354913",
-    "logicalEndEpochUs": "1788298646354913"
-  },
-  "retainedRange": {
-    "startEpochUs": "1788298000000000",
-    "liveEdgeEpochUs": "1788298647000000"
-  },
-  "cameras": [
-    {
-      "camera": 1,
-      "streamId": "ring6_cam1",
-      "available": true,
-      "decodableStartEpochUs": "1788298634000000",
-      "logicalAvailableStartEpochUs": "1788298634354913",
-      "logicalAvailableEndEpochUs": "1788298646354913",
-      "initialization": {"id": "init-17", "url": "/api/ivr/v1/media/init-17"},
-      "fragments": [
-        {"id": "frag-92", "startEpochUs": "1788298634000000", "endEpochUs": "1788298635000000", "url": "/api/ivr/v1/media/frag-92", "complete": true}
-      ],
-      "gaps": [],
-      "quality": {"complete": true, "sequenceGapCount": 0, "estimatedMissingBuffers": 0, "syncOffsetMs": 12}
-    }
-  ],
-  "adjacent": {"previous": "opaque-token", "next": "opaque-token"}
-}
-```
-
-Validate ring, timestamp, duration, token scope, and maximum response size. Use prepared SQL. Preserve camera ordering. Add cache-control suitable for immutable historical fragments and no-store for live manifests.
-
-### C. Browser media responses
-
-Implement the selected media transport with:
-
-- `Content-Type: video/mp4`;
-- byte ranges if resources can be large;
-- opaque identifiers mapped server-side to safe approved media extents;
-- no arbitrary path parameter;
-- cancellation/disconnect cleanup;
-- correct initialization segment whenever codec configuration changes;
-- immutable ETag/cache headers for closed historical media;
-- explicit errors distinguishing expired media, camera unavailable, lookup failure, corrupt/incomplete media, and authorization failure.
-
-Document Media Source Extensions append order and timestamp mapping. Do not transcode during normal replay.
-
-### D. Server-authoritative IVR workflow API
-
-Add versioned resources/actions equivalent to:
+The top-level response is:
 
 ```text
-POST  /api/ivr/v1/reviews                 create RM/window
-POST  /api/ivr/v1/reviews/{id}/start      create RST
-POST  /api/ivr/v1/reviews/{id}/aur        create/replace AUR
-POST  /api/ivr/v1/reviews/{id}/resolve    Resolved without Review, pending only
-POST  /api/ivr/v1/reviews/{id}/result     Accepted/Rejected/Rejected: IVR Issue, active only
-PATCH /api/ivr/v1/reviews/{id}/annotation post-result detail
-GET   /api/ivr/v1/reviews?ring=6&match=... history/recovery
-GET   /api/ivr/v1/reviews/{id}
+ok: true
+apiVersion: "1"
+ring
+requested: { camera, timeEpochUs, logicalStartEpochUs, logicalEndEpochUs }
+retainedRange: { startEpochUs, liveEdgeEpochUs }
+camera: { ...one camera, not an array... }
+adjacent: { previous, next }
 ```
 
-Enforce these state rules atomically:
+The `camera` object contains:
 
-- RM and coach Review Window are created before formal review;
-- coach window is exactly RM−5 seconds through RM;
-- Start Review records a new RST and begins an active review without selecting a camera;
-- Resolved without Review is valid only before RST and creates no RST;
-- formal results are valid only for an active review and immediately record decision time/end it;
-- annotations remain editable after the timed result without changing decision duration;
-- one review has at most one active AUR; replacement is recorded/audited;
-- out-of-window coach AUR is warned/recorded, not rejected by the API;
-- a two-action request stores two issue records but one RM/window/RST/clock/AUR;
-- a permitted second review is a distinct record with its own RM/RST/result and a `linkedReviewId`; it never overwrites the first;
-- finalized decision timestamps/results are immutable except through an explicit privileged administrative correction workflow;
-- referee/official requests do not change coach quota;
-- `Rejected: IVR Issue` remains distinct from ordinary rejection and its quota policy is configuration metadata, not hard-coded rules text.
+- `camera`, deterministic `streamId`, `available`, `codec`, `mimeType`, `width`, `height`, `fps`;
+- `decodableStartEpochUs`: first returned GOP start, which may precede the logical request;
+- `initialization`: first initialization resource or null;
+- `initializations`: resources `{id, key, url, codec}`, grouped by session/configuration version;
+- `fragments`: ordered `{id, url, initializationId, initializationKey, source, startEpochUs, endEpochUs, startPtsUs, endPtsUs, complete, sequenceGapCount, estimatedMissingBuffers}`;
+- `gaps`: `{startEpochUs, endEpochUs}` between successive fragments when the separation exceeds 100,000 microseconds;
+- `quality`: `{complete, sequenceGapCount, estimatedMissingBuffers}` aggregated over returned fragments.
 
-Use optimistic concurrency (`version` or ETag/If-Match) so two browsers cannot silently overwrite a review.
+Disk lookup selects overlapping indexed GOPs, ordered by start, with a 2,048-row limit. Safe file extents are combined with overlapping live RAM GOPs; RAM replaces disk when both have the same start/end pair. Resources without usable extent or initialization configuration are skipped. Each returned fragment refers to a decodable GOP; no transcode is performed.
 
-### E. PSSEL webhook and query
+`available` means at least one deliverable fragment exists. It does not guarantee coverage of the requested interval. `quality.complete` is true when at least one fragment exists and all returned fragments are marked complete; it does not incorporate the gap list or missing leading/trailing coverage. Gaps do not include uncovered request edges. Retained bounds come from the database and/or finalized RAM cache, not a promise that every point between the bounds is available.
 
-Implement:
+`adjacent.previous` and `adjacent.next` are decimal timestamps equal to the logical interval's start/end. They are not opaque tokens or pagination handles. Clients request subsequent manifests explicitly; the capability `adjacentRanges` remains false. New manifests create new resource tokens, while initialization `key`/fragment timestamps support client deduplication.
+
+## Initialization and media bytes
 
 ```text
-POST /api/ivr/v1/pssel/events
-GET  /api/ivr/v1/pssel/events?ring=6&startEpochUs=...&endEpochUs=...
+GET /api/ivr/v1/media/{token}
+OPTIONS /api/ivr/v1/...
 ```
 
-Adapters must normalize and the server must accept for the IVR timeline only:
+Tokens are random 18-byte base64url identifiers, held in Node process memory. They expire after two minutes, can be evicted when the 10,000-token limit is reached, and disappear on restart. Initialization resources are generated in memory. RAM GOPs are remuxed in memory; disk fragments stream the indexed byte extent under the configured video directory. URLs do not take an arbitrary filesystem path and manifests do not expose SQL rows or file paths.
 
-- match start/stop;
-- pause/resume;
-- scoring events;
-- penalty events.
+Successful media returns `Content-Type: video/mp4` and `Content-Length`. Initialization and closed-file extents receive `public, max-age=31536000, immutable`; RAM fragments and open-file extents receive `no-store`. Resource URLs still have the short token lifecycle above. There is no ETag/If-Match or HTTP byte-range/206 implementation. Media clients fetch complete token resources. A disconnected disk response destroys its input stream.
 
-Store source timestamp, mapped FreePlay epoch timestamp, match/round identifiers, display time, event type, side, scores, and penalties when available. Deduplicate retried webhook events. Report clock-mapping confidence/uncertainty. Treat events as advisory navigation context; never modify authoritative scoring from this API.
+MSE playback appends the corresponding initialization before a fragment. The browser tracks stable initialization keys across manifests and sets `SourceBuffer.timestampOffset` from the fragment's server epoch start and camera PTS relative to the playback range. It maintains a common logical cursor across camera changes. Live playback polls every 400 ms; old buffered media is removed using a 30-second live buffer target. Fetches use AbortSignal for cancellation. Multi-camera live playback has independent players and bounded drift correction; it is client coordination, not a multi-camera server session.
 
-### F. Tests and documentation
+### Errors
 
-Add automated tests for:
+JSON errors have shape `{"ok":false,"error":{"code":"...","message":"..."}}`.
 
-1. JavaScript-safe timestamp serialization;
-2. all-three-camera resolution and stable ordering;
-3. RAM-only, disk-only, RAM/disk boundary, physical-file boundary, and session boundary retrieval;
-4. decodable-start/keyframe and initialization association;
-5. explicit per-camera gaps and partial-camera success;
-6. adjacent previous/next retrieval without duplication or gaps;
-7. expired/unavailable/corrupt media errors;
-8. continuous ingestion while multiple replay requests run;
-9. review lifecycle state transitions and invalid transition rejection;
-10. result immutability, annotation-after-result, second-review linkage, and two-action semantics;
-11. PSSEL allow-list filtering, timestamp mapping, deduplication, and advisory-only behavior;
-12. resource bounds, authorization boundaries, path traversal rejection, and concurrent clients.
+| HTTP | Code | Meaning |
+| --- | --- | --- |
+| 400 | `invalid_ring`, `invalid_camera`, `invalid_time`, `invalid_duration` | Invalid replay parameters |
+| 500 | `replay_lookup_failed` | Unexpected manifest lookup failure |
+| 404 | `media_token_expired` | Unknown, evicted, or expired token |
+| 409 | `fragment_incomplete` | Indexed disk extent exceeds current file size |
+| 404 | `media_unavailable` | File/stat failure |
+| 500 | `media_read_failed` | Disk stream failure before headers; after headers the response is destroyed |
+| 404 | `not_found` | Unknown versioned resource/method |
 
-Update `docs/server-protocol.md` with the approved versioned wire contract, error schema, examples, state machine, media lifecycle, limits, and security assumptions. Update the IVR client adapter while keeping its controller interfaces unchanged.
+An unavailable camera/range normally yields HTTP 200 with `available:false` and no fragments, not a dedicated camera-unavailable error. OPTIONS returns 204 with allowed methods GET/OPTIONS. Authorization/corrupt-media error categories proposed in the former document are not implemented as distinct contracts.
 
-## Completion criteria
+PHP `/api/replay.php` returns HTTP 410 `replay_api_moved`. Node's older `/api/replay` is RAM metadata only and is not an equivalent media API.
 
-- The production IVR client can replace the prototype mock service without changing review, camera, playback, timeline, or input-controller semantics.
-- Chrome can begin recent replay in under the current one-second engineering target on a healthy tournament LAN.
-- Camera switching preserves one common logical cursor.
-- Playback can request adjacent retained media across GOP, file, session, and RAM/disk boundaries without operator-visible storage boundaries.
-- Missing or impaired media is never silently represented as complete.
-- Review records survive browser refresh and are deterministically shared across authorized clients.
-- No browser endpoint exposes server filesystem paths or internal SQLite rows.
-- Existing FPV1 ingestion, recording, and ingestion test suites remain passing.
+## PHP review workflow API
+
+```text
+GET  /review/api/review.php?ring=6
+POST /review/api/review.php
+Content-Type: application/json
+```
+
+POST uses an `action` discriminator, not REST resources under `/api/ivr/v1/reviews`. Common fields are `ring` (default 1, clamped 1–14) and, for record actions, `reviewId`.
+
+| Action | Inputs / implemented effect |
+| --- | --- |
+| `create-request` | `side`, `origin`, `issueType`, `reason`, optional `issues` (up to two strings), `timestamp`, `matchNumber`, `round`, `preserveSelection`, `linkedReviewId`; creates RM |
+| `select` | Pending/selected record only; demotes any other selected record to pending; rejects while a formal review is active |
+| `deselect` | Demotes selected records to pending; rejects while a formal review is active |
+| `start` | Selected record only, and no other active review; creates RST and sets Active |
+| `mark-aur` | Active/completed only; `time` replaces AUR and appends the old value with replacement time to history |
+| `resolve-without-review` | Pending/selected only; records disposition without RST |
+| `set-result` | Active only; `result` is `accepted`, `rejected`, or `ivr_issue`; records decision and duration |
+| `annotate` | Completed/resolved only; merges `annotation` fields and adds `updatedAt` |
+| `delete-request` | Removes the matching request; UI limits the button to unfinished records, but the API itself does not enforce that status restriction |
+| `reset` | Clears this ring's session reviews and review-number sequence |
+
+Successful responses have `ok:true` and `data:{reviews, workflow:{selectedReviewId, activeReviewId}}`; mutations can additionally include `review` and `serverTime`. The server time anchor is `{epochSeconds, epochUs, iso}`. Records use floating-point epoch seconds for `rm`, `rst`, `aur`, and `decisionAt`, with additional decimal microsecond strings for some timestamps. `reviewDurationSeconds` is decision time minus RST, floored at zero.
+
+Invalid transitions return HTTP 409 `invalid_state` or `active_review_locked`; missing records return 404 `review_not_found`; invalid request timestamps return 400 `invalid_timestamp`; unknown actions return 400 `invalid_action`. UI validation is stronger than parts of the API: reason option membership, required Other details, AUR replacement confirmation, and playback limits are browser behavior, not equivalent server authorization/validation rules.
+
+### Current workflow semantics
+
+- No review window is created. The old five/ten-second calculations, overlap moves, and outside-window warnings are removed.
+- The UI captures server-anchored RM when Chung/Hong is pressed, opens the origin/type/reason modal, and saves only on submission. Cancel discards the provisional marker. API callers can supply their own valid positive timestamp.
+- New requests auto-select only when no selected/active review exists and `preserveSelection` is false. The UI sets preservation for an already displayed request, including completed requests.
+- IDs contain a sequence and suffix; display names hide the suffix (`R001`, etc.). The ring-session sequence is retained across deletion and cleared by reset.
+- Requests carry match number and round. The Review Queue filters session records by these fields; legacy records without them use timeline start as a fallback. All statuses, including finalized ones, appear in the queue.
+- Formal review records RST and freezes the displayed timeline there. Browser playback while reviewing is limited to RM. Results return live and clear display selection. Recording/ingestion continues independently.
+- Unselect can clear browser display selection during formal review without calling the rejecting PHP deselect action. The formal clock/lock and RM bound remain active. This is distinct from changing server workflow status.
+- AUR replacement history and post-result annotations exist; no optimistic concurrency, administrative correction API, automatic quota policy, or server enforcement of exactly-two-action review semantics exists. Optional `issues` and linkage are data fields, not a full rules engine.
+- Start Round persists match details/start through `/review/api/match.php`. Stop Round freezes browser timeline/playback and can advance the page's round number; it is not a camera stop command or server end-round API. Round advancement is persisted when the next Start Round saves the match. Round three stops without the advance dialog.
+
+### Persistence and later annotation limitation
+
+Reviews, AUR history, decisions, and annotations are stored in PHP session data by ring, not written by this API to the `ivr_review_*` SQLite tables. Match details and ring camera configuration use SQLite through their own PHP APIs. Review data can survive a page refresh while its PHP session remains available, but durable recovery across sessions/dates and synchronized independent-client state are not implemented.
+
+The database-backed `/review/report.php` reads separate persisted review tables and links to a match/round. It does not load a specific database review into the interactive session-backed API. Completing annotations at a later date across sessions is a forthcoming need; the presence of SQLite review tables is not evidence that this recovery path works.
+
+## PSSEL and notifications
+
+`GET /review/api/pssel.php?ring=6` returns mock events filtered to `match_start`, `match_stop`, `pause`, `resume`, `score`, and `penalty`, with `advisoryOnly:true`. No `/api/ivr/v1/pssel/events` webhook/query service or durable adapter deduplication/clock mapping is implemented.
+
+The browser notification controller accepts `freeplay:server-notification` events or an externally configured EventSource (`notificationUrl` defaults null). It handles `camera-start-recording`, `camera-stop-recording`, and `pssel-event`, anchors time from supplied server timestamps, and deduplicates PSSEL IDs in browser state. This client hook is not an implemented ingestion-server SSE endpoint.
+
+## Remaining boundaries and source references
+
+Authentication, per-user resource authorization, durable workflow recovery, concurrency/version control, opaque continuation tokens, full requested-range completeness, and production PSSEL integration remain unimplemented. Wildcard CORS and process-local bearer tokens assume a controlled deployment. No measured sub-second startup or 42-camera load guarantee is implied.
+
+Primary references: `src/replay-service.js`, `src/freeplay.js`, `src/recorder.js`, `public/api/replay.php`, `public/review/api/review.php`, `match.php`, `camera-config.php`, `pssel.php`, `public/review/includes/api-common.php`, and the browser modules `replay-api.js`, `media-controller.js`, `mcv-live-controller.js`, `review-controller.js`, `request-reasons.js`, `round-controller.js`, `notification-controller.js`, and `server-clock.js` under `public/review/assets/js/`.
+
+Relevant tests are `src/test/replay-service.test.js`, `recorder.test.js`, `protocol.test.js`, `ivr-client-rendering.test.js`, and `ivr-workflow.test.js`. For ingest/load suite operation, see [camera/server test plan](camera-server-protocol-test-plan.md). This document records source inspection, not a new runtime qualification run.
