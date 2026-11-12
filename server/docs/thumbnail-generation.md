@@ -5,6 +5,8 @@
 **Scope:** Server only; do not edit Android camera or IVR client repositories.  
 **Platforms:** Apple Silicon Mac mini and Raspberry Pi 5 (64-bit Linux) with NVMe storage.
 
+This is a proposal, not an implemented API. Follow the current [ingestion protocol](ingestion-protocol.md) and [IVR protocol](ivr-protocol.md); the additions below are limited to thumbnail generation and delivery.
+
 ## Your assignment
 
 You are Codex working in the existing FreePlay ingestion-server codebase. **Implement, test, and document** an asynchronous, cached thumbnail service that returns sampled visual frames for a specified camera and server-authoritative time range. Do not merely propose an architecture. First inspect the repository to determine the actual file layout, Node.js server, SQLite schema, GOP/fMP4 media representation, camera registry, HTTP routes, authentication, logging, and test infrastructure. Adapt the solution to the real code. Do not invent filenames, database columns, endpoints, or existing capabilities.
@@ -13,15 +15,15 @@ Before changing code:
 
 1. Read the server README, protocol specification, architecture documents, package manifest, and existing tests.
 2. Identify the exact port-9000 HTTP/WebSocket entry point and the existing IVR API routing conventions.
-3. Trace how a `streamId` maps to ring/camera, recorded GOPs, their **server-authoritative timestamps**, stream generations, codec initialization data, segment/file paths, and retention.
+3. Trace how a `streamId` maps to ring/camera, recorded GOPs, their **server-authoritative timestamps**, session/configuration boundaries, codec initialization data, segment/file paths, and retention.
 4. Identify how fMP4 initialization segments, SPS/PPS, keyframes, and partial/active files are handled.
-5. Identify existing configuration, observability, authorization, and storage-cleanup mechanisms.
+5. Identify existing configuration, observability, HTTP/CORS/token conventions, and storage-cleanup mechanisms. Do not assume authentication or automatic source-video retention already exists.
 6. Record the current git status and preserve all unrelated user changes. Do not reset, overwrite, or broadly refactor unrelated code.
 7. Present a concise implementation plan and list any blocking unknowns, then implement unless genuinely blocked.
 
 ### Non-negotiable invariants
 
-- Preserve existing **FPV1 32-byte binary header**, ingest WebSocket, H.264 buffer handling, GOP index, fMP4 recording, replay, camera registration, remote start/stop, and PSSEL behavior.
+- Preserve existing **FPV1 32-byte binary header**, ingest WebSocket, H.264 buffer handling, GOP index, fMP4 recording, replay, camera registration, and existing IVR hooks. Do not add camera remote start/stop or production PSSEL services; these are not existing server protocol capabilities.
 - Do not perform H.264 decoding, image resizing, image encoding, filesystem scans, or blocking child-process execution on the Node.js ingest event loop.
 - **Recording and active replay always have priority over thumbnail creation.** Thumbnails are optional derived data; they may be delayed, skipped, or shed under load.
 - Do not transcode or re-encode the recorded video archive.
@@ -37,28 +39,32 @@ Before changing code:
 
 ### 1. API contract
 
-Implement a read-only metadata endpoint equivalent to:
+Implement a metadata endpoint using the existing versioned replay route style:
 
 ```http
-GET /api/ivr/v1/cameras/6/2/thumbnails?startEpochUs=1790365100000000&endEpochUs=1790365160000000&intervalMs=5000&width=240
+GET /api/ivr/v1/thumbnails?ring=6&camera=2&startEpochUs=1790365100000000&endEpochUs=1790365160000000&intervalMs=5000&width=240
 ```
 
-If the repository has established equivalent routes, follow those conventions and document the actual route. The camera is identified by validated logical ring/camera parameters, never a browser-provided filesystem path or socket identifier. Reuse the existing IVR authorization scope where available.
+Identify the camera with validated `ring` and `camera` query parameters, as in `/api/ivr/v1/replay`, never a browser-provided filesystem path or socket identifier. Serve these routes through the existing port-9000 HTTP router; do not add camera WebSocket messages or another port.
 
 **Parameters:**
 
 - `startEpochUs`, `endEpochUs`: decimal-string Unix epoch microseconds on the FreePlay **server timeline**, inclusive start, exclusive end; parse safely with `BigInt` or an existing lossless timestamp abstraction. Do not silently round through JavaScript `Number` at microsecond precision.
 - `intervalMs`: positive integer requested sampling spacing; default **5000 ms**. Initial configurable minimum **1000 ms**, maximum **60000 ms**. A client may request 1000 ms for a short zoomed-in review and 5000–10000 ms for longer spans.
 - `width`: positive integer thumbnail width; default **240 px**; configurable bounds, e.g. **80–480 px**. Preserve aspect ratio, typically 16:9. Never trust arbitrary image dimensions.
-- Cap sample count per request (initial default **120**, configurable). Reject excessive requests with structured `400` or `422` rather than silently allocating enormous work.
-- Validate range ordering, duration, camera existence/authorization, and timestamps. Distinguish an unknown camera from a known camera with no recording in the requested interval.
+- Cap sample count per request (initial default **120**, configurable). Reject excessive requests with structured `400` rather than silently allocating enormous work.
+- Validate range ordering, duration, camera existence, and timestamps. Distinguish an unknown camera from a known camera with no recording in the requested interval.
 
 Return deterministic, ordered sample slots with **both the requested sample timestamp and actual decoded frame timestamp**. The sample selection policy must be documented: choose the nearest eligible independently decodable indexed frame within a configurable tolerance, preferably at/before the sample to avoid using future action imagery. Never claim the requested time is the exact frame time if it is not.
 
-Illustrative response (adjust to project JSON conventions):
+Successful metadata responses use HTTP **200**, including when all samples are pending, and the existing top-level `ok` and `apiVersion` convention (no additional `data` wrapper):
 
 ```json
 {
+  "ok": true,
+  "apiVersion": "1",
+  "ring": 6,
+  "camera": 2,
   "streamId": "ring6_cam2",
   "startEpochUs": "1790365100000000",
   "endEpochUs": "1790365160000000",
@@ -68,21 +74,21 @@ Illustrative response (adjust to project JSON conventions):
     {
       "requestedEpochUs": "1790365100000000",
       "actualEpochUs": "1790365099866000",
-      "streamGeneration": 4,
+      "sessionId": "4",
       "status": "ready",
-      "imageUrl": "/api/ivr/v1/thumbnails/opaque-image-id.jpg"
+      "imageUrl": "/api/ivr/v1/thumbnails/opaque-token.jpg"
     },
     {
       "requestedEpochUs": "1790365105000000",
       "actualEpochUs": "1790365104987000",
-      "streamGeneration": 4,
+      "sessionId": "4",
       "status": "pending",
       "imageUrl": null
     },
     {
       "requestedEpochUs": "1790365110000000",
       "actualEpochUs": null,
-      "streamGeneration": null,
+      "sessionId": null,
       "status": "unavailable",
       "reason": "recording_gap",
       "imageUrl": null
@@ -91,19 +97,31 @@ Illustrative response (adjust to project JSON conventions):
 }
 ```
 
-Use stable statuses at least `ready`, `pending`, and `unavailable`; include safe, machine-readable reasons for unavailable/failed work. An in-progress thumbnail should not cause the metadata request to wait for a full decode. If the existing API prefers `202` for a fully pending request, preserve a documented consistent behavior.
+Use stable statuses at least `ready`, `pending`, and `unavailable`; include safe, machine-readable reasons for unavailable/failed work. An in-progress thumbnail should not cause the metadata request to wait for a full decode. Do not introduce HTTP 202 or a separate job-status API. Clients poll this same metadata endpoint to observe completed work. A GET may populate the internal derived-data cache, but must not modify source recordings or review records; repeated requests must coalesce identical jobs.
 
-Implement an image endpoint equivalent to:
+Implement a separate image-byte endpoint, following the existing opaque media-resource approach:
 
 ```http
-GET /api/ivr/v1/thumbnails/:opaqueId.jpg
+GET /api/ivr/v1/thumbnails/{token}.jpg
 ```
 
 - Serve only validated cache entries, not arbitrary paths.
-- Set correct `Content-Type`, cache validators (`ETag` and/or `Last-Modified`) and sensible caching headers, consistent with access control.
+- Return `Content-Type: image/jpeg` and an appropriate `Content-Length`. Use `Cache-Control: no-store` initially; do not introduce ETags, Last-Modified validators, conditional GET, or byte-range handling in this implementation.
 - Return a controlled `404`/`410` for purged or unavailable images.
-- Never leak absolute disk paths or expose thumbnails across authorization boundaries.
-- Support conditional GET if existing HTTP infrastructure makes it straightforward.
+- Never leak absolute disk paths. Resolve opaque tokens server-side to validated thumbnail cache entries.
+- Reuse the existing process-local resource-token conventions and bounds (currently two-minute lifetime and a 10,000-token registry). Tokens may expire, be evicted, or disappear on restart; they are not durable image identifiers. Polling metadata can issue replacement tokens for existing cached images without decoding again. Do not change existing replay-token behavior.
+
+
+Metadata and JSON image errors must use the existing error envelope:
+
+```json
+{
+  "ok": false,
+  "error": {"code": "invalid_request", "message": "Describe the invalid thumbnail request."}
+}
+```
+
+Use HTTP 400 for invalid parameters, including excessive sample counts; retain controlled 429/503 overload responses where applicable. Match replay's cross-origin behavior: `Access-Control-Allow-Origin: *` on thumbnail metadata, images, and errors, and OPTIONS support for GET/OPTIONS. Metadata responses use `Cache-Control: no-store`. Do not add authentication, authorization scopes, login flows, signed URLs, or a new capabilities endpoint as part of this feature. The current server has no IVR authentication layer; thumbnail access inherits its controlled-LAN deployment boundary and opaque bearer-token limitations. These are explicit current limitations, not claims of access enforcement.
 
 ### 2. Sampling and indexing
 
@@ -117,7 +135,7 @@ Critical details:
 - Do not assume all keyframes occur precisely at integer seconds.
 - Preserve gaps as `unavailable`, not as thumbnails borrowed from another recording interval.
 - When a recording is currently active, do not read partially written media unsafely. Generate from a completed/indexed GOP or a stable finalized segment, or explicitly mark the sample `pending` until it is safe.
-- Stream-generation and codec-config changes are hard decoding/cache boundaries.
+- Session/reconnect and codec-config changes are hard decoding/cache boundaries. Use existing session IDs and configuration versions to represent source generations; do not add an Android stream-generation field or a new camera protocol.
 - If a requested sample has no suitable keyframe within tolerance, report unavailable; do not seek arbitrarily far and misrepresent the timeline.
 - A video keyframe is not necessarily a complete GOP; `mediaReady` for live replay and thumbnail-decodability are related but separate conditions.
 
@@ -155,7 +173,7 @@ Cache key must uniquely account for at least:
 
 Use safe deterministic or opaque hashed paths; do not interpolate untrusted route values directly into filesystem paths. Write temporary images and atomically rename only after successful validation. Avoid serving incomplete files.
 
-Thumbnail retention must follow source video retention. When video is deleted, invalidate/delete corresponding thumbnail entries, with a bounded cleanup/reconciliation job. Preserve existing video retention logic and never allow thumbnail cleanup to delete source video.
+Invalidate/delete thumbnail entries when their source video is no longer available, using bounded reconciliation and independent thumbnail-cache eviction. Automatic source-video retention/deletion is not implemented in the current server; do not add a source-video retention service as a prerequisite. Never allow thumbnail cleanup to delete source video.
 
 Cache storage examples at 12 KB per 240px JPEG, every 5 seconds for 10 hours:
 
@@ -220,8 +238,8 @@ Use existing logging/metrics conventions and avoid high-volume per-thumbnail log
 
 ### 7. Security and failure behavior
 
-- Authenticate and authorize thumbnail metadata and image reads using existing IVR access policy. Do not invent a new insecure public media route.
-- Enforce server-side camera/ring visibility and avoid information leakage through opaque IDs.
+- Follow the current replay service’s controlled-LAN and wildcard-CORS access model. No authentication or per-user authorization is implemented today, and adding either is outside this task.
+- Validate logical camera/ring identifiers and opaque tokens; never treat an opaque token as proof of user authorization.
 - Validate numeric bounds and image sizes before queuing work.
 - Never accept arbitrary file paths, FFmpeg options, shell fragments, or filter expressions from the browser.
 - Invoke FFmpeg with an argument array and no shell interpolation.
@@ -238,7 +256,7 @@ Add tests using existing repository conventions. At minimum:
 
 - valid range/interval/width and ordered samples;
 - invalid or reversed range, malformed/unsafe microsecond values, excessive samples, width out of range;
-- unknown camera, unauthorized camera, no video, and recording gaps;
+- unknown camera, invalid camera/ring, no video, and recording gaps;
 - exact requested versus actual frame timestamps and tolerance behavior;
 - no unsafe precision loss with epoch-microsecond strings.
 
@@ -329,10 +347,10 @@ When done, provide:
 3. **Sample selection policy** and actual-vs-requested timestamp treatment.
 4. **Decoder strategy**, FFmpeg invocation pattern, Pi software-decoding compatibility.
 5. **Worker limits, queue behavior, cache layout, and retention cleanup**.
-6. **Security/authorization** and any prototype-only limitations.
+6. **Input/path safety, CORS, token lifecycle**, and inherited controlled-LAN access limitations.
 7. **Tests and commands executed**, with pass/fail results; clearly mark tests not run.
 8. **Benchmark results**, if measured, or exact instructions to run them on Mac mini and Pi 5.
 9. **Remaining integration work** for the IVR thumbnail strip.
 10. **Unresolved risks** or architecture assumptions.
 
-**Completion criteria:** An authorized IVR client can request a bounded timestamp range on port 9000, promptly receive ordered `ready`/`pending`/`unavailable` sample metadata, fetch cached JPEG thumbnails through an authorized image endpoint, and obtain newly generated thumbnails asynchronously without compromising existing FPV1 recording and replay. Both Mac mini and Raspberry Pi 5 use the same API, with configurable resource limits.
+**Completion criteria:** An IVR client on the controlled LAN can request a bounded timestamp range on port 9000, promptly receive ordered `ready`/`pending`/`unavailable` sample metadata, fetch cached JPEG thumbnails through the opaque-token image endpoint, and obtain newly generated thumbnails asynchronously without compromising existing FPV1 recording and replay. Both Mac mini and Raspberry Pi 5 use the same API, with configurable resource limits.
