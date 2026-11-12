@@ -37,11 +37,16 @@ const commands = {
 export function installKeyboard() {
   document.addEventListener("keydown", (event) => {
     if (document.querySelector(".modal.show")) return;
+    if (event.isComposing) return;
     if (
       ["INPUT", "TEXTAREA", "SELECT"].includes(event.target.tagName) ||
       event.target.isContentEditable
     )
       return;
+    if (event.key.toLowerCase() === "t") {
+      if (event.ctrlKey || event.metaKey || event.altKey || event.shiftKey || event.repeat || state.currentView !== "MCV") return;
+      event.preventDefault(); document.getElementById("toggleThumbnailPreview")?.click(); return;
+    }
     if (
       state.currentView !== "MCV" &&
       event.altKey &&

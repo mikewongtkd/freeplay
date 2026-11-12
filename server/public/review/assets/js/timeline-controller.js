@@ -250,7 +250,9 @@ export const timelineController = {
     );
   },
   seekFromEvent(event) {
-    const time = this.positionFromEvent(event);
+    return this.seekToTime(this.positionFromEvent(event));
+  },
+  seekToTime(time) {
     const camera = state.cameras.find(
       (item) => item.id === state.selectedCamera,
     );

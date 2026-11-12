@@ -1,3 +1,4 @@
+import { TimelineThumbnailPreview } from "./thumbnail-preview.js";
 import { roundController } from "./round-controller.js";
 import { requestReason, updateRequestReasons, updateRequestReasonDetails, fillAnnotationReasons, updateAnnotationReasonDetails, annotationReason } from "./request-reasons.js";
 import {
@@ -25,6 +26,14 @@ import { MediaController } from "./media-controller.js";
 import { McvLiveController } from "./mcv-live-controller.js";
 
 const $ = window.jQuery;
+const thumbnailPreview = new TimelineThumbnailPreview({state, subscribe, seek:seekTimelineTime});
+async function seekTimelineTime(time) {
+  if (!state.activeReviewId && selectedReview() && time > selectedReview().rm) {
+    try { await reviewController.deselect(); } catch (error) { toast(error.message, "warning"); return; }
+  }
+  if (!timelineController.seekToTime(time)) toast("Selected camera has no video at that time. Choose another angle.", "warning");
+  if (!state.currentRequest) renderPendingQueue();
+}
 const resultLabels = {
   accepted: "Accepted",
   rejected: "Rejected",
@@ -687,6 +696,7 @@ function updateTimeSensitiveValues() {
   updatePlaybackValues();
   updateReviewClock();
   timelineController.updateDynamic();
+  thumbnailPreview.update();
 }
 
 function renderInitial() {
@@ -698,6 +708,7 @@ function renderInitial() {
   renderStatus();
   renderScenarios();
   timelineController.initialize();
+  thumbnailPreview.stateChanged();
   updateTimeSensitiveValues();
 }
 
@@ -1207,17 +1218,8 @@ async function bootstrapApp() {
     $("#timeline").on("click", async function (event) {
       if ($(event.target).closest("button").length) return;
       const time = timelineController.positionFromEvent(event);
-      if (!state.activeReviewId && selectedReview() && time > selectedReview().rm) {
-        try { await reviewController.deselect(); } catch (error) { toast(error.message, "warning"); return; }
-      }
-      if (!timelineController.seekFromEvent(event)) {
-        toast(
-          "Selected camera has no video at that time. Choose another angle.",
-          "warning",
-        );
-        return;
-      }
-      if (!state.currentRequest) renderPendingQueue();
+      await seekTimelineTime(time);
+      thumbnailPreview.alignCursor(event.clientX);
     });
     $("#timeline").on(
       "click",

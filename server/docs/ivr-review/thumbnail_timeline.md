@@ -1,5 +1,7 @@
 # FreePlay Timeline Thumbnail Preview (TTP)
 
+**Implementation:** MCV integration is implemented. See [operator behavior, architecture, bounds, and verification](thumbnail-preview.md) for the delivered behavior. The requirements below remain the feature brief.
+
 **Target:** Existing FreePlay IVR browser UI (VS Code)  
 **Feature:** Three-camera Timeline Thumbnail Preview (TTP)  
 **Scope:** Implement and test the IVR frontend integration with the **already implemented** ingestion-server thumbnail API. Do not rewrite the thumbnail service or video ingestion pipeline.
@@ -12,7 +14,7 @@ You are working in the existing FreePlay IVR repository. Implement this feature 
 2. The authoritative server-timestamp-to-pixel mapping, playback cursor, seek controls, synchronized camera playback and timeline range model.
 3. The implemented thumbnail API's **actual** routes, request/response schemas, timestamp units, authentication, error statuses, caching and image URLs. Inspect its implementation or existing documentation; do **not** assume the examples below are exact.
 4. Existing UI components, Bootstrap/jQuery/JavaScript conventions, CSS styles, event handlers, state management and test infrastructure.
-5. The current **review controls** container, review-start event/transition, **AUR (Area Under Review) marking** event/transition, existing keyboard shortcut dispatcher, and any current panel visibility/state management. Determine the actual definitions and hooks rather than inventing new review lifecycle events.
+5. The current **review controls** container, review-start event/transition, **AUR (Action Under Review) marking** event/transition, existing keyboard shortcut dispatcher, and any current panel visibility/state management. Determine the actual definitions and hooks rather than inventing new review lifecycle events.
 
 First summarize the concrete integration points in your working notes. Reuse existing abstractions and avoid introducing another competing clock, playback controller, or timeline model. Make focused changes, preserve unrelated work and functionality, and add tests. Do not stop after planning; implement and verify unless genuinely blocked.
 
@@ -49,7 +51,7 @@ Add a **Timeline Thumbnail Preview (TTP)** panel displayed **alongside the exist
 
 ## 1A. Operator workflow, AUR identification and panel visibility (mandatory)
 
-**Primary purpose:** The TTP is a rapid visual navigation aid for the IVR operator to identify the **AUR (Area Under Review)**. It is not a replacement for the review state machine, authoritative timeline, or playback controller.
+**Primary purpose:** The TTP is a rapid visual navigation aid for the IVR operator to identify the **AUR (Action Under Review)**. It is not a replacement for the review state machine, authoritative timeline, or playback controller.
 
 ### Mutually exclusive UI panels
 
@@ -69,7 +71,7 @@ Add a **Timeline Thumbnail Preview (TTP)** panel displayed **alongside the exist
 ### Automatic visibility transitions
 
 1. **Review started:** On the existing application's authoritative **review-started** transition, automatically **show TTP and hide review controls**, to help the operator locate the AUR. This must work whether the review was started locally or the UI receives the state through its existing review workflow/event mechanism.
-2. **AUR marked:** On the existing application's authoritative **AUR-marked** transition (when the operator commits/marks the Area Under Review), automatically **hide TTP and show review controls**, so the operator can continue the review workflow.
+2. **AUR marked:** On the existing application's authoritative **AUR-marked** transition (when the operator commits/marks the Action Under Review), automatically **hide TTP and show review controls**, so the operator can continue the review workflow.
 3. **Manual override:** Pressing `t` remains available to bring TTP back into view after the AUR has been marked, without clearing or changing the AUR. Manual panel switching must not itself start a review, mark an AUR, or modify the review state.
 4. **Repeat reviews:** Each subsequent review-start event must show TTP again, regardless of how the operator last left the panels. Each subsequent AUR-marked event must return to review controls.
 5. **Idempotency:** Repeated/replayed review-start or AUR-marked notifications must not duplicate panels, listeners, API requests, or state transitions. Avoid responding to mere review-state refreshes as if a new review had started; identify the actual transition/event or review identifier.

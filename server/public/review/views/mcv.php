@@ -14,12 +14,16 @@
         </article>
       <?php endfor; ?>
     </div>
+    <div class="mcv-panel-region">
+    <button id="toggleThumbnailPreview" type="button" class="btn btn-sm btn-outline-secondary ttp-toggle" aria-controls="thumbnailPreview" aria-pressed="false">Thumbnails (T)</button>
     <div class="mcv-controls-row">
       <div class="mcv-review-column">
         <?php require __DIR__ . '/review-panel.php'; ?>
       </div>
       <?php require __DIR__ . '/review-queue.php'; ?>
       <?php require __DIR__ . '/review-summary.php'; ?>
+    </div>
+    <?php require __DIR__ . '/thumbnail-preview.php'; ?>
     </div>
   </div>
 </section>

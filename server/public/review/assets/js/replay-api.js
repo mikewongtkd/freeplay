@@ -37,6 +37,29 @@ export class ReplayApi {
     return payload;
   }
 
+  thumbnailUrl(resourceUrl) {
+    const url = new URL(resourceUrl, `${this.base}/`);
+    if (url.origin !== new URL(this.base).origin || !/^https?:$/.test(url.protocol)) throw new Error("Invalid thumbnail URL");
+    return url.href;
+  }
+
+  async thumbnails({ring, camera, startEpochUs, endEpochUs, intervalMs = 5000, width = 128, signal}) {
+    const query = new URLSearchParams({ring, camera, startEpochUs, endEpochUs, intervalMs, width});
+    const controller = new AbortController();
+    const cancel = () => controller.abort();
+    signal?.addEventListener("abort", cancel, {once:true});
+    if (signal?.aborted) controller.abort();
+    const timer = setTimeout(cancel, 8000);
+    try {
+      const response = await fetch(`${this.base}/thumbnails?${query}`, {signal:controller.signal, cache:"no-store"});
+      const payload = await response.json();
+      if (!response.ok || !payload.ok) throw Object.assign(new Error(payload.error?.message || "Thumbnail lookup failed"), {status:response.status});
+      return payload;
+    } finally {
+      clearTimeout(timer); signal?.removeEventListener("abort", cancel);
+    }
+  }
+
   async bytes(resourceUrl, signal) {
     const response = await fetch(new URL(resourceUrl, `${this.base}/`), {
       signal,

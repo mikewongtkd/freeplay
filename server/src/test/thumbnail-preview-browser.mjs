@@ -1,0 +1,55 @@
+import {TimelineThumbnailPreview} from '/review/assets/js/thumbnail-preview.js';
+import {state,subscribe,notify} from '/review/assets/js/state.js';
+import {playbackController} from '/review/assets/js/playback-controller.js';
+import {timelineController} from '/review/assets/js/timeline-controller.js';
+import {installKeyboard} from '/review/assets/js/keyboard-controller.js';
+const passed=[];
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+const frames=()=>sleep(100);
+function check(value,name){if(!value)throw new Error(name);passed.push(name);}
+const report=document.getElementById('report');
+try{
+ Object.assign(state,{ring:1,match:{number:'101',round:1},timelineRange:{start:1000,end:4600},playbackCursor:2500,currentView:'MCV',isPlaying:false,
+  cameras:[1,2,3].map(id=>({id,name:`Camera ${id}`,available:true,gaps:[]})),reviewHistory:[],activeReviewId:null});
+ const api={thumbnailUrl:url=>new URL(url,location.href).href,thumbnails:async ({camera,startEpochUs,endEpochUs})=>({samples:Array.from({length:Number((BigInt(endEpochUs)-BigInt(startEpochUs))/5000000n)},(_,i)=>({requestedEpochUs:String(BigInt(startEpochUs)+BigInt(i)*5000000n),status:camera===2?'unavailable':'ready',imageUrl:'/review/assets/images/video-unavailable.svg?ready='+camera}))})};
+ const component=new TimelineThumbnailPreview({state,subscribe,api,seek:time=>playbackController.seekTo(time)});
+ subscribe(()=>{timelineController.updateDynamic();component.update();});
+ installKeyboard();timelineController.initialize();
+ document.dispatchEvent(new KeyboardEvent('keydown',{key:'t',bubbles:true}));await sleep(400);
+ check(!document.getElementById('thumbnailPreview').classList.contains('d-none'),'T opens preview');
+ check(document.querySelector('.mcv-controls-row').classList.contains('d-none'),'only review controls hidden');
+ check(!document.getElementById('mcvView').classList.contains('d-none')&&!document.querySelector('.timeline-panel').classList.contains('d-none'),'cameras and timeline retained');
+ const cells=[...document.querySelectorAll('.ttp-cell')];check(cells.length>0&&cells.length<=96,'bounded three-camera window');
+ check(cells.every(cell=>cell.getBoundingClientRect().width===128&&cell.getBoundingClientRect().height===68),'128 by 68 CSS image cells');
+ check(document.querySelector('[data-camera="2"].ttp-cell img').getAttribute('src')==='/review/assets/images/video-unavailable.svg','camera two gap placeholder');
+ check(document.querySelector('[data-camera="1"].ttp-cell img').src.includes('ready=1'),'camera one independent ready image');
+ const ts=document.getElementById('ttpScroll'),ls=document.getElementById('timelineScroll');
+ const before=ls.scrollLeft;ts.scrollLeft+=256;ts.dispatchEvent(new Event('scroll'));await frames();
+ check(Math.abs(ls.scrollLeft-before-100)<2,`TTP 256 px moves timeline ten seconds (100 px): before=${before}, after=${ls.scrollLeft}, ttp=${ts.scrollLeft}`);
+ const old=ts.scrollLeft;ls.scrollLeft+=100;ls.dispatchEvent(new Event('scroll'));await frames();
+ check(Math.abs(ts.scrollLeft-old-256)<2,'timeline scroll moves TTP by timestamp');
+ const stable=ts.scrollLeft;await sleep(900);component.update();await frames();check(Math.abs(ts.scrollLeft-stable)<1,'paused manual scroll does not snap back');
+ const rect=ts.getBoundingClientRect();const cell=cells.find(c=>c.getBoundingClientRect().left>rect.left+128&&c.getBoundingClientRect().right<rect.right-128)||[...document.querySelectorAll('.ttp-cell')].find(c=>c.getBoundingClientRect().left>rect.left+128&&c.getBoundingClientRect().right<rect.right-128);
+ check(!!cell,'visible interior cell exists');const cr=cell.getBoundingClientRect();const expected=Number(BigInt(cell.dataset.ttpTime))/1000000+2.5;
+ cell.dispatchEvent(new MouseEvent('click',{bubbles:true,clientX:cr.left+64,clientY:cr.top+20,detail:1}));await frames();
+ check(Math.abs(state.playbackCursor-expected)<.01,'sub-cell click seeks midpoint through playback controller');
+ const cursor=document.getElementById('ttpCursor').getBoundingClientRect();const line=document.getElementById('playbackCursor').getBoundingClientRect();check(Math.abs(cursor.left-line.left)<2,'both cursor screen positions align');
+ playbackController.stepFrame(-1);await frames();check(Math.abs(document.getElementById('ttpCursor').getBoundingClientRect().left-document.getElementById('playbackCursor').getBoundingClientRect().left)<2,'frame stepping updates shared cursor');
+ playbackController.playPause();const playing=state.playbackCursor;playbackController.advance(1);timelineController.updateDynamic();component.update();check(state.playbackCursor>playing,'normal playback uses authoritative cursor');playbackController.setRate(-1);const reverse=state.playbackCursor;playbackController.advance(1);timelineController.updateDynamic();component.update();check(state.playbackCursor<reverse,'reverse playback uses authoritative cursor');playbackController.setRate(2);playbackController.advance(1);playbackController.playPause();check(!state.isPlaying,'shuttle playback and pause remain functional');
+ const scaleBefore=ts.scrollLeft;document.getElementById('timeline').style.width='72000px';await frames();component.alignCursor();await frames();const zoomBefore=ls.scrollLeft;ts.scrollLeft+=256;ts.dispatchEvent(new Event('scroll'));await frames();check(Math.abs(ls.scrollLeft-zoomBefore-200)<2,'timeline zoom changes scroll conversion while TTP scale stays fixed');timelineController.updateDynamic();
+ state.reviewHistory=[{id:'R001',rst:4600,rm:4500,aur:null,status:'active'}];state.activeReviewId='R001';notify('review-started');check(component.visibility.visible,'review start opens preview');
+ state.reviewHistory[0].aur=4400;notify('review-updated');check(!component.visibility.visible,'AUR commit restores controls');
+ document.dispatchEvent(new KeyboardEvent('keydown',{key:'t',bubbles:true}));check(component.visibility.visible,'manual reopen preserves AUR');
+ check(state.reviewHistory[0].aur===4400,'manual toggle does not alter AUR');notify('review-updated');check(component.visibility.visible,'duplicate AUR refresh does not override manual toggle');
+ const input=document.createElement('input');document.body.append(input);input.dispatchEvent(new KeyboardEvent('keydown',{key:'t',bubbles:true}));check(component.visibility.visible,'typing does not toggle');
+ const modal=document.createElement('div');modal.className='modal show';document.body.append(modal);document.dispatchEvent(new KeyboardEvent('keydown',{key:'t',bubbles:true}));check(component.visibility.visible,'modal owns keyboard input');modal.remove();
+ document.dispatchEvent(new KeyboardEvent('keydown',{key:'t',ctrlKey:true,bubbles:true}));check(component.visibility.visible,'modifier shortcut does not toggle');
+ document.dispatchEvent(new KeyboardEvent('keydown',{key:'t',isComposing:true,bubbles:true}));check(component.visibility.visible,'IME composition does not toggle');
+ state.currentView='CAM1';notify('show-camera');check(document.getElementById('thumbnailPreview').classList.contains('d-none'),'SCV suspends preview');
+ state.currentView='MCV';notify('show-mcv');check(!document.getElementById('thumbnailPreview').classList.contains('d-none'),'MCV restores preview preference');
+ state.timelineRange.end=37000;state.playbackCursor=36000;notify('seek');await sleep(400);check(document.querySelectorAll('.ttp-cell').length<=96,'ten-hour DOM stays bounded');
+ check(document.documentElement.scrollWidth<=window.innerWidth,'no horizontal page overflow');
+ const controls=document.querySelector('.mcv-controls-row'),listeners=component.listeners.length;for(let i=0;i<20;i++)component.toggle();check(document.querySelector('.mcv-controls-row')===controls&&component.listeners.length===listeners,'repeated toggles preserve controls and listener count');
+ state.playbackCursor=1000;notify('seek');component.alignCursor();const beginning=ls.scrollLeft;ts.scrollLeft+=256;ts.dispatchEvent(new Event('scroll'));await frames();check(Math.abs(ls.scrollLeft-beginning-100)<2,'first scroll from the range start is synchronized');
+ component.destroy();report.textContent=JSON.stringify({ok:true,passed});
+}catch(error){report.textContent=JSON.stringify({ok:false,passed,error:error.stack});}

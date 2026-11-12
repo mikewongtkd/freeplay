@@ -123,3 +123,7 @@ Durable review recovery and annotation across sessions or dates is a forthcoming
 - `public/review/includes/api-common.php`: session storage and selected/active review identities.
 - `public/review/report.php`: database-backed review report and match links.
 - `deploy/db/schema.sql`: database schema used by the report; interactive review storage remains session-backed.
+
+## MCV thumbnail preview
+
+Press **T** in Multi-Camera View to swap review controls for the three-camera thumbnail preview without altering playback or AUR. Review start opens it automatically; committing/replacing AUR restores controls. Single Camera View stays unchanged. Click inside a five-second cell to seek at that horizontal position; review RM limits still apply. See [thumbnail preview](thumbnail-preview.md) for scroll behavior, placeholders, bounds, and verification.

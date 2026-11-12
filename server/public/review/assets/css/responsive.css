@@ -345,3 +345,21 @@
   top: calc(100% + 3px);
   bottom: auto;
 }
+
+/* MCV review controls and thumbnail preview share one row. */
+.mcv-panel-region { position: relative; padding-top: 32px; min-width: 0; min-height: 0; overflow: auto; }
+.mcv-panel-region > .mcv-controls-row { height: calc(100% - 10px); }
+.ttp-panel { height: calc(100% - 10px); min-height: 0; overflow: auto; border: 1px solid var(--ivr-border); border-radius: .5rem; background: #f8fafc; }
+.ttp-heading { display: flex; gap: .75rem; align-items: center; padding: .3rem .5rem; font-size: .75rem; }
+.ttp-heading > span { flex: 1; }
+.ttp-body { display: grid; grid-template-columns: 76px minmax(0, 1fr); min-width: 0; }
+.ttp-labels > div { height: 68px; display: flex; align-items: center; padding-left: .4rem; font-size: .7rem; font-weight: 700; }
+.ttp-scroll { overflow-x: auto; overflow-y: hidden; min-width: 0; }
+.ttp-grid { position: relative; height: 204px; }
+.ttp-cell { position: absolute; width: 128px; height: 68px; padding: 0; border: 0; box-shadow: inset 0 0 0 1px #93a4b5; background: #263746; overflow: hidden; }
+.ttp-cell > img { display: block; width: 128px; height: 68px; object-fit: cover; }
+.ttp-cell:focus-visible { outline: 3px solid #ffd400; outline-offset: -3px; z-index: 2; }
+.ttp-cell-caption { position: absolute; left: 0; bottom: 0; max-width: 100%; padding: 0 3px; background: #00152acc; color: white; font-size: 9px; white-space: nowrap; }
+.ttp-cursor { position: absolute; top: 0; height: 204px; width: 2px; z-index: 4; background: #ffd400; box-shadow: 0 0 0 1px #172534; pointer-events: none; }
+
+.ttp-toggle { position: absolute; top: 0; right: 0; min-height: 28px; font-size: .7rem; }

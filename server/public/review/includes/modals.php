@@ -46,7 +46,7 @@
       <kbd>1 / 2 / 3</kbd><span>Show camera</span><kbd>M</kbd><span>Multi Camera View</span>
       <kbd>C / H</kbd><span>Chung / Hong request</span><kbd>S</kbd><span>Start selected review</span>
       <kbd>A</kbd><span>Mark AUR</span><kbd>L</kbd><span>Go Live</span>
-      <kbd>B</kbd><span>Return to AUR</span>
+      <kbd>B</kbd><span>Return to AUR</span><kbd>T</kbd><span>Toggle thumbnails / review controls (MCV)</span>
       <kbd>Alt+Arrows</kbd><span>Pan in SCV</span><kbd>+ / −</kbd><span>Zoom in / out in SCV</span>
     </div></div>
   </div></div>
