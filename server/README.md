@@ -37,7 +37,7 @@ Test API routes are under `/api/tests`, including run, stop, evaluate, operator 
 
 ## FPV1
 
-The first frame must be the version-1 `freeplay-ingest` JSON `hello` described in [ingestion protocol](docs/ingestion/ingestion-protocol.md). Accepted clients receive `hello_ack` followed by `request_keyframe`. Binary messages contain the exact 32-byte, big-endian `FPV1` header followed by the declared H.264 payload. Video before registration, malformed frames, unsupported clients, and duplicate stream ownership are rejected.
+The first frame must be the version-1 `freeplay-ingest` JSON `hello` described in [ingestion protocol](docs/ingestion-protocol.md). Accepted clients receive `hello_ack` followed by `request_keyframe`. Binary messages contain the exact 32-byte, big-endian `FPV1` header followed by the declared H.264 payload. Video before registration, malformed frames, unsupported clients, and duplicate stream ownership are rejected.
 
 ## Configuration
 
@@ -45,4 +45,10 @@ Defaults are stored in SQLite's `configuration` table. Environment overrides inc
 
 The schema is applied idempotently. Startup adds missing protocol-era columns to the original prototype database without deleting data. Back up `data/freeplay.sqlite` before a production upgrade.
 
-Recordings are placed under `data/video/YYYY-MM-DD/ringNN/camN/`. No decoding, transcoding, or permanent ffmpeg process is used.
+Recordings are placed under `data/video/YYYY-MM-DD/ringNN/camN/`. The ingest path does not decode or transcode video. The optional thumbnail service decodes derived JPEGs in isolated, bounded FFmpeg workers; it does not re-encode the archive.
+
+## Timeline thumbnails
+
+The server exposes `GET /api/ivr/v1/thumbnails?ring=1&camera=1&startEpochUs=<epoch-us>&endEpochUs=<epoch-us>` and opaque JPEG URLs on the existing Node port. Install FFmpeg for asynchronous generation; use `THUMBNAILS_ENABLED=false` to disable the service without affecting ingest/replay. Initial deployment settings: `THUMBNAIL_WORKERS=1` on Pi 5, `THUMBNAIL_WORKERS=2` on Mac mini. Missing FFmpeg produces explicit unavailable samples and a startup diagnostic.
+
+See [thumbnail API and operations](docs/thumbnail-service.md) for sampling, configuration, limits, metrics, tests, and the benchmark command. The IVR thumbnail UI is a separate future integration.

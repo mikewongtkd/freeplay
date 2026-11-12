@@ -1,6 +1,6 @@
 # FreePlay IVR protocol
 
-Current implementation reference, November 11, 2026. This document covers browser replay delivery, media resources, the review workflow API, and their operational boundaries. It describes implemented behavior rather than proposed production APIs. See [ingestion protocol](ingestion-protocol.md) for FPV1, recording, and ingestion operations and [current operator workflow](../ivr-review/workflow.md) for review UI details.
+Current implementation reference, November 11, 2026. This document covers browser replay delivery, media resources, the review workflow API, and their operational boundaries. It describes implemented behavior rather than proposed production APIs. See [ingestion protocol](ingestion-protocol.md) for FPV1, recording, and ingestion operations and [current operator workflow](ivr-review/workflow.md) for review UI details.
 
 ## Implemented ownership and transport
 
@@ -14,7 +14,7 @@ The Node listener defaults to port 9000 (`FREEPLAY_PORT`, then `FREEPLAY_WS_PORT
 
 IVR PHP's database helper independently supports `FREEPLAY_DB` and `FREEPLAY_SCHEMA` (default schema `/deploy/db/schema.sql`). The general PHP administration APIs instead use fixed `/data/freeplay.sqlite` and `/data/live-status.json` paths. Configure both processes explicitly; overrides do not automatically propagate between components. Node's startup schema and selected additive migrations are not a general migration framework.
 
-Match and camera configuration are administered through `/review/api/match.php` and `/review/api/camera-config.php`. The database-backed report is `/review/report.php`. Operator controls and annotation fields are described in [the workflow](../ivr-review/workflow.md); their persistence boundary is specified below.
+Match and camera configuration are administered through `/review/api/match.php` and `/review/api/camera-config.php`. The database-backed report is `/review/report.php`. Operator controls and annotation fields are described in [the workflow](ivr-review/workflow.md); their persistence boundary is specified below.
 
 ## Capabilities
 
@@ -113,6 +113,12 @@ JSON errors have shape `{"ok":false,"error":{"code":"...","message":"..."}}`.
 | 404 | `not_found` | Unknown versioned resource/method |
 
 An unavailable camera/range normally yields HTTP 200 with `available:false` and no fragments, not a dedicated camera-unavailable error. OPTIONS returns 204 with allowed methods GET/OPTIONS. Authorization/corrupt-media error categories proposed in the former document are not implemented as distinct contracts.
+
+## Timeline thumbnail API
+
+The same Node listener provides `GET /api/ivr/v1/thumbnails?ring=6&camera=2&startEpochUs=...&endEpochUs=...&intervalMs=5000&width=240` and `GET /api/ivr/v1/thumbnails/{token}.jpg`. Metadata uses `ok:true`, `apiVersion:"1"`, and ordered ready/pending/unavailable samples with requested and actual server timestamps. Generation runs asynchronously from finalized indexed GOP keyframes, using existing session/configuration identity. JPEG resources share replay's expiring token registry but are separate from MP4 resources. No camera WebSocket or review API change is involved.
+
+See [thumbnail API and operations](thumbnail-service.md) for the complete request/response contract, defaults, FFmpeg prerequisite, cache/worker limits, errors, polling, and deployment caveats. Existing capabilities flags are unchanged; no new capability endpoint was introduced.
 
 ## Legacy replay routes
 

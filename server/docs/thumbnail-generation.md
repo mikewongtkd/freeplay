@@ -5,7 +5,7 @@
 **Scope:** Server only; do not edit Android camera or IVR client repositories.  
 **Platforms:** Apple Silicon Mac mini and Raspberry Pi 5 (64-bit Linux) with NVMe storage.
 
-This is a proposal, not an implemented API. Follow the current [ingestion protocol](ingestion-protocol.md) and [IVR protocol](ivr-protocol.md); the additions below are limited to thumbnail generation and delivery.
+Implementation status: the server extension is implemented. This document retains the feature brief; [thumbnail API and operations](thumbnail-service.md) specifies the delivered behavior, limits, and qualification boundaries. Follow the current [ingestion protocol](ingestion-protocol.md) and [IVR protocol](ivr-protocol.md); the additions below are limited to thumbnail generation and delivery.
 
 ## Your assignment
 

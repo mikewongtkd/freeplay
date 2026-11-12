@@ -171,7 +171,7 @@ class ReplayService {
     if (!match) { apiError(res, 404, 'not_found', 'Unknown IVR API resource.'); return true; }
     this.cleanupTokens();
     const token = this.tokens.get(match[1]);
-    if (!token) { apiError(res, 404, 'media_token_expired', 'The media resource is unavailable or its token has expired.'); return true; }
+    if (!token || token.kind === 'thumbnail') { apiError(res, 404, 'media_token_expired', 'The media resource is unavailable or its token has expired.'); return true; }
     res.setHeader('Content-Type', token.contentType || 'video/mp4');
     res.setHeader('Cache-Control', token.immutable ? 'public, max-age=31536000, immutable' : 'no-store');
     if (token.kind === 'bytes') { res.setHeader('Content-Length', token.bytes.length); res.end(token.bytes); return true; }

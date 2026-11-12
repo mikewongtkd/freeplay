@@ -129,6 +129,10 @@ Errors use `{"type":"error","error":{"code":"...","message":"..."}}`. Codes incl
 
 Replay manifests, media byte delivery, the legacy replay routes, and review actions are specified in [IVR protocol](ivr-protocol.md). They share the Node listener but are a separate application contract from the camera WebSocket. General PHP administration responses can expose file paths and database-shaped records; they do not promise the opaque-resource contract of versioned replay.
 
+## Thumbnail integration
+
+The optional [thumbnail service](thumbnail-service.md) derives JPEGs from finalized, indexed GOPs. It shares the Node HTTP listener but adds no FPV1 fields or camera messages. Planning/cache/filesystem work occurs in a separate worker; bounded lower-priority FFmpeg children perform decoding. Active replay and high ingest event-loop delay defer new thumbnail jobs. Ingestion remains available if thumbnails are disabled, overloaded, or missing FFmpeg. Background scheduling reads the existing index rather than decoding in GOP callbacks. JPEG creation never modifies source recordings.
+
 ## Configuration and operations
 
 | Setting | Default / source |
