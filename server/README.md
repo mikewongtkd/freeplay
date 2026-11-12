@@ -37,7 +37,7 @@ Test API routes are under `/api/tests`, including run, stop, evaluate, operator 
 
 ## FPV1
 
-The first frame must be the version-1 `freeplay-ingest` JSON `hello` described in [docs/server-protocol.md](docs/server-protocol.md). Accepted clients receive `hello_ack` followed by `request_keyframe`. Binary messages contain the exact 32-byte, big-endian `FPV1` header followed by the declared H.264 payload. Video before registration, malformed frames, unsupported clients, and duplicate stream ownership are rejected.
+The first frame must be the version-1 `freeplay-ingest` JSON `hello` described in [ingestion protocol](docs/ingestion/ingestion-protocol.md). Accepted clients receive `hello_ack` followed by `request_keyframe`. Binary messages contain the exact 32-byte, big-endian `FPV1` header followed by the declared H.264 payload. Video before registration, malformed frames, unsupported clients, and duplicate stream ownership are rejected.
 
 ## Configuration
 

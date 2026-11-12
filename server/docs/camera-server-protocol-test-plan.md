@@ -1,6 +1,6 @@
 # FreePlay Ingestion Test Framework and Frontend Test Report
 
-You are working in the existing **FreePlay instant replay server** project in Visual Studio. Please refer to the documents `docs/server-protocol.md` and `../camera/PROTOCOL.md` for the communication protocol specifications to test.
+You are working in the existing **FreePlay instant replay server** project in Visual Studio. Please refer to the documents `docs/ingestion/ingestion-protocol.md` and `../camera/PROTOCOL.md` for the communication protocol specifications to test.
 
 The current system already includes:
 

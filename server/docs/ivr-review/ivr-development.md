@@ -15,7 +15,7 @@ Use the files below as the authoritative project inputs. In particular:
 3. **USATKD Kyorugi Rules 2026 Article 21** (`docs/ivr-review/references/article-21.md`) — authoritative rules excerpt.
 4. **2026 USATKD Kyorugi Referee Development Program — IVR** (`docs/ivr-review/references/rdp-ivr.pdf`) — soft/current interpretation guidance only; do not treat it as immutable rules.
 5. **UI mockups** (`docs/ivr-review/ui-mockups/multi-camera-view.png`, `docs/ivr-review/ui-mockups/single-camera-view.png`) for Multi Camera View (MCV) and Single Camera View (SCV).
-6. **Server Protocol** (`docs/server-protocol.md`) - All sections may be useful but especially Section 38, which explains the Replay API from the video ingestion server that shall be critical for video retrieval for review. If changes to this protocol are necessary to deliver the required functionality, create a prompt for Gemini in Visual Studio in a document `docs/server-ivr-protocol-updates.md` detailing the necessary changes and providing complete and actionable instructions for an LLM agent to implement the updates. If there are design choices to be made, outline the choices and the pros and cons of each choice in the front of the markdown document in a section titled *System Architect's Attention Required*.
+6. **Protocol references**: `docs/ingestion/ingestion-protocol.md` documents the implemented camera ingestion contract; `docs/ingestion/ivr-protocol.md` documents browser replay, media delivery, review actions, and current limitations. Consult the code as the authority and distinguish future implementation proposals from these current-state specifications.
 
 If any supplied file, except the server protocol, conflicts with another, use this precedence:
 

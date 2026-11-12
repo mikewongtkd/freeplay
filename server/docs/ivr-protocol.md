@@ -1,12 +1,20 @@
-# FreePlay server / IVR implementation contract
+# FreePlay IVR protocol
 
-Current implementation reference, November 11, 2026. This document replaces the earlier architecture-choice/implementation prompt. It describes implemented behavior, not a request to implement the previously proposed production API. See [ingestion protocol](server-protocol.md) for FPV1 and [current operator workflow](../ivr-review/workflow.md) for review UI details.
+Current implementation reference, November 11, 2026. This document covers browser replay delivery, media resources, the review workflow API, and their operational boundaries. It describes implemented behavior rather than proposed production APIs. See [ingestion protocol](ingestion-protocol.md) for FPV1, recording, and ingestion operations and [current operator workflow](../ivr-review/workflow.md) for review UI details.
 
 ## Implemented ownership and transport
 
 Node owns camera ingestion, completed-GOP RAM retention, disk/index lookup, and browser fMP4 delivery. PHP owns match/configuration administration and the session-backed review API. The browser uses HTTP manifests and tokenized media with Media Source Extensions (MSE); no replay WebSocket or generated per-request MP4 clip transport is implemented.
 
 The browser's `ReplayApi` defaults to `<page scheme>://<page hostname>:9000/api/ivr/v1`. `window.FREEPLAY_IVR.config.replayApiBase` overrides that base. This must be the full API base, not just a hostname. The PHP prototype config defaults the override to null. Camera switching and the multi-camera coordinator issue separate per-camera requests.
+
+## Runtime configuration and administration boundary
+
+The Node listener defaults to port 9000 (`FREEPLAY_PORT`, then `FREEPLAY_WS_PORT`). Node uses `FREEPLAY_DB` (default `/data/freeplay.sqlite`) and `FREEPLAY_VIDEO_DIR` (default `/data/video`) for the shared replay index and recording files. Ingestion retention/file settings are documented in [ingestion configuration](ingestion-protocol.md#configuration-and-operations).
+
+IVR PHP's database helper independently supports `FREEPLAY_DB` and `FREEPLAY_SCHEMA` (default schema `/deploy/db/schema.sql`). The general PHP administration APIs instead use fixed `/data/freeplay.sqlite` and `/data/live-status.json` paths. Configure both processes explicitly; overrides do not automatically propagate between components. Node's startup schema and selected additive migrations are not a general migration framework.
+
+Match and camera configuration are administered through `/review/api/match.php` and `/review/api/camera-config.php`. The database-backed report is `/review/report.php`. Operator controls and annotation fields are described in [the workflow](../ivr-review/workflow.md); their persistence boundary is specified below.
 
 ## Capabilities
 
@@ -106,7 +114,11 @@ JSON errors have shape `{"ok":false,"error":{"code":"...","message":"..."}}`.
 
 An unavailable camera/range normally yields HTTP 200 with `available:false` and no fragments, not a dedicated camera-unavailable error. OPTIONS returns 204 with allowed methods GET/OPTIONS. Authorization/corrupt-media error categories proposed in the former document are not implemented as distinct contracts.
 
-PHP `/api/replay.php` returns HTTP 410 `replay_api_moved`. Node's older `/api/replay` is RAM metadata only and is not an equivalent media API.
+## Legacy replay routes
+
+PHP `/api/replay.php` returns HTTP 410 `replay_api_moved`, directing callers to `/api/ivr/v1/replay` on the ingestion service.
+
+Node legacy `/api/replay` uses `ring`, epoch-microsecond `time`, `before` (default 8), and `after` (default 4). It reports cached GOP metadata for configured cameras. A `source: "disk"` value when RAM has no rows does not mean disk was queried: that handler does not retrieve disk fragments. Use the versioned service for source-neutral delivery.
 
 ## PHP review workflow API
 
@@ -161,7 +173,7 @@ The browser notification controller accepts `freeplay:server-notification` event
 
 ## Remaining boundaries and source references
 
-Authentication, per-user resource authorization, durable workflow recovery, concurrency/version control, opaque continuation tokens, full requested-range completeness, and production PSSEL integration remain unimplemented. Wildcard CORS and process-local bearer tokens assume a controlled deployment. No measured sub-second startup or 42-camera load guarantee is implied.
+Authentication, per-user resource authorization, durable workflow recovery, concurrency/version control, opaque continuation tokens, full requested-range completeness, and production PSSEL integration remain unimplemented. Versioned replay sets wildcard CORS and has no application authentication or authorization. Process-local bearer tokens are not user-bound grants and assume a controlled deployment. Disk extent containment is checked lexically against the configured video directory; it is not a full symlink security policy. General administration APIs may expose file paths or database-shaped records; the opaque-resource guarantee applies specifically to versioned replay manifests/media. No measured sub-second startup or 42-camera load guarantee is implied.
 
 Primary references: `src/replay-service.js`, `src/freeplay.js`, `src/recorder.js`, `public/api/replay.php`, `public/review/api/review.php`, `match.php`, `camera-config.php`, `pssel.php`, `public/review/includes/api-common.php`, and the browser modules `replay-api.js`, `media-controller.js`, `mcv-live-controller.js`, `review-controller.js`, `request-reasons.js`, `round-controller.js`, `notification-controller.js`, and `server-clock.js` under `public/review/assets/js/`.
 

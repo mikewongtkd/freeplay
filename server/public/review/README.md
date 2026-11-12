@@ -104,4 +104,4 @@ Open **Settings** (gear icon) to load scenarios. Scenario loading resets the pro
 7. Add browser-refresh recovery, multi-client concurrency, authentication/authorization, and future TLS.
 8. Add automated controller tests and production replay integration tests.
 
-See `docs/server-ivr-protocol-updates.md` for the remaining ingestion-server API work.
+See `docs/ingestion/ivr-protocol.md` for the current replay/workflow API contract and remaining implementation boundaries.

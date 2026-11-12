@@ -1,6 +1,6 @@
-# FreePlay ingestion server and replay protocol
+# FreePlay ingestion protocol
 
-Current implementation reference, November 11, 2026. This replaces the earlier implementation prompt and its proposed schemas/endpoints. Source code is authoritative; performance targets and future work below are not guarantees of implemented behavior.
+Current implementation reference, November 11, 2026. This document covers camera-to-server FPV1 ingestion, recording/indexing, ingestion administration, and operations. Browser replay delivery and the review workflow are covered in [IVR protocol](ivr-protocol.md). Source code is authoritative; performance targets and future work below are not guarantees of implemented behavior.
 
 ## Components and entry points
 
@@ -10,10 +10,8 @@ Current implementation reference, November 11, 2026. This replaces the earlier i
 | FPV1 parsing and hello validation | `src/protocol.js` |
 | GOP assembly and RAM retention | `src/gop.js` |
 | H.264 configuration parsing and fMP4 remuxing | `src/recorder.js` |
-| Versioned browser replay and media resources | `src/replay-service.js` |
 | SQLite schema | `deploy/db/schema.sql` |
 | PHP administration APIs | `public/api/` |
-| Browser IVR and session-backed workflow | `public/review/` |
 
 Run Node from `src/` with `npm start`; `npm test` runs `test/*.test.js`. Node uses `ws` and `better-sqlite3`. PHP serves the web UI separately. The default Node listener is `0.0.0.0:9000`, serving camera WebSockets and HTTP on the same server. There is no dedicated WebSocket path check in the ingest handler.
 
@@ -125,18 +123,11 @@ Errors use `{"type":"error","error":{"code":"...","message":"..."}}`. Codes incl
 | --- | --- |
 | Node `GET /health` | Stream count, uptime, counters, aggregate bitrate, RAM cache bytes, disk free bytes, hostname, database/writer health |
 | Node `GET /api/live` | Current connected streams and live telemetry |
-| Node `GET /api/ivr/v1/capabilities` | Browser replay capability flags and limits |
-| Node `GET /api/ivr/v1/replay` | One-camera RAM/disk replay manifest |
-| Node `GET /api/ivr/v1/media/{token}` | Initialization or media bytes |
-| Node `GET /api/replay` | Legacy all-camera RAM metadata only; not browser media delivery |
 | Node `/api/tests...` | Test-manager routes; see test-manager source and test plan |
 | PHP `/api/cameras.php`, `camera.php`, `sessions.php`, `stats.php`, `files.php` | Dashboard/history queries |
 | PHP `/api/events.php`, `config.php`, `health.php` | Event/configuration/health administration |
-| PHP `/api/replay.php` | HTTP 410 `replay_api_moved`; use versioned Node replay |
 
-Node legacy `/api/replay` uses `ring`, epoch-microsecond `time`, `before` (default 8), and `after` (default 4). It reports cached GOP metadata for configured cameras. A `source: "disk"` value when RAM has no rows does not mean disk was queried: that handler does not retrieve disk fragments. Use the versioned service for source-neutral delivery.
-
-Versioned replay/media details, response shapes, limits, error codes, and PHP IVR actions are documented in [Server/IVR implementation](server-ivr-protocol-updates.md). General PHP APIs do not uniformly share the versioned Node response shape and may expose administrative file paths or database-shaped records; the opaque-path guarantee applies to versioned replay, not every administration endpoint.
+Replay manifests, media byte delivery, the legacy replay routes, and review actions are specified in [IVR protocol](ivr-protocol.md). They share the Node listener but are a separate application contract from the camera WebSocket. General PHP administration responses can expose file paths and database-shaped records; they do not promise the opaque-resource contract of versioned replay.
 
 ## Configuration and operations
 
@@ -154,7 +145,7 @@ Versioned replay/media details, response shapes, limits, error codes, and PHP IV
 | Keyframe on connect | SQLite `request_keyframe_on_connect` = 1 |
 | Ingestion test mode | `FREEPLAY_TEST_MODE=1` |
 
-Node reads configuration at startup. General PHP administration uses `/data/freeplay.sqlite` and `/data/live-status.json`; those paths do not follow Node's `FREEPLAY_DB` override. IVR PHP's database helper separately supports `FREEPLAY_DB` and `FREEPLAY_SCHEMA`. PHP's Node-request helper uses `FREEPLAY_NODE_URL` (default `http://127.0.0.1:9000`). Configure each relevant component rather than assuming overrides propagate across processes.
+Node reads configuration at startup. General PHP administration uses `/data/freeplay.sqlite` and `/data/live-status.json`; those paths do not follow Node's `FREEPLAY_DB` override. PHP's Node-request helper uses `FREEPLAY_NODE_URL` (default `http://127.0.0.1:9000`). Configure each relevant component rather than assuming overrides propagate across processes.
 
 Statistics are periodically persisted and `/data/live-status.json` is rewritten for PHP consumers. `/health` obtains disk free space with `statfsSync` when available. Configurable disk low-watermark shutdown, automatic retention deletion, and automatic writer recovery are not implemented. The startup schema uses `CREATE ... IF NOT EXISTS` and selected additive migrations; it is not a general migration framework.
 
@@ -162,6 +153,16 @@ SIGINT/SIGTERM stop timers, close the WebSocket server and clients, and close HT
 
 ## Security, targets, and verification
 
-The current Node endpoints have no application authentication or authorization. Versioned replay sets wildcard CORS. Media tokens are bearer resources, not user-bound access grants. The application relies on deployment on a controlled LAN; TLS/authentication must be provided separately if needed. Disk extent checks are lexical containment checks, not a complete filesystem/symlink security policy.
+The camera WebSocket and ingestion administration endpoints have no application authentication or authorization. The application relies on deployment on a controlled LAN; TLS/authentication must be provided separately if needed. Replay-specific CORS, bearer-token, and file-access boundaries are documented in [IVR protocol](ivr-protocol.md).
 
-The sub-second replay startup target and 42-camera capacity remain engineering targets; do not read them as measured guarantees. Relevant code tests include `src/test/protocol.test.js`, `recorder.test.js`, `replay-service.test.js`, `ivr-client-rendering.test.js`, and `ivr-workflow.test.js`, plus protocol/timing/stream/recording/replay/resilience/load suites used by the test manager. Test coverage is not a claim that a particular deployment passed a load or endurance run.
+The 42-camera capacity remains an engineering target, not a measured guarantee. Relevant code tests include `src/test/protocol.test.js` and `src/test/recorder.test.js`, plus protocol/timing/stream/recording/resilience/load suites used by the test manager. See the [camera/server test plan](camera-server-protocol-test-plan.md) for suite background. Test coverage is not a claim that a particular deployment passed a load or endurance run. Replay and browser workflow verification references are in [IVR protocol](ivr-protocol.md).
+
+## Implementation references
+
+- `src/freeplay.js`: camera lifecycle, WebSocket controls, health/live routes, statistics, configuration, shutdown.
+- `src/protocol.js`: hello validation, FPV1 framing, sequence arithmetic.
+- `src/gop.js`: GOP boundaries, completeness, completed-GOP RAM retention.
+- `src/recorder.js`: SPS/PPS handling, fMP4 remuxing, file rotation and fragment extents.
+- `deploy/db/schema.sql`: ingestion and application database schema.
+- `public/api/`: dashboard, camera/session/file/event/configuration administration.
+- `src/test/test-manager.js`: ingestion test-service routing and execution.
