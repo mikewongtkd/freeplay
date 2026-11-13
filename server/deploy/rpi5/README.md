@@ -1,5 +1,44 @@
 # Raspberry Pi 5 with Pironman5 Enclosure
 
+***Project Codename: Party Parrot***
+
+## Installing FreePlay on RPi5
+
+### Clone with the FreeScore RPi SD Card
+
+The original version of FreePlay on Raspberry Pi 5 is built on [FreeScore on Raspberry Pi 5](https://github.com/mikewongtkd/freescoretkd/blob/master/trunk/backend/raspberry-pi/rpi5/README.md). 
+
+***WARNING: Using `dd` (sometimes respectfully called "Disk Destroyer") can be disastrously dangerous to your drive if you accidentally write to the wrong drive! Make backups of your system and any critical data prior to using `dd`!***
+
+The general format of a `dd` command is as follows:
+
+    dd if=<source> of=<target> bs=4M status=progress conv=fsync
+
+The command to list your disks on MacOS is as follows:
+
+    diskutil list
+
+Look at the size for each drive. The drive size is listed first for each device, and then the component partition sizes.
+
+* Copy the FreeScore RPi5 SD card to a file: 
+    * *source* = `/dev/diskX` where *X* is the intended disk target as indicated by `diskutil`
+    * *target* = `freescore-v4.5.img`
+* Copy the FreeScore RPi5 image to a new SD card:
+    * *target* = `freescore-v4.5.img`
+    * *source* = `/dev/diskX` where *X* is the intended disk target as indicated by `diskutil`
+  
+  ### 
+
+From the `pi` home directory:
+
+    git clone git@github.com:mikewongtkd/freeplay.git freeplay
+    cd server/src
+    make build
+    ln -s ~pi/freeplay/server/src /usr/local/freeplay
+    apt-get install php-sqlite3
+
+TODO include Apache configuration files to repository
+
 ## Pironman5 Powers Off When Browsing
 
 A critical issue with the Pironman5 is that it requires 5.1V at 5A and most
