@@ -41,13 +41,13 @@ The first frame must be the version-1 `freeplay-ingest` JSON `hello` described i
 
 ## Configuration
 
-Node reads `src/config.json` at startup, falling back to `src/config-default.json` if the local file is absent:
+Node reads `src/config.json` at startup. If it is absent, Node copies `src/config-default.json` to `src/config.json` and loads that file. If copying fails (including a missing default file), Node uses the original hardcoded values shown below:
 
 ```json
-{"fp_conf":{"video_dir":"/data/video","db":"/data/freeplay.sqlite","port":9000}}
+{"fpConf":{"root":"..","dataDir":"/data","schemaPath":"share/freeplay/db/schema.sql","videoDir":"/data/video","db":"/data/freeplay.sqlite","port":9000}}
 ```
 
-Copy `src/config-default.json` to `src/config.json` and edit the local values. Relative paths resolve against the JSON file's directory. Use `node freeplay.js --config=/path/to/config.json` for an explicit configuration file (missing explicit files are errors). The previous Node environment settings `FREEPLAY_VIDEO_DIR`, `FREEPLAY_DB`, `FREEPLAY_PORT`, and `FREEPLAY_WS_PORT` are no longer used. Other settings remain in SQLite's `configuration` table, with existing `FREEPLAY_RAM_REPLAY_SECONDS` and `FREEPLAY_FILE_SECONDS` overrides. PHP database configuration is unchanged.
+Edit `src/config.json` to customize the local values; startup creates it automatically when possible. Relative paths resolve against the JSON file's directory, except `schemaPath`, which resolves against `fpConf.root`. If omitted, `root` defaults to the parent of the source directory, `dataDir` to `/data`, and `schemaPath` to `<root>/share/freeplay/db/schema.sql`. There is no `--config` command-line option. The previous Node environment settings `FREEPLAY_VIDEO_DIR`, `FREEPLAY_DB`, `FREEPLAY_PORT`, and `FREEPLAY_WS_PORT` are no longer used. Other settings remain in SQLite's `configuration` table, with existing `FREEPLAY_RAM_REPLAY_SECONDS` and `FREEPLAY_FILE_SECONDS` overrides. PHP database configuration is unchanged.
 
 The schema is applied idempotently. Startup adds missing protocol-era columns to the original prototype database without deleting data. Back up `data/freeplay.sqlite` before a production upgrade.
 

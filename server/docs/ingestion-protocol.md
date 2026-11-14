@@ -137,9 +137,12 @@ The optional [thumbnail service](thumbnail-service.md) derives JPEGs from finali
 
 | Setting | Default / source |
 | --- | --- |
-| Node port | `fp_conf.port` in Node JSON config, default 9000 |
-| Node SQLite path | `fp_conf.db` in Node JSON config, default `/data/freeplay.sqlite` |
-| Node recording directory | `fp_conf.video_dir` in Node JSON config, default `/data/video` |
+| Node root | `fpConf.root`, default `path.resolve(__dirname, '..')` |
+| Node data directory | `fpConf.dataDir`, default `/data` |
+| Node schema | `fpConf.schemaPath`, default `<root>/share/freeplay/db/schema.sql` |
+| Node port | `fpConf.port` in Node JSON config, default 9000 |
+| Node SQLite path | `fpConf.db` in Node JSON config, default `/data/freeplay.sqlite` |
+| Node recording directory | `fpConf.videoDir` in Node JSON config, default `/data/video` |
 | Node RAM age | `FREEPLAY_RAM_REPLAY_SECONDS`, then `ram_replay_seconds` = 60 |
 | Node file duration | `FREEPLAY_FILE_SECONDS`, then `record_file_seconds` = 60 |
 | Per-stream cache bytes | SQLite `ram_replay_max_bytes` = 67,108,864 |
@@ -149,7 +152,7 @@ The optional [thumbnail service](thumbnail-service.md) derives JPEGs from finali
 | Keyframe on connect | SQLite `request_keyframe_on_connect` = 1 |
 | Ingestion test mode | `FREEPLAY_TEST_MODE=1` |
 
-Node reads configuration at startup. General PHP administration uses `/data/freeplay.sqlite` and `/data/live-status.json`; those paths do not follow Node's JSON database setting. PHP's Node-request helper uses `FREEPLAY_NODE_URL` (default `http://127.0.0.1:9000`). Configure each relevant component rather than assuming overrides propagate across processes.
+Node reads `src/config.json` at startup, creating it by copying `src/config-default.json` if missing. If copying fails, built-in defaults are `/data/video`, `/data/freeplay.sqlite`, and port 9000. No command-line configuration-file override is supported. General PHP administration uses `/data/freeplay.sqlite` and `/data/live-status.json`; those paths do not follow Node's JSON database setting. PHP's Node-request helper uses `FREEPLAY_NODE_URL` (default `http://127.0.0.1:9000`). Configure each relevant component rather than assuming overrides propagate across processes.
 
 Statistics are periodically persisted and `/data/live-status.json` is rewritten for PHP consumers. `/health` obtains disk free space with `statfsSync` when available. Configurable disk low-watermark shutdown, automatic retention deletion, and automatic writer recovery are not implemented. The startup schema uses `CREATE ... IF NOT EXISTS` and selected additive migrations; it is not a general migration framework.
 

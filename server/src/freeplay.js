@@ -13,14 +13,13 @@ const {thumbnailConfig}=require('./thumbnail-config');
 const {createTestManager}=require('./test/test-manager');
 const {loadConfig}=require('./runtime-config');
 
-const ROOT=path.resolve(__dirname,'..');
-const DATA_DIR='/data';
-const configArgument=process.argv.find(value=>value.startsWith('--config='));
-const fp_conf=loadConfig(configArgument?configArgument.slice('--config='.length):undefined,{fallback:!configArgument});
-const VIDEO_DIR=fp_conf.video_dir;
-const DB_PATH=fp_conf.db;
-const SCHEMA_PATH=path.join(ROOT, 'share', 'freeplay', 'db','schema.sql');
-const PORT=fp_conf.port;
+const fpConf=loadConfig();
+const ROOT=fpConf.root;
+const DATA_DIR=fpConf.dataDir;
+const VIDEO_DIR=fpConf.videoDir;
+const DB_PATH=fpConf.db;
+const SCHEMA_PATH=fpConf.schemaPath;
+const PORT=fpConf.port;
 fs.mkdirSync(VIDEO_DIR,{recursive:true});
 
 const db=new Database(DB_PATH); db.pragma('busy_timeout=5000'); db.pragma('journal_mode=WAL');
