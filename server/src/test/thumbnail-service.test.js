@@ -194,7 +194,9 @@ test('production Node routing serves thumbnails while FPV1 ingestion and replay 
   const WebSocket=require('ws');
   const f=fixture(t);
   const boot=`const app=require(${JSON.stringify(path.resolve(__dirname,'../freeplay.js'))});app.server.on('listening',()=>process.send({port:app.server.address().port}));`;
-  const child=spawn(process.execPath,['-e',boot],{stdio:['ignore','pipe','pipe','ipc'],env:{...process.env,FREEPLAY_PORT:'0',FREEPLAY_DB:f.dbPath,FREEPLAY_VIDEO_DIR:f.videoDir,THUMBNAILS_ENABLED:'true',THUMBNAIL_DEFAULT_INTERVAL_MS:'5000'}});
+  const configPath=path.join(f.root,'config.json');
+  fs.writeFileSync(configPath,JSON.stringify({fp_conf:{port:0,db:f.dbPath,video_dir:f.videoDir}}));
+  const child=spawn(process.execPath,['-e',boot,'--',`--config=${configPath}`],{stdio:['ignore','pipe','pipe','ipc'],env:{...process.env,THUMBNAILS_ENABLED:'true',THUMBNAIL_DEFAULT_INTERVAL_MS:'5000'}});
   let diagnostics='';child.stdout.on('data',()=>{});child.stderr.on('data',data=>{diagnostics=(diagnostics+data).slice(-4000);});
   t.after(async()=>{if(child.exitCode===null){const exited=once(child,'exit');child.kill('SIGTERM');const timer=setTimeout(()=>child.kill('SIGKILL'),6000);await exited;clearTimeout(timer);}});
   const [message]=await once(child,'message',{signal:AbortSignal.timeout(10000)});

@@ -1,0 +1,7 @@
+{
+  "fp_conf": {
+    "video_dir": "/data/video",
+    "db": "/data/freeplay.sqlite",
+    "port": 9000
+  }
+}

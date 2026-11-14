@@ -12,9 +12,6 @@ User=freeplay
 Group=freeplay
 WorkingDirectory=/usr/local/freeplay/src
 Environment=NODE_ENV=production
-Environment=FREEPLAY_PORT=9000
-Environment=FREEPLAY_DB=/data/freeplay.sqlite
-Environment=FREEPLAY_VIDEO_DIR=/data/video
 EnvironmentFile=-/etc/default/freeplay
 ExecStart=/usr/bin/node /usr/local/freeplay/src/freeplay.js
 Restart=on-failure

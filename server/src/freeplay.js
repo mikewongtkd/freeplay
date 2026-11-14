@@ -11,13 +11,16 @@ const {ReplayService}=require('./replay-service');
 const {ThumbnailService}=require('./thumbnail-service');
 const {thumbnailConfig}=require('./thumbnail-config');
 const {createTestManager}=require('./test/test-manager');
+const {loadConfig}=require('./runtime-config');
 
 const ROOT=path.resolve(__dirname,'..');
 const DATA_DIR='/data';
-const VIDEO_DIR=path.resolve(process.env.FREEPLAY_VIDEO_DIR||path.join(DATA_DIR,'video'));
-const DB_PATH=path.resolve(process.env.FREEPLAY_DB||path.join(DATA_DIR,'freeplay.sqlite'));
+const configArgument=process.argv.find(value=>value.startsWith('--config='));
+const fp_conf=loadConfig(configArgument?configArgument.slice('--config='.length):undefined,{fallback:!configArgument});
+const VIDEO_DIR=fp_conf.video_dir;
+const DB_PATH=fp_conf.db;
 const SCHEMA_PATH=path.join(ROOT, 'share', 'freeplay', 'db','schema.sql');
-const PORT=Number(process.env.FREEPLAY_PORT||process.env.FREEPLAY_WS_PORT||9000);
+const PORT=fp_conf.port;
 fs.mkdirSync(VIDEO_DIR,{recursive:true});
 
 const db=new Database(DB_PATH); db.pragma('busy_timeout=5000'); db.pragma('journal_mode=WAL');
