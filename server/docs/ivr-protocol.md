@@ -10,7 +10,7 @@ The browser's `ReplayApi` defaults to `<page scheme>://<page hostname>:9000/api/
 
 ## Runtime configuration and administration boundary
 
-The Node listener defaults to port 9000 (`FREEPLAY_PORT`, then `FREEPLAY_WS_PORT`). Node uses `FREEPLAY_DB` (default `/data/freeplay.sqlite`) and `FREEPLAY_VIDEO_DIR` (default `/data/video`) for the shared replay index and recording files. Ingestion retention/file settings are documented in [ingestion configuration](ingestion-protocol.md#configuration-and-operations).
+Node reads its listener port, replay index path, and recording directory from `fpConf.port`, `fpConf.db`, and `fpConf.videoDir` in `src/config.json`. The supplied values are 9000, `/data/freeplay.sqlite`, and `/data/video`, respectively. See [ingestion configuration](ingestion-protocol.md#configuration-and-operations) for retention and file settings.
 
 IVR PHP's database helper independently supports `FREEPLAY_DB` and `FREEPLAY_SCHEMA` (default schema `/deploy/db/schema.sql`). The general PHP administration APIs instead use fixed `/data/freeplay.sqlite` and `/data/live-status.json` paths. Configure both processes explicitly; overrides do not automatically propagate between components. Node's startup schema and selected additive migrations are not a general migration framework.
 

@@ -3,6 +3,7 @@
 
 const fs=require('fs'),path=require('path'),http=require('http'),os=require('os'),{EventEmitter}=require('events');
 const WebSocket=require('ws'),Database=require('better-sqlite3');
+const {fpConf}=require('./config.json');
 const protocol=require('./protocol');
 const {parseFpv1Binary,validateHello,sequenceDelta,BUFFER_FLAG_KEY_FRAME,BUFFER_FLAG_CODEC_CONFIG,BUFFER_FLAG_END_OF_STREAM,ProtocolError}=protocol;
 const {GopBuilder,GopReplayCache}=require('./gop');
@@ -10,12 +11,12 @@ const {extractConfig,CodecConfigTracker,FragmentedMp4Recorder}=require('./record
 const {ReplayService}=require('./replay-service');
 const {createTestManager}=require('./test/test-manager');
 
-const ROOT=path.resolve(__dirname,'..');
-const DATA_DIR='/data';
-const VIDEO_DIR=path.resolve(process.env.FREEPLAY_VIDEO_DIR||path.join(DATA_DIR,'video'));
-const DB_PATH=path.resolve(process.env.FREEPLAY_DB||path.join(DATA_DIR,'freeplay.sqlite'));
-const SCHEMA_PATH=path.join(ROOT,'deploy', 'db','schema.sql');
-const PORT=Number(process.env.FREEPLAY_PORT||process.env.FREEPLAY_WS_PORT||9000);
+const ROOT=path.resolve(__dirname,fpConf.root||'..');
+const DATA_DIR=path.resolve(fpConf.dataDir||'/data');
+const VIDEO_DIR=path.resolve(fpConf.videoDir||path.join(DATA_DIR,'video'));
+const DB_PATH=path.resolve(fpConf.db||path.join(DATA_DIR,'freeplay.db'));
+const SCHEMA_PATH=path.resolve(fpConf.schemaDir||path.join(ROOT,'deploy', 'db','schema.sql'));
+const PORT=fpConf.port;
 fs.mkdirSync(VIDEO_DIR,{recursive:true});
 
 const db=new Database(DB_PATH); db.pragma('busy_timeout=5000'); db.pragma('journal_mode=WAL');

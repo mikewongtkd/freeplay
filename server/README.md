@@ -41,7 +41,19 @@ The first frame must be the version-1 `freeplay-ingest` JSON `hello` described i
 
 ## Configuration
 
-Defaults are stored in SQLite's `configuration` table. Environment overrides include `FREEPLAY_PORT`, `FREEPLAY_DB`, `FREEPLAY_VIDEO_DIR`, `FREEPLAY_RAM_REPLAY_SECONDS`, and `FREEPLAY_FILE_SECONDS`.
+The Node server reads `fpConf.port`, `fpConf.db`, and `fpConf.videoDir` from `src/config.json` at startup. Ingestion defaults are stored in SQLite's `configuration` table. Environment overrides include `FREEPLAY_RAM_REPLAY_SECONDS` and `FREEPLAY_FILE_SECONDS`.
+
+On a fresh checkout or deployment, create `src/config.json` before starting the Node server:
+
+```json
+{
+  "fpConf": {
+    "port": 9000,
+    "db": "/data/freeplay.sqlite",
+    "videoDir": "/data/video"
+  }
+}
+```
 
 The schema is applied idempotently. Startup adds missing protocol-era columns to the original prototype database without deleting data. Back up `data/freeplay.sqlite` before a production upgrade.
 

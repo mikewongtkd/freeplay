@@ -46,7 +46,7 @@ workflow store.
 
 ## Initialization and migration behavior
 
-  - src/freeplay.js opens FREEPLAY\_DB (default /data/freeplay.sqlite),
+  - src/freeplay.js opens the database at `fpConf.db` in `src/config.json` (`/data/freeplay.sqlite`),
     applies non-destructive additive migrations, executes the schema,
     and enables foreign-key enforcement.
 

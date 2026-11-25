@@ -133,9 +133,9 @@ Replay manifests, media byte delivery, the legacy replay routes, and review acti
 
 | Setting | Default / source |
 | --- | --- |
-| Node port | `FREEPLAY_PORT`, then `FREEPLAY_WS_PORT`, then 9000 |
-| Node SQLite path | `FREEPLAY_DB`, default `/data/freeplay.sqlite` |
-| Node recording directory | `FREEPLAY_VIDEO_DIR`, default `/data/video` |
+| Node port | `src/config.json` → `fpConf.port` = 9000 |
+| Node SQLite path | `src/config.json` → `fpConf.db` = `/data/freeplay.sqlite` |
+| Node recording directory | `src/config.json` → `fpConf.videoDir` = `/data/video` |
 | Node RAM age | `FREEPLAY_RAM_REPLAY_SECONDS`, then `ram_replay_seconds` = 60 |
 | Node file duration | `FREEPLAY_FILE_SECONDS`, then `record_file_seconds` = 60 |
 | Per-stream cache bytes | SQLite `ram_replay_max_bytes` = 67,108,864 |
@@ -145,7 +145,7 @@ Replay manifests, media byte delivery, the legacy replay routes, and review acti
 | Keyframe on connect | SQLite `request_keyframe_on_connect` = 1 |
 | Ingestion test mode | `FREEPLAY_TEST_MODE=1` |
 
-Node reads configuration at startup. General PHP administration uses `/data/freeplay.sqlite` and `/data/live-status.json`; those paths do not follow Node's `FREEPLAY_DB` override. PHP's Node-request helper uses `FREEPLAY_NODE_URL` (default `http://127.0.0.1:9000`). Configure each relevant component rather than assuming overrides propagate across processes.
+Node reads configuration at startup. General PHP administration uses fixed paths `/data/freeplay.sqlite` and `/data/live-status.json`. PHP's Node-request helper uses `FREEPLAY_NODE_URL` (default `http://127.0.0.1:9000`).
 
 Statistics are periodically persisted and `/data/live-status.json` is rewritten for PHP consumers. `/health` obtains disk free space with `statfsSync` when available. Configurable disk low-watermark shutdown, automatic retention deletion, and automatic writer recovery are not implemented. The startup schema uses `CREATE ... IF NOT EXISTS` and selected additive migrations; it is not a general migration framework.
 

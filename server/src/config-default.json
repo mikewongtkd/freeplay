@@ -1,0 +1,10 @@
+{
+  "fpConf": {
+    "root": "..",
+    "dataDir": "/data",
+    "schemaPath": "share/freeplay/db/schema.sql",
+    "db": "/data/freeplay.sqlite",
+    "port": 9000,
+    "videoDir": "/data/video"
+  }
+}
