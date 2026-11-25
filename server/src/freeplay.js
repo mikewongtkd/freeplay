@@ -2,8 +2,18 @@
 'use strict';
 
 const fs=require('fs'),path=require('path'),http=require('http'),os=require('os'),{EventEmitter}=require('events');
+
+const configPath=path.join(__dirname,'config.json');
+if(!fs.existsSync(configPath)) {
+  try {
+    fs.copyFileSync(path.join(__dirname,'config-default.json'),configPath,fs.constants.COPYFILE_EXCL);
+  } catch(err) {
+    if(err.code!=='EEXIST') throw err;
+  }
+}
+const {fpConf}=require(configPath);
+
 const WebSocket=require('ws'),Database=require('better-sqlite3');
-const {fpConf}=require('./config.json');
 const protocol=require('./protocol');
 const {parseFpv1Binary,validateHello,sequenceDelta,BUFFER_FLAG_KEY_FRAME,BUFFER_FLAG_CODEC_CONFIG,BUFFER_FLAG_END_OF_STREAM,ProtocolError}=protocol;
 const {GopBuilder,GopReplayCache}=require('./gop');
