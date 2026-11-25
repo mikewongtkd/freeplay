@@ -19,7 +19,6 @@ function useResponse(response, selectedId) {
     response.data.workflow?.activeReviewId ||
     (selectedId ?? state.currentRequest ?? response.data.workflow?.selectedReviewId);
   replaceReviews(response.data.reviews, displayedId, response.data.workflow);
-  if (!activeReview()) state.timelineRange.end = state.liveEdge;
   return response.data.review;
 }
 async function execute(operation) {
@@ -72,7 +71,7 @@ export const reviewController = {
         await mockServer.startReview({ ring: state.ring, reviewId: review.id }),
         review.id,
       );
-      state.timelineRange.end = active.rst;
+      state.timelineRange.end = state.liveEdge;
       state.isPlaying = false;
       state.playbackState = "paused";
       notify("review-started");
@@ -176,7 +175,7 @@ export const reviewController = {
       return true;
     });
   },
-  async selectReview(id, moveCursor = true) {
+  async selectReview(id, timestamp) {
     const target = state.reviewHistory.find((review) => review.id === id);
     if (!target || (state.activeReviewId && state.activeReviewId !== id))
       return false;
@@ -192,8 +191,8 @@ export const reviewController = {
       syncDisplayedReview();
     }
     const review = selectedReview();
-    if (!activeReview()) state.timelineRange.end = state.liveEdge;
-    if (moveCursor) playbackController.seekTo(review.rm, false);
+    state.timelineRange.end = state.liveEdge;
+    playbackController.seekTo(timestamp ?? review.rm, false);
     notify("review-selected");
     return true;
   },

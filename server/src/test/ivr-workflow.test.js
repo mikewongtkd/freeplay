@@ -36,6 +36,10 @@ test('request selection, queuing, RM limits, formal timing and completion', asyn
     Object.assign(item, { status: 'active', rst: 150 });
     return response(item);
   };
+  api.selectReview = async ({ reviewId }) => {
+    records.forEach(r => { r.status = r.id === reviewId ? 'selected' : 'pending'; });
+    return response(records.find(r => r.id === reviewId));
+  };
   api.setResult = async ({ reviewId, result }) => {
     const item = records.find(r => r.id === reviewId);
     Object.assign(item, { status: 'completed', result });
@@ -64,10 +68,22 @@ test('request selection, queuing, RM limits, formal timing and completion', asyn
   playback.advance(1);
   assert.equal(state.playbackCursor, 120);
   assert.equal(state.isPlaying, false);
+  playback.syncServerTime(145);
+  assert.equal(state.timelineRange.end, 140);
+  playback.playPause();
+  await review.selectReview('2');
+  assert.equal(state.playbackCursor, 130);
+  assert.equal(state.isPlaying, false);
+  assert.equal(state.timelineRange.end, 145);
+  playback.syncServerTime(149);
+  assert.equal(state.timelineRange.end, 145);
+  await review.selectReview('1');
   await review.startReview();
-  assert.equal(state.timelineRange.end, 150);
+  assert.equal(state.playbackCursor, 120);
   playback.syncServerTime(170);
-  assert.equal(state.timelineRange.end, 150);
+  assert.equal(state.timelineRange.end, 170);
+  playback.seekTo(160);
+  assert.equal(state.playbackCursor, 160);
   assert.equal(state.liveEdge, 170);
   assert.equal(await review.selectReview('2'), false);
   assert.equal(await review.deselect(), false);
@@ -101,14 +117,14 @@ test('timeline uses RM markers and a side-specific connector without windows', a
   const { timelineController } = await import(moduleUrl('timeline-controller.js'));
   Object.assign(state, { timelineRange: { start: 50, end: 150 }, currentRequest: 'R001-123456',
     activeReviewId: null, provisionalRequest: null,
-    reviewHistory: [{ id: 'R001-123456', side: 'hong', rm: 120, aur: 110, status: 'completed' }] });
+    reviewHistory: [{ id: 'R001-123456', side: 'hong', rm: 120, rst: 125, aur: 110, status: 'completed' }] });
   timelineController.renderAnnotations();
   const html = elements.get('#timelineAnnotations');
   assert.match(html, /request-mark hong/);
   assert.match(html, /<span>R001<\/span>/);
   assert.doesNotMatch(html, /<span>RM<\/span>/);
   assert.match(html, /aur-connector hong" data-start="110" data-end="120"/);
-  assert.doesNotMatch(html, /review-window/);
+  assert.doesNotMatch(html, /review-window|rst-mark|<span>RST<\/span>/);
   state.provisionalRequest = { side: 'chung', rm: 140 };
   timelineController.renderAnnotations();
   assert.match(elements.get('#timelineAnnotations'), /provisional" data-time="140"/);
@@ -118,7 +134,7 @@ test('timeline uses RM markers and a side-specific connector without windows', a
   assert.doesNotMatch(elements.get('#timelineAnnotations'), /aur-connector|provisional/);
 });
 
-test('timeline follows the right edge until a review starts and resumes afterward', async () => {
+test('timeline centers a selected request, allows review scrolling, and returns to the right edge', async () => {
   const { state } = await import(moduleUrl('state.js'));
   global.window = { jQuery: () => ({
     html() {},
@@ -132,7 +148,8 @@ test('timeline follows the right edge until a review starts and resumes afterwar
   const scroll = {
     scrollLeft: 0,
     scrollWidth: 800,
-    classList: { toggle() {} },
+    clientWidth: 100,
+    getBoundingClientRect: () => ({ left: 0 }),
     addEventListener(event, listener) {
       assert.equal(event, 'scroll');
       onScroll = listener;
@@ -140,7 +157,7 @@ test('timeline follows the right edge until a review starts and resumes afterwar
   };
   const nodes = {
     timelineScroll: scroll,
-    timeline: { style: {} },
+    timeline: { style: {}, getBoundingClientRect: () => ({ left: 0, width: 50 }) },
     timelineTicks: { children: [{ style: {} }] },
   };
   global.document = {
@@ -148,7 +165,8 @@ test('timeline follows the right edge until a review starts and resumes afterwar
     querySelectorAll: () => [],
   };
   Object.assign(state, {
-    cameras: [], reviewHistory: [], psselEvents: [], activeReviewId: null, provisionalRequest: null,
+    cameras: [], reviewHistory: [], psselEvents: [], currentRequest: null,
+    activeReviewId: null, provisionalRequest: null,
     timelineRange: { start: 50, end: 55 },
   });
   timelineController.initialize();
@@ -158,13 +176,24 @@ test('timeline follows the right edge until a review starts and resumes afterwar
   onScroll();
   assert.equal(scroll.scrollLeft, 800);
 
+  state.currentRequest = 'active-review';
+  state.playbackCursor = 51;
+  timelineController.scrollToCursor();
+  timelineController.updateDynamic();
+  assert.equal(scroll.scrollLeft, 760);
+
   state.activeReviewId = 'active-review';
+  state.currentView = 'MCV';
+  state.reviewHistory = [{ id: 'active-review', rm: 51, rst: 52, status: 'active' }];
   scroll.scrollLeft = 120;
   onScroll();
   timelineController.updateDynamic();
   assert.equal(scroll.scrollLeft, 120);
+  assert.equal(timelineController.seekFromEvent({ clientX: 40 }), true);
+  assert.equal(state.playbackCursor, 54);
 
   state.activeReviewId = null;
+  state.currentRequest = null;
   scroll.scrollWidth = 900;
   timelineController.updateDynamic();
   assert.equal(scroll.scrollLeft, 900);
@@ -186,19 +215,19 @@ test('queue filters match and round and includes finalized requests', async () =
   assert.equal(state.playbackCursor, 130);
 });
 
-test('Unselect clears active display selection while retaining formal review and RM limit', async () => {
+test('Unselect clears active display selection while retaining formal review and access to later footage', async () => {
   const { state, selectedReview } = await import(moduleUrl('state.js'));
   const { reviewController: review } = await import(moduleUrl('review-controller.js'));
   const { playbackController: playback } = await import(moduleUrl('playback-controller.js'));
   Object.assign(state, { currentRequest: 'active', activeReviewId: 'active',
-    timelineRange: { start: 50, end: 150 }, playbackCursor: 110,
+    timelineRange: { start: 50, end: 170 }, playbackCursor: 110,
     reviewHistory: [{ id: 'active', rm: 120, rst: 150, status: 'active' }] });
   assert.equal(await review.deselect(true), true);
   assert.equal(selectedReview(), null);
   assert.equal(state.activeReviewId, 'active');
-  assert.equal(state.timelineRange.end, 150);
-  playback.seekTo(140);
-  assert.equal(state.playbackCursor, 120);
+  assert.equal(state.timelineRange.end, 170);
+  playback.seekTo(160);
+  assert.equal(state.playbackCursor, 160);
   assert.equal(await review.selectReview('other'), false);
 });
 

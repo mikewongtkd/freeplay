@@ -2,7 +2,7 @@
 
 This document describes the implemented review UI and API as of November 11, 2026. It consolidates the original workflow and the implemented workflow updates. The code is the authority for current behavior.
 
-The system uses Request Marks (RM), Review Start Times (RST), and Action Under Review (AUR) markers. Review windows, fixed 5/10-second durations, overlap/move confirmations, window navigation, and outside-window AUR warnings have been removed. There is no automatic 20-second eligibility rule.
+The timeline shows Request Marks (RM) and Action Under Review (AUR) markers. The response clock uses the recorded Review Start Time (RST). Review windows, fixed 5/10-second durations, overlap/move confirmations, window navigation, and outside-window AUR warnings have been removed. There is no automatic 20-second eligibility rule.
 
 ## 1. Starting the review system and entering match details
 
@@ -28,20 +28,20 @@ If neither a request is displayed/selected nor a formal review is active, the ne
 Selection for display and an **Active** formal review are separate concepts. Selecting a completed request for annotation does not restart formal review.
 
 1. Select an unfinished request in **Review Queue**, or click its RM on the timeline. Selecting a pending request gives it **Selected** status; a previously selected unfinished request returns to **Pending**.
-2. Selection seeks to RM and pauses playback. Clicking another annotation marker (AUR or RST) also selects its request and seeks toward that marker, subject to the RM playback limit.
-3. Check origin, issue type, reason, and RM in **Review Summary**.
+2. Selection pauses playback and timeline growth, moves the cursor to RM, and scrolls RM into view. Clicking an AUR marker also selects its request and seeks toward that marker, subject to the playback limit.
+3. Check the request in **Review Queue**.
 4. Click **Start Review**, or press **S**.
 
-Starting changes the request to **Active**, records server time as RST, holds the timeline end at RST, pauses playback at its current cursor position, and starts the response clock. It does not seek to another point. Only one formal review can be active per ring; selecting another request is blocked until that review is completed or deleted. The timeline background is light blue for an active Chung review and light red for an active Hong review.
+Starting changes the request to **Active**, records server time as RST, pauses playback at its current cursor position, and starts the response clock. It does not seek to another point. Only one formal review can be active per ring; selecting another request is blocked until that review is completed or deleted. The timeline background is light blue for an active Chung review and light red for an active Hong review.
 
-Selecting a request alone does not freeze timeline growth. During formal review, the live edge continues to update in the background while the displayed timeline end remains at RST. Camera recording and ingestion continue independently of review playback.
+The timeline resumes growing when formal review starts. The horizontal scrollbar is always visible, and the timeline follows the right edge when no request is selected and no formal review is active. Camera recording and ingestion continue independently of review playback.
 
 ### Seeking, deselection, and live playback
 
-- While a request is selected, seeking, frame stepping, or playing forward is limited to RM. Playback reaching RM stops there. This limit also applies when displaying a completed request.
+- While a request is selected and no formal review is active, seeking, frame stepping, or playing forward is limited to RM. Playback reaching RM stops there. This limit also applies when displaying a completed request.
 - Clicking an empty timeline position at or before RM seeks there and retains selection.
 - With no formal review active, clicking an empty timeline position after RM deselects the request and seeks to that time, subject to footage availability. An unfinished selected request returns to Pending.
-- During formal review, clicking after RM instead parks the cursor at RM and keeps the review selected, with its clock and lock intact.
+- During formal review, clicking anywhere on the timeline seeks to available footage, including after RST, while the review clock and lock remain active.
 - **Go Live** (**L**) clears selection and resumes live playback when no formal review is active. During an active review it instead pauses at RM, preserving the active review.
 
 Previous/Next Review navigation uses RM instead of window boundaries. With no request displayed, it finds the nearest earlier/later request relative to the cursor. With a request displayed, it navigates all requests for the current match and round in RM order. Navigation to another review is blocked during formal review.
@@ -77,7 +77,7 @@ During an active review, choose one of the result buttons in Review Summary:
 - **Rejected**
 - **Rejected: IVR Issue**
 
-Recording a result changes the review to **Completed**, records the decision time, and calculates response duration from RST to the decision time. Playback returns live, clears selection, and resumes timeline growth. The active-review lock is released so another queued request can be selected and started.
+Recording a result changes the review to **Completed**, records the decision time, and calculates response duration from RST to the decision time. Playback returns live, clears selection, and pins the timeline to the right edge. The active-review lock is released so another queued request can be selected and started.
 
 Neither AUR nor completed annotation is required to submit a formal result. The response clock is displayed while the review is active and hidden after finalization. Annotation is a separate step.
 
@@ -115,8 +115,8 @@ Durable review recovery and annotation across sessions or dates is a forthcoming
 - `public/review/assets/js/review-controller.js`: request selection/queuing, formal review transitions, AUR, results, and annotation operations.
 - `public/review/assets/js/request-reasons.js`: origin/type reason options, conditional detail fields, and reason formatting.
 - `public/review/assets/js/state.js`: displayed, selected, and active review identities.
-- `public/review/assets/js/playback-controller.js`: RM playback limits, live return, and timeline freezing during formal review.
-- `public/review/assets/js/timeline-controller.js`: RM/RST/AUR markers, connectors, elapsed-time ticks, and timeline positions.
+- `public/review/assets/js/playback-controller.js`: RM playback limits, live return, and live timeline updates.
+- `public/review/assets/js/timeline-controller.js`: RM and AUR markers, connectors, elapsed-time ticks, and timeline positions.
 - `public/review/assets/js/keyboard-controller.js`: keyboard shortcuts.
 - `public/review/assets/js/server-clock.js`: server-clock anchoring and elapsed client time.
 - `public/review/api/review.php`: review states, request creation/deselection, AUR history, decisions, and annotation validation.

@@ -1,15 +1,18 @@
-import { state, notify, update, selectedReview, syncSelectedReview } from "./state.js";
+import { state, notify, update, activeReview, selectedReview, syncSelectedReview } from "./state.js";
 
 const frame = 1 / 30;
-function activeReview() {
-  return state.reviewHistory.find(
-    (review) => review.id === state.activeReviewId,
-  );
+export function requestPlaybackLimit() {
+  return state.activeReviewId ? undefined : selectedReview()?.rm;
 }
+
+function playbackEnd() {
+  return Math.min(state.timelineRange.end, requestPlaybackLimit() ?? Infinity);
+}
+
 function clamp(time) {
   return Math.max(
     state.timelineRange.start,
-    Math.min(state.timelineRange.end, (selectedReview() || activeReview())?.rm ?? Infinity, time),
+    Math.min(playbackEnd(), time),
   );
 }
 
@@ -18,7 +21,7 @@ export const playbackController = {
     state.playbackCursor = clamp(Number(time));
     state.isPlaying = false;
     state.playbackState =
-      !selectedReview() && Math.abs(state.liveEdge - state.playbackCursor) < 0.05
+      !state.activeReviewId && !selectedReview() && Math.abs(state.liveEdge - state.playbackCursor) < 0.05
         ? "live"
         : "paused";
     if (emit) notify("seek");
@@ -59,7 +62,8 @@ export const playbackController = {
   syncServerTime(serverSeconds) {
     if (state.timelineFixedEnd) return;
     state.liveEdge = Number(serverSeconds);
-    if (!activeReview()?.rst) state.timelineRange.end = state.liveEdge;
+    if (state.activeReviewId || !selectedReview())
+      state.timelineRange.end = state.liveEdge;
     if (state.playbackState === "live") state.playbackCursor = state.liveEdge;
   },
   advance(deltaSeconds) {
@@ -68,7 +72,7 @@ export const playbackController = {
       state.playbackCursor + deltaSeconds * state.playbackRate,
     );
     state.playbackCursor = next;
-    if (next >= Math.min(state.timelineRange.end, (selectedReview() || activeReview())?.rm ?? Infinity) || next <= state.timelineRange.start) {
+    if (next >= playbackEnd() || next <= state.timelineRange.start) {
       state.isPlaying = false;
       state.playbackState = "paused";
     }

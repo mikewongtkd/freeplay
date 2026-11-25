@@ -13,7 +13,7 @@ import {
 } from "./state.js";
 import { mockServer } from "./mock-server.js";
 import { reviewController } from "./review-controller.js";
-import { playbackController } from "./playback-controller.js";
+import { playbackController, requestPlaybackLimit } from "./playback-controller.js";
 import { cameraController } from "./camera-controller.js";
 import { timelineController } from "./timeline-controller.js";
 import { psselController } from "./pssel-controller.js";
@@ -64,7 +64,7 @@ const mediaController = new MediaController({
   onTime: (epochSeconds) => {
     if (state.currentView === "MCV") return;
     if (state.playbackState === "live") return;
-    const limit = (selectedReview() || activeReview())?.rm;
+    const limit = requestPlaybackLimit();
     if (limit != null && epochSeconds >= limit && state.isPlaying) {
       playbackController.seekTo(limit);
       return;
@@ -706,6 +706,8 @@ function renderForChange(_currentState, reason) {
     renderStatus();
     timelineController.renderAnnotations();
     updateTimeSensitiveValues();
+    if (["review-selected", "request-created"].includes(reason) && selectedReview())
+      timelineController.scrollToCursor();
   } else if (["fit", "zoom", "pan", "focal-point"].includes(reason))
     updateScvTransform();
   else if (reason === "scenario-loaded") {
@@ -1141,7 +1143,6 @@ async function bootstrapApp() {
       data.workflow?.activeReviewId || data.workflow?.selectedReviewId,
       data.workflow,
     );
-    state.timelineRange.end = activeReview()?.rst || state.liveEdge;
     state.syncWarning =
       Math.max(...model.cameras.map((camera) => camera.syncOffsetMs)) -
         Math.min(...model.cameras.map((camera) => camera.syncOffsetMs)) >
@@ -1195,12 +1196,10 @@ async function bootstrapApp() {
       async function (event) {
         event.stopPropagation();
         try {
-          const selected = await reviewController.selectReview(
+          await reviewController.selectReview(
             this.dataset.reviewId,
-            this.dataset.time == null,
+            this.classList.contains("aur-mark") ? Number(this.dataset.time) : undefined,
           );
-          if (selected && this.dataset.time)
-            playbackController.seekTo(Number(this.dataset.time));
         } catch (error) {
           toast(error.message, "warning");
         }

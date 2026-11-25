@@ -29,6 +29,9 @@ function timelineWidth() {
     (state.timelineRange.end - state.timelineRange.start) * pixelsPerSecond,
   );
 }
+function followsLiveEdge() {
+  return !state.currentRequest && !state.activeReviewId;
+}
 function timeLabel(time, milliseconds = false) {
   const date = new Date(time * 1000);
   return date.toLocaleTimeString([], {
@@ -92,7 +95,7 @@ export const timelineController = {
   initialize() {
     const scroll = document.getElementById("timelineScroll");
     scroll.addEventListener("scroll", () => {
-      if (!state.activeReviewId) scroll.scrollLeft = scroll.scrollWidth;
+      if (followsLiveEdge()) scroll.scrollLeft = scroll.scrollWidth;
     });
     ensureTicks();
     this.renderTracks();
@@ -156,8 +159,6 @@ export const timelineController = {
             "RM",
             `request-mark ${className} ${review.id === state.currentRequest ? "selected" : ""} ${locked ? "locked" : ""}`,
           );
-          if (review.rst)
-            html += marker(review, "rst", review.rst, "RST", "rst-mark");
           if (review.aur != null)
             html += marker(
               review,
@@ -210,7 +211,6 @@ export const timelineController = {
   },
   updateDynamic() {
     const scroll = document.getElementById("timelineScroll");
-    scroll.classList.toggle("timeline-follow-live", !state.activeReviewId);
     document.getElementById("timeline").style.width = `${timelineWidth()}px`;
     document
       .querySelectorAll("#timeline .track-line.segmented")
@@ -233,13 +233,22 @@ export const timelineController = {
         tick.textContent = elapsedLabel(time);
       },
     );
-    const endSource = activeReview()?.rst
-      ? "active review start"
-      : "current time";
+    const endSource = state.timelineFixedEnd
+      ? "recording end"
+      : state.currentRequest && !state.activeReviewId
+        ? "paused"
+        : "current time";
     $("#timelineRangeLabel").text(
       `${timeLabel(state.timelineRange.start)} (${state.timelineStartSource}) – ${timeLabel(state.timelineRange.end)} (${endSource})`,
     );
-    if (!state.activeReviewId) scroll.scrollLeft = scroll.scrollWidth;
+    if (followsLiveEdge()) scroll.scrollLeft = scroll.scrollWidth;
+  },
+  scrollToCursor() {
+    const scroll = document.getElementById("timelineScroll");
+    const timeline = document.getElementById("timeline");
+    const cursorLeft = timeline.getBoundingClientRect().left + px(state.playbackCursor);
+    const viewportCenter = scroll.getBoundingClientRect().left + scroll.clientWidth / 2;
+    scroll.scrollLeft += cursorLeft - viewportCenter;
   },
   positionFromEvent(event) {
     const rect = document.getElementById("timeline").getBoundingClientRect();

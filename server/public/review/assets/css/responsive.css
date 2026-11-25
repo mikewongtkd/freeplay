@@ -271,8 +271,18 @@
   min-height: 0;
   height: auto;
 }
-.timeline-scroll.timeline-follow-live {
-  overflow-x: hidden;
+.timeline-scroll {
+  overflow-x: scroll;
+}
+.timeline-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+.timeline-scroll::-webkit-scrollbar-track {
+  background: #e2e9f0;
+}
+.timeline-scroll::-webkit-scrollbar-thumb {
+  background: #8498aa;
+  border-radius: 5px;
 }
 .timeline-align {
   height: 100%;

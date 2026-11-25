@@ -46,12 +46,12 @@ test('review workflow keeps displayed, selected, and active identities separate'
   assert.match(state, /review\.status === "active"/);
 });
 
-test('active review alone freezes the timeline and completion returns to live', () => {
+test('active review leaves the timeline running and completion returns to live', () => {
   const review = read('assets/js/review-controller.js');
   const playback = read('assets/js/playback-controller.js');
-  assert.match(review, /state\.timelineRange\.end = active\.rst/);
+  assert.doesNotMatch(review, /state\.timelineRange\.end = active\.rst/);
   assert.match(review, /playbackController\.goLive\(\)/);
-  assert.match(playback, /if \(!activeReview\(\)\?\.rst\) state\.timelineRange\.end = state\.liveEdge/);
+  assert.match(playback, /if \(state\.activeReviewId \|\| !selectedReview\(\)\)\s+state\.timelineRange\.end = state\.liveEdge/);
   assert.match(playback, /state\.isPlaying = true;\s+state\.playbackRate = 1;\s+state\.playbackState = "live"/);
 });
 
