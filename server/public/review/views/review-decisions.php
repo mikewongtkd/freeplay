@@ -1,16 +1,6 @@
-<div id="reviewSummary" class="review-summary" aria-label="Review request summary">
-  <div class="panel-section review-summary">
-    <h2 class="panel-title mb-0">Review Request Details</h2>
-    <span id="reviewStatusBadge" class="badge text-bg-secondary">NO REQUEST</span>
-    <div id="reviewEmpty" class="empty-copy">Create or select a Review Request.</div>
-    <dl id="reviewMetadata" class="review-metadata d-none">
-      <div><dt>Origin</dt><dd id="metaOrigin">—</dd></div>
-      <div><dt>Issue Type</dt><dd id="metaIssueType">—</dd></div>
-      <div><dt>Reason</dt><dd id="metaReason">—</dd></div>
-      <div><dt>Request Time</dt><dd id="metaRm">—</dd></div>
-      <div><dt>Action (AUR)</dt><dd id="metaAur">Not marked</dd></div>
-      <div><dt>Review Start</dt><dd id="metaRst">Not started</dd></div>
-    </dl>
+<div id="reviewDecisions" class="review-decisions" aria-labelledby="reviewDecisionsHeading">
+  <div class="panel-section review-decisions">
+    <h2 id="reviewDecisionsHeading" class="panel-title mb-0">Review Decisions</h2>
     <div id="reviewClock" class="review-clock d-none"><span>Review Response Time</span><strong id="reviewClockValue">00:00.0</strong></div>
   </div>
   <div class="panel-section review-actions">

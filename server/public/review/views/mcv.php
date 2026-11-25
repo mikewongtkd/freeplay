@@ -18,8 +18,8 @@
       <div class="mcv-review-column">
         <?php require __DIR__ . '/review-panel.php'; ?>
       </div>
+      <?php require __DIR__ . '/review-decisions.php'; ?>
       <?php require __DIR__ . '/review-queue.php'; ?>
-      <?php require __DIR__ . '/review-summary.php'; ?>
     </div>
   </div>
 </section>

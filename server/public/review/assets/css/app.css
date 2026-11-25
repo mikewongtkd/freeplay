@@ -208,7 +208,7 @@
 .mcv-review-column > .review-panel {
   height: 100%;
 }
-.mcv-controls-row > .review-summary {
+.mcv-controls-row > .review-decisions {
   overflow: auto;
   background: var(--ivr-panel);
   border: 1px solid var(--ivr-border);
@@ -453,23 +453,6 @@
   font-size: 0.8rem;
   color: #62778b;
   padding: 0.55rem 0;
-}
-.review-metadata {
-  margin: 0.5rem 0 0;
-  font-size: 0.74rem;
-}
-.review-metadata > div {
-  display: grid;
-  grid-template-columns: 42% 58%;
-  padding: 0.18rem 0;
-  border-top: 1px solid #e2e9f0;
-}
-.review-metadata dt {
-  font-weight: 700;
-}
-.review-metadata dd {
-  margin: 0;
-  text-align: right;
 }
 .review-clock {
   display: flex;

@@ -108,7 +108,7 @@ Durable review recovery and annotation across sessions or dates is a forthcoming
 
 ## Implementation references
 
-- `public/review/views/review-panel.php`, `review-queue.php`, and `review-summary.php`: request controls, queue, results, and annotation entry point.
+- `public/review/views/review-panel.php`, `review-queue.php`, and `review-decisions.php`: request controls, queue, results, and annotation entry point.
 - `public/review/includes/modals.php`: request creation, confirmations, match details, and IVR Sheet forms.
 - `public/review/views/playback-controls.php`: playback, AUR, live, and match/round controls.
 - `public/review/assets/js/app.js`: UI actions, request timestamp capture, modal handling, timeline clicks, media synchronization, summary rendering, and annotation form handling.

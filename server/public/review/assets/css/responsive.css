@@ -117,9 +117,6 @@
   .scv-layout {
     grid-template-columns: minmax(0, 1fr) 390px;
   }
-  .review-metadata {
-    font-size: 0.82rem;
-  }
   .panel-title {
     font-size: 1rem;
   }

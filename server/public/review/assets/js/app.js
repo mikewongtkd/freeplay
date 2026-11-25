@@ -520,36 +520,6 @@ function renderReview() {
     final = ["completed", "resolved_without_review"].includes(review?.status);
   $("#requestMatchNum").html( `Match ${state.match?.number} • Round ${state.match?.round}` );
   $("#requestDivInfo").html( `<div class="row"><div class="col-6">${state.match?.chung?.name} (${state.match?.chung?.team})</div><div class="col-6">${state.match?.hong?.name} (${state.match?.hong?.team})</div></div>` );
-  $("#reviewEmpty").toggleClass("d-none", has);
-  $("#reviewMetadata").toggleClass("d-none", !has);
-  $("#reviewStatusBadge")
-    .attr(
-      "class",
-      `badge ${active ? "text-bg-primary" : selectable ? "text-bg-warning" : final ? "text-bg-success" : "text-bg-secondary"}`,
-    )
-    .text(
-      has ? review.status.replaceAll("_", " ").toUpperCase() : "NO REQUEST",
-    );
-  if (has) {
-    setText("#metaOrigin", originLabels[review.origin] || review.origin);
-    setText(
-      "#metaIssueType",
-      issueTypeLabels[review.issueType] || review.issueType,
-    );
-    setText(
-      "#metaReason",
-      review.reason || review.issues?.[0] || "Reason pending",
-    );
-    setText("#metaRm", formatTime(review.rm));
-    setText(
-      "#metaAur",
-      review.aur == null ? "Not marked" : formatTime(review.aur),
-    );
-    setText(
-      "#metaRst",
-      review.rst == null ? "Not started" : formatTime(review.rst),
-    );
-  }
   $("#startReviewButton")
     .prop("disabled", review?.status !== "selected" || !!state.activeReviewId)
     .toggleClass("d-none", active || final);
