@@ -90,6 +90,10 @@ function ensureTicks() {
 
 export const timelineController = {
   initialize() {
+    const scroll = document.getElementById("timelineScroll");
+    scroll.addEventListener("scroll", () => {
+      if (!state.activeReviewId) scroll.scrollLeft = scroll.scrollWidth;
+    });
     ensureTicks();
     this.renderTracks();
     this.renderAnnotations();
@@ -206,10 +210,8 @@ export const timelineController = {
   },
   updateDynamic() {
     const scroll = document.getElementById("timelineScroll");
-    const pinnedToLive =
-      scroll.scrollWidth - scroll.clientWidth - scroll.scrollLeft <= 2;
+    scroll.classList.toggle("timeline-follow-live", !state.activeReviewId);
     document.getElementById("timeline").style.width = `${timelineWidth()}px`;
-    if (pinnedToLive) scroll.scrollLeft = scroll.scrollWidth;
     document
       .querySelectorAll("#timeline .track-line.segmented")
       .forEach((line) => {
@@ -237,6 +239,7 @@ export const timelineController = {
     $("#timelineRangeLabel").text(
       `${timeLabel(state.timelineRange.start)} (${state.timelineStartSource}) – ${timeLabel(state.timelineRange.end)} (${endSource})`,
     );
+    if (!state.activeReviewId) scroll.scrollLeft = scroll.scrollWidth;
   },
   positionFromEvent(event) {
     const rect = document.getElementById("timeline").getBoundingClientRect();

@@ -118,6 +118,58 @@ test('timeline uses RM markers and a side-specific connector without windows', a
   assert.doesNotMatch(elements.get('#timelineAnnotations'), /aur-connector|provisional/);
 });
 
+test('timeline follows the right edge until a review starts and resumes afterward', async () => {
+  const { state } = await import(moduleUrl('state.js'));
+  global.window = { jQuery: () => ({
+    html() {},
+    css() {},
+    attr() {},
+    text() {},
+    toggleClass() { return this; },
+  }) };
+  const { timelineController } = await import(`${moduleUrl('timeline-controller.js')}#scroll-test`);
+  let onScroll;
+  const scroll = {
+    scrollLeft: 0,
+    scrollWidth: 800,
+    classList: { toggle() {} },
+    addEventListener(event, listener) {
+      assert.equal(event, 'scroll');
+      onScroll = listener;
+    },
+  };
+  const nodes = {
+    timelineScroll: scroll,
+    timeline: { style: {} },
+    timelineTicks: { children: [{ style: {} }] },
+  };
+  global.document = {
+    getElementById: id => nodes[id],
+    querySelectorAll: () => [],
+  };
+  Object.assign(state, {
+    cameras: [], reviewHistory: [], psselEvents: [], activeReviewId: null, provisionalRequest: null,
+    timelineRange: { start: 50, end: 55 },
+  });
+  timelineController.initialize();
+  assert.equal(scroll.scrollLeft, 800);
+
+  scroll.scrollLeft = 120;
+  onScroll();
+  assert.equal(scroll.scrollLeft, 800);
+
+  state.activeReviewId = 'active-review';
+  scroll.scrollLeft = 120;
+  onScroll();
+  timelineController.updateDynamic();
+  assert.equal(scroll.scrollLeft, 120);
+
+  state.activeReviewId = null;
+  scroll.scrollWidth = 900;
+  timelineController.updateDynamic();
+  assert.equal(scroll.scrollLeft, 900);
+});
+
 test('queue filters match and round and includes finalized requests', async () => {
   const { state, matchReviews } = await import(moduleUrl('state.js'));
   Object.assign(state, { match: { number: '101', round: 2 }, timelineRange: { start: 100, end: 200 },

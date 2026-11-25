@@ -70,13 +70,6 @@
   .scv-side-panel {
     margin-top: 5px;
   }
-  .timeline-panel {
-    height: 170px;
-    min-height: 0;
-  }
-  .scv-active .timeline-panel {
-    height: 122px;
-  }
   .playback-readout {
     position: sticky;
     right: 0;
@@ -145,7 +138,7 @@
 /* Fixed replay dock: the toolbar owns the bottom edge and the timeline sits above it. */
 .ivr-shell {
   --dock-toolbar-height: 63px;
-  --dock-timeline-height: 170px;
+  --dock-timeline-height: 145px;
   grid-template-rows: auto minmax(0, 1fr);
   padding-bottom: calc(
     var(--dock-toolbar-height) + var(--dock-timeline-height) + 15px
@@ -175,12 +168,13 @@
   right: 5px;
   bottom: calc(var(--dock-toolbar-height) + 10px);
   height: var(--dock-timeline-height);
+  min-height: 0;
 }
 
 /* SCV gives the video the full content width and floats the controls over its right edge. */
 .ivr-shell.scv-active {
   --dock-toolbar-height: 56px;
-  --dock-timeline-height: 122px;
+  --dock-timeline-height: 114px;
   grid-template-rows: auto minmax(0, 1fr);
 }
 .scv-layout {
@@ -280,6 +274,9 @@
   min-height: 0;
   height: auto;
 }
+.timeline-scroll.timeline-follow-live {
+  overflow-x: hidden;
+}
 .timeline-align {
   height: 100%;
 }
@@ -290,17 +287,18 @@
   bottom: 18px;
 }
 .timeline-tracks {
-  top: 26px;
+  top: 22px;
 }
 .timeline-track {
-  height: 16px;
+  height: 14px;
 }
 .annotation-marker,
 .timeline-marker {
-  height: 74px;
+  top: 19px;
+  height: 58px;
 }
 .pssel-events {
-  top: 98px;
+  top: 80px;
 }
 .scv-active .timeline-tracks {
   top: 18px;
@@ -310,11 +308,13 @@
 }
 .scv-active .annotation-marker,
 .scv-active .timeline-marker {
-  height: 30px;
+  top: 16px;
+  height: 27px;
 }
 .scv-active .pssel-events {
-  top: 54px;
+  top: 46px;
 }
+.playback-cursor span { bottom: -13px; }
 
 /* Selected request markers and their associated action. */
 .timeline-panel.review-chung { background: #e4f1ff; }
@@ -325,14 +325,14 @@
 .request-mark.locked { cursor: not-allowed; opacity: 0.5; }
 .aur-connector {
   position: absolute;
-  top: 22px;
+  top: 19px;
   height: 2px;
   background: #84bfff;
   pointer-events: none;
 }
-.aur-connector.hong { top: 94px; background: #f6a3b3; }
-.scv-active .aur-connector { top: 17px; }
-.scv-active .aur-connector.hong { top: 45px; }
+.aur-connector.hong { top: 75px; background: #f6a3b3; }
+.scv-active .aur-connector { top: 16px; }
+.scv-active .aur-connector.hong { top: 41px; }
 
 .request-mark > span {
   white-space: nowrap;
