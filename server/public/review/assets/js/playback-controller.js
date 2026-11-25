@@ -5,6 +5,10 @@ export function requestPlaybackLimit() {
   return state.activeReviewId ? undefined : selectedReview()?.rm;
 }
 
+export function timelineGrowthPaused() {
+  return state.reviewRequestPending || !!state.activeReviewId || !!selectedReview();
+}
+
 function playbackEnd() {
   return Math.min(state.timelineRange.end, requestPlaybackLimit() ?? Infinity);
 }
@@ -37,9 +41,15 @@ export const playbackController = {
     state.playbackState = "frame stepping";
     notify("frame-step");
   },
+  pause() {
+    state.isPlaying = false;
+    state.playbackState = "paused";
+    notify("play-pause");
+  },
   playPause() {
-    state.isPlaying = !state.isPlaying;
-    state.playbackState = state.isPlaying ? "playing" : "paused";
+    if (state.isPlaying) return this.pause();
+    state.isPlaying = true;
+    state.playbackState = "playing";
     notify("play-pause");
   },
   setRate(rate) {
@@ -62,7 +72,7 @@ export const playbackController = {
   syncServerTime(serverSeconds) {
     if (state.timelineFixedEnd) return;
     state.liveEdge = Number(serverSeconds);
-    if (state.activeReviewId || !selectedReview())
+    if (!timelineGrowthPaused())
       state.timelineRange.end = state.liveEdge;
     if (state.playbackState === "live") state.playbackCursor = state.liveEdge;
   },

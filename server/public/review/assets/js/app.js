@@ -1,5 +1,5 @@
 import { roundController } from "./round-controller.js";
-import { requestReason, updateRequestReasons, updateRequestReasonDetails, fillAnnotationReasons, updateAnnotationReasonDetails, annotationReason } from "./request-reasons.js";
+import { parseReason, requestReason, updateRequestReasons, updateRequestReasonDetails, fillAnnotationReasons, updateAnnotationReasonDetails, annotationReason } from "./request-reasons.js";
 import {
   state,
   subscribe,
@@ -223,38 +223,54 @@ function confirmAurReplacement(review, replacementTime) {
   });
 }
 
-let pendingRequest = null;
-function openRequestModal(side) {
-  if (pendingRequest) return;
-  pendingRequest = { side, timestamp: serverClock.now() };
-  state.provisionalRequest = { side, rm: pendingRequest.timestamp };
-  timelineController.renderAnnotations();
+let pendingDecision = null;
+function openRequestModal(result) {
+  const review = activeReview();
+  if (pendingDecision || !review?.rst) return;
+  pendingDecision = { result, reviewId: review.id };
   const form = document.getElementById("requestForm");
   form.reset();
-  document.getElementById("requestReason").value = "Reason pending";
+  document.getElementById("requestOrigin").value = review.origin || "coach";
+  document.getElementById("requestIssueType").value = review.issueType || "standard";
   updateRequestReasons();
-  setText("#requestModalContext", `${side === "chung" ? "Chung" : "Hong"} · ${formatTime(pendingRequest.timestamp)}`);
+  const saved = parseReason(review.reason || "Reason pending");
+  const reason = document.getElementById("requestReason");
+  if ([...reason.options].some(option => option.value === saved.reason)) {
+    reason.value = saved.reason;
+    if (saved.reason === "Other")
+      document.getElementById("requestReasonOther").value = saved.detail;
+    if (saved.reason === "Gam-jeom for the opponent")
+      document.getElementById("requestGamJeomReason").value = saved.detail;
+  }
+  updateRequestReasonDetails();
+  const side = review.side === "chung" ? "Chung" : "Hong";
+  setText("#requestModalContext", `${side} · ${reviewName(review)} · ${resultLabels[result]}`);
   bootstrap.Modal.getOrCreateInstance(document.getElementById("requestModal")).show();
 }
-async function submitRequest(event) {
+
+async function submitDecision(event) {
   event.preventDefault();
-  if (!pendingRequest || pendingRequest.saving) return;
+  if (!pendingDecision || pendingDecision.saving) return;
   const form = event.currentTarget;
   if (!form.reportValidity()) return;
-  pendingRequest.saving = true;
+  const decision = pendingDecision;
   const button = form.querySelector('[type="submit"]');
+  decision.saving = true;
   button.disabled = true;
   try {
     const fields = Object.fromEntries(new FormData(form));
-    await reviewController.createRequest(pendingRequest.side, {
-      ...fields, reason: requestReason(fields), timestamp: pendingRequest.timestamp,
-    });
-    pendingRequest.saving = false;
+    const saved = await reviewController.setResult(decision.result, {
+      origin: fields.origin, issueType: fields.issueType, reason: requestReason(fields),
+    }, decision.reviewId);
+    if (!saved) throw new Error("This review is no longer active.");
+    decision.saving = false;
     bootstrap.Modal.getInstance(document.getElementById("requestModal")).hide();
+    const tone = decision.result === "accepted" ? "success" : decision.result === "ivr_issue" ? "warning" : "danger";
+    toast(`${resultLabels[decision.result]} recorded. Review clock stopped.`, tone);
   } catch (error) {
     toast(error.message, "warning");
   } finally {
-    if (pendingRequest) pendingRequest.saving = false;
+    decision.saving = false;
     button.disabled = false;
   }
 }
@@ -516,17 +532,9 @@ function renderReview() {
   const review = selectedReview() || activeReview(),
     has = !!review,
     active = review?.status === "active",
-    selectable = ["pending", "selected"].includes(review?.status),
     final = ["completed", "resolved_without_review"].includes(review?.status);
   $("#requestMatchNum").html( `Match ${state.match?.number} • Round ${state.match?.round}` );
   $("#requestDivInfo").html( `<div class="row"><div class="col-6">${state.match?.chung?.name} (${state.match?.chung?.team})</div><div class="col-6">${state.match?.hong?.name} (${state.match?.hong?.team})</div></div>` );
-  $("#startReviewButton")
-    .prop("disabled", review?.status !== "selected" || !!state.activeReviewId)
-    .toggleClass("d-none", active || final);
-  $("#resolveButton").toggleClass(
-    "d-none",
-    !selectable || !!state.activeReviewId,
-  );
   $("#deleteButton")
     .toggleClass("d-none", !has || final)
     .prop("disabled", !has || final);
@@ -706,7 +714,7 @@ function renderForChange(_currentState, reason) {
     renderStatus();
     timelineController.renderAnnotations();
     updateTimeSensitiveValues();
-    if (["review-selected", "request-created"].includes(reason) && selectedReview())
+    if (["review-selected", "request-created", "review-started"].includes(reason) && selectedReview())
       timelineController.scrollToCursor();
   } else if (["fit", "zoom", "pan", "focal-point"].includes(reason))
     updateScvTransform();
@@ -955,38 +963,27 @@ async function dispatch(action, element) {
       cameraController.next();
       break;
     case "create-request": {
-      openRequestModal(element.dataset.side);
+      if (state.activeReviewId) {
+        toast("Finish or delete the active review before starting another.", "warning");
+        break;
+      }
+      await reviewController.createRequest(element.dataset.side, {
+        timestamp: serverClock.now(), startImmediately: true,
+      });
       break;
     }
     case "select-review":
-      await reviewController.selectReview(element.dataset.reviewId);
-      break;
-    case "start-review":
-      await reviewController.startReview();
-      break;
-    case "resolve-without-review":
-      await reviewController.resolveWithoutReview();
-      toast(
-        "Request preserved as Resolved without Review. No RST was created.",
-      );
+      await reviewController.selectReview(element.dataset.reviewId, undefined, true);
       break;
     case "delete-request": {
-      const review = selectedReview();
+      const review = activeReview() || selectedReview();
       if (!review || !(await confirmRequestDeletion(review))) break;
       if (await reviewController.deleteRequest())
         toast(`Request ${reviewName(review)} deleted.`, "success");
       break;
     }
     case "set-result":
-      await reviewController.setResult(element.dataset.result);
-      toast(
-        `${resultLabels[element.dataset.result]} recorded. Review clock stopped.`,
-        element.dataset.result === "accepted"
-          ? "success"
-          : element.dataset.result === "ivr_issue"
-            ? "warning"
-            : "danger",
-      );
+      openRequestModal(element.dataset.result);
       break;
     case "unselect-review":
       await reviewController.deselect(true);
@@ -1095,6 +1092,7 @@ async function dispatch(action, element) {
         await reviewController.createCoachRequest(
           prior.side === "chung" ? "hong" : "chung",
           {
+            startImmediately: true,
             linkedReviewId: prior.id,
             issues: ["Gam-jeom given to the wrong player"],
           },
@@ -1199,6 +1197,7 @@ async function bootstrapApp() {
           await reviewController.selectReview(
             this.dataset.reviewId,
             this.classList.contains("aur-mark") ? Number(this.dataset.time) : undefined,
+            true,
           );
         } catch (error) {
           toast(error.message, "warning");
@@ -1211,14 +1210,12 @@ async function bootstrapApp() {
     });
     $("#requestOrigin, #requestIssueType").on("change", updateRequestReasons);
     $("#requestReason").on("change", updateRequestReasonDetails);
-    $("#requestForm").on("submit", submitRequest);
+    $("#requestForm").on("submit", submitDecision);
     $("#requestModal").on("hide.bs.modal", (event) => {
-      if (pendingRequest?.saving) event.preventDefault();
+      if (pendingDecision?.saving) event.preventDefault();
     });
     $("#requestModal").on("hidden.bs.modal", () => {
-      pendingRequest = null;
-      state.provisionalRequest = null;
-      timelineController.renderAnnotations();
+      pendingDecision = null;
     });
     $("#requestModal").on("keydown", (event) => {
       event.stopPropagation();

@@ -11,6 +11,8 @@ import { mockServer } from "./mock-server.js";
 import { playbackController } from "./playback-controller.js";
 import { serverClock } from "./server-clock.js";
 
+const requestPrerollSeconds = 10;
+
 function useResponse(response, selectedId) {
   const serverTime = response.data.serverTime;
   if (serverTime?.epochSeconds != null)
@@ -40,25 +42,43 @@ export const reviewController = {
     return execute(async () => {
       const previousId = state.currentRequest;
       const preserveActiveContext = !!(previousId || state.activeReviewId);
-      const response = await mockServer.createRequest({
-        ring: state.ring,
-        side,
-        matchNumber: state.match?.number ?? "",
-        round: state.match?.round ?? state.round ?? 1,
-        origin: options.origin || "coach",
-        issueType: options.issueType || "standard",
-        reason: options.reason || options.issues?.[0] || "",
-        issues: options.issues || [],
-        linkedReviewId: options.linkedReviewId || null,
-        timestamp: Number(options.timestamp ?? serverClock.now()),
-        preserveSelection: preserveActiveContext,
-      });
-      const review = useResponse(response, previousId);
-      if (!preserveActiveContext) {
-        state.playbackCursor = review.rm;
-        state.playbackState = "paused";
-        state.isPlaying = false;
+      const timestamp = Number(options.timestamp ?? serverClock.now());
+      if (state.reviewRequestPending) return;
+      const pauseForRequest = (options.startImmediately || !preserveActiveContext) && !state.activeReviewId;
+      let response;
+      try {
+        if (pauseForRequest) {
+          state.reviewRequestPending = true;
+          if (!state.timelineFixedEnd && Number.isFinite(timestamp))
+            state.timelineRange.end = Math.max(state.timelineRange.end, timestamp);
+          playbackController.pause();
+        }
+        response = await mockServer.createRequest({
+          ring: state.ring,
+          side,
+          matchNumber: state.match?.number ?? "",
+          round: state.match?.round ?? state.round ?? 1,
+          origin: options.origin || "coach",
+          issueType: options.issueType || "standard",
+          reason: options.reason || options.issues?.[0] || "",
+          issues: options.issues || [],
+          linkedReviewId: options.linkedReviewId || null,
+          timestamp,
+          preserveSelection: preserveActiveContext,
+          startImmediately: options.startImmediately === true,
+        });
+      } finally {
+        if (pauseForRequest) state.reviewRequestPending = false;
       }
+      const review = useResponse(response, previousId);
+      if (review.status === "active") {
+        playbackController.seekTo(review.rm - requestPrerollSeconds, false);
+        playbackController.syncServerTime(review.rst);
+        notify("review-started");
+        return review;
+      }
+      if (!preserveActiveContext)
+        playbackController.seekTo(review.rm - requestPrerollSeconds, false);
       notify(preserveActiveContext ? "request-queued" : "request-created");
       return review;
     });
@@ -71,7 +91,6 @@ export const reviewController = {
         await mockServer.startReview({ ring: state.ring, reviewId: review.id }),
         review.id,
       );
-      state.timelineRange.end = state.liveEdge;
       state.isPlaying = false;
       state.playbackState = "paused";
       notify("review-started");
@@ -104,6 +123,7 @@ export const reviewController = {
         }),
         null,
       );
+      playbackController.syncServerTime(state.liveEdge);
       notify("review-updated");
       return true;
     });
@@ -124,15 +144,16 @@ export const reviewController = {
       return result;
     });
   },
-  async setResult(result) {
+  async setResult(result, details, reviewId = state.activeReviewId) {
     const review = activeReview();
-    if (!review?.rst) return;
+    if (!review?.rst || review.id !== reviewId) return;
     return execute(async () => {
       const updated = useResponse(
         await mockServer.setResult({
           ring: state.ring,
           reviewId: review.id,
           result,
+          details,
         }),
         review.id,
       );
@@ -175,23 +196,22 @@ export const reviewController = {
       return true;
     });
   },
-  async selectReview(id, timestamp) {
+  async selectReview(id, timestamp, startImmediately = false) {
     const target = state.reviewHistory.find((review) => review.id === id);
     if (!target || (state.activeReviewId && state.activeReviewId !== id))
       return false;
     if (["pending", "selected"].includes(target.status))
-      await execute(async () =>
-        useResponse(
-          await mockServer.selectReview({ ring: state.ring, reviewId: id }),
-          id,
-        ),
-      );
+      await execute(async () => {
+        const response = await mockServer.selectReview({ ring: state.ring, reviewId: id, startImmediately });
+        const review = useResponse(response, id);
+        if (review.status === "active") playbackController.syncServerTime(review.rst);
+      });
     else {
       state.currentRequest = id;
       syncDisplayedReview();
     }
     const review = selectedReview();
-    state.timelineRange.end = state.liveEdge;
+    if (!state.activeReviewId) state.timelineRange.end = state.liveEdge;
     playbackController.seekTo(timestamp ?? review.rm, false);
     notify("review-selected");
     return true;
@@ -202,7 +222,7 @@ export const reviewController = {
     const i = reviews.findIndex(review => review.id === state.currentRequest);
     const target = i >= 0 ? reviews[i - 1]
       : [...reviews].reverse().find(review => review.rm < state.playbackCursor);
-    if (target) return this.selectReview(target.id);
+    if (target) return this.selectReview(target.id, undefined, true);
   },
   next() {
     if (state.activeReviewId) return;
@@ -210,7 +230,7 @@ export const reviewController = {
     const i = reviews.findIndex(review => review.id === state.currentRequest);
     const target = i >= 0 ? reviews[i + 1]
       : reviews.find(review => review.rm > state.playbackCursor);
-    if (target) return this.selectReview(target.id);
+    if (target) return this.selectReview(target.id, undefined, true);
   },
   jumpAur() {
     const review = selectedReview();

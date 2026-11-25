@@ -40,9 +40,11 @@ test('request selection, queuing, RM limits, formal timing and completion', asyn
     records.forEach(r => { r.status = r.id === reviewId ? 'selected' : 'pending'; });
     return response(records.find(r => r.id === reviewId));
   };
-  api.setResult = async ({ reviewId, result }) => {
+  const decisionDetails = { origin: 'referee', issueType: 'technical', reason: 'Scoreboard entry' };
+  api.setResult = async ({ reviewId, result, details }) => {
+    assert.deepEqual(details, decisionDetails);
     const item = records.find(r => r.id === reviewId);
-    Object.assign(item, { status: 'completed', result });
+    Object.assign(item, details, { status: 'completed', result });
     return response(item);
   };
   api.review = async action => {
@@ -55,7 +57,7 @@ test('request selection, queuing, RM limits, formal timing and completion', asyn
   replaceReviews([], null);
   await review.createRequest('chung', { timestamp: 120 });
   assert.equal(selectedReview().id, '1');
-  assert.equal(state.playbackCursor, 120);
+  assert.equal(state.playbackCursor, 110);
   playback.seekTo(110);
   await review.createRequest('hong', { timestamp: 130 });
   assert.equal(selectedReview().id, '1');
@@ -81,20 +83,27 @@ test('request selection, queuing, RM limits, formal timing and completion', asyn
   await review.startReview();
   assert.equal(state.playbackCursor, 120);
   playback.syncServerTime(170);
-  assert.equal(state.timelineRange.end, 170);
+  assert.equal(state.timelineRange.end, 149);
+  playback.playPause();
+  playback.syncServerTime(175);
+  assert.equal(state.timelineRange.end, 149);
   playback.seekTo(160);
-  assert.equal(state.playbackCursor, 160);
-  assert.equal(state.liveEdge, 170);
+  assert.equal(state.playbackCursor, 149);
+  assert.equal(state.liveEdge, 175);
   assert.equal(await review.selectReview('2'), false);
   assert.equal(await review.deselect(), false);
   playback.goLive();
   assert.equal(state.playbackCursor, 120);
   assert.equal(state.currentRequest, '1');
-  await review.setResult('accepted');
+  assert.equal(await review.setResult('accepted', decisionDetails, 'stale-review'), undefined);
+  assert.equal(state.activeReviewId, '1');
+  const completed = await review.setResult('accepted', decisionDetails, '1');
+  assert.equal(completed.reason, decisionDetails.reason);
   assert.equal(state.currentRequest, null);
   assert.equal(state.activeReviewId, null);
   assert.equal(state.playbackState, 'live');
-  assert.equal(state.playbackCursor, 170);
+  assert.equal(state.playbackCursor, 175);
+  assert.equal(state.timelineRange.end, 175);
   await review.selectReview('1');
   assert.equal(state.playbackCursor, 120);
   await review.createRequest('hong', { timestamp: 175 });
@@ -104,6 +113,55 @@ test('request selection, queuing, RM limits, formal timing and completion', asyn
   assert.equal(selectedReview(), null);
   playback.seekTo(160);
   assert.equal(state.playbackCursor, 160);
+});
+
+test('creating a request pauses ten seconds before RM or at round start', async () => {
+  const { state } = await import(moduleUrl('state.js'));
+  const { reviewController } = await import(moduleUrl('review-controller.js'));
+  const { playbackController } = await import(moduleUrl('playback-controller.js'));
+  const { mockServer } = await import(moduleUrl('mock-server.js'));
+  const createRequest = mockServer.createRequest;
+  const previousState = { ...state };
+  const review = { id: 'new', side: 'hong', status: 'active', rm: 130, rst: 145 };
+  mockServer.createRequest = async body => {
+    assert.equal(body.startImmediately, true);
+    assert.equal(body.side, 'hong');
+    assert.equal(body.timestamp, 130);
+    assert.equal(state.playbackState, 'paused');
+    assert.equal(state.isPlaying, false);
+    playbackController.syncServerTime(142);
+    assert.equal(state.timelineRange.end, 130);
+    return { data: { review, reviews: [review], workflow: { activeReviewId: review.id } } };
+  };
+  try {
+    for (const [roundStart, expectedCursor] of [[50, 120], [125, 125]]) {
+      Object.assign(state, {
+        currentRequest: null, activeReviewId: null, selectedReviewId: null,
+        timelineRange: { start: roundStart, end: 129 }, timelineFixedEnd: false,
+        liveEdge: 129, playbackCursor: 129, playbackState: 'live', isPlaying: true,
+      });
+      await reviewController.createRequest('hong', { timestamp: 130, startImmediately: true });
+      assert.equal(state.activeReviewId, review.id);
+      assert.equal(state.currentRequest, review.id);
+      assert.equal(state.rst, 145);
+      assert.equal(state.playbackCursor, expectedCursor);
+      assert.equal(state.timelineRange.end, 130);
+      assert.equal(state.playbackState, 'paused');
+      assert.equal(state.isPlaying, false);
+      playbackController.syncServerTime(150);
+      assert.equal(state.liveEdge, 150);
+      assert.equal(state.timelineRange.end, 130);
+      playbackController.playPause();
+      playbackController.syncServerTime(155);
+      assert.equal(state.timelineRange.end, 130);
+      playbackController.setRate(2);
+      playbackController.syncServerTime(160);
+      assert.equal(state.timelineRange.end, 130);
+    }
+  } finally {
+    mockServer.createRequest = createRequest;
+    Object.assign(state, previousState);
+  }
 });
 
 test('timeline uses RM markers and a side-specific connector without windows', async () => {
@@ -116,7 +174,7 @@ test('timeline uses RM markers and a side-specific connector without windows', a
   global.document = { querySelectorAll: () => [] };
   const { timelineController } = await import(moduleUrl('timeline-controller.js'));
   Object.assign(state, { timelineRange: { start: 50, end: 150 }, currentRequest: 'R001-123456',
-    activeReviewId: null, provisionalRequest: null,
+    activeReviewId: null,
     reviewHistory: [{ id: 'R001-123456', side: 'hong', rm: 120, rst: 125, aur: 110, status: 'completed' }] });
   timelineController.renderAnnotations();
   const html = elements.get('#timelineAnnotations');
@@ -125,11 +183,7 @@ test('timeline uses RM markers and a side-specific connector without windows', a
   assert.doesNotMatch(html, /<span>RM<\/span>/);
   assert.match(html, /aur-connector hong" data-start="110" data-end="120"/);
   assert.doesNotMatch(html, /review-window|rst-mark|<span>RST<\/span>/);
-  state.provisionalRequest = { side: 'chung', rm: 140 };
-  timelineController.renderAnnotations();
-  assert.match(elements.get('#timelineAnnotations'), /provisional" data-time="140"/);
   state.currentRequest = null;
-  state.provisionalRequest = null;
   timelineController.renderAnnotations();
   assert.doesNotMatch(elements.get('#timelineAnnotations'), /aur-connector|provisional/);
 });
@@ -166,7 +220,7 @@ test('timeline centers a selected request, allows review scrolling, and returns 
   };
   Object.assign(state, {
     cameras: [], reviewHistory: [], psselEvents: [], currentRequest: null,
-    activeReviewId: null, provisionalRequest: null,
+    activeReviewId: null,
     timelineRange: { start: 50, end: 55 },
   });
   timelineController.initialize();

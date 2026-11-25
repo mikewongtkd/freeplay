@@ -46,12 +46,12 @@ test('review workflow keeps displayed, selected, and active identities separate'
   assert.match(state, /review\.status === "active"/);
 });
 
-test('active review leaves the timeline running and completion returns to live', () => {
+test('timeline growth is gated separately from the live edge and completion returns to live', () => {
   const review = read('assets/js/review-controller.js');
   const playback = read('assets/js/playback-controller.js');
   assert.doesNotMatch(review, /state\.timelineRange\.end = active\.rst/);
   assert.match(review, /playbackController\.goLive\(\)/);
-  assert.match(playback, /if \(state\.activeReviewId \|\| !selectedReview\(\)\)\s+state\.timelineRange\.end = state\.liveEdge/);
+  assert.match(playback, /state\.liveEdge = Number\(serverSeconds\);\s+if \(!timelineGrowthPaused\(\)\)\s+state\.timelineRange\.end = state\.liveEdge/);
   assert.match(playback, /state\.isPlaying = true;\s+state\.playbackRate = 1;\s+state\.playbackState = "live"/);
 });
 
@@ -106,13 +106,14 @@ test('replacing an AUR requires keyboard-accessible confirmation', () => {
   assert.match(modals, /<kbd>Esc<\/kbd> cancel · <kbd>Enter<\/kbd> replace/);
 });
 
-test('request modal captures server time and replaces window move handling', () => {
+test('request creation starts immediately and each decision opens the details modal', () => {
   const app = read('assets/js/app.js');
   const modals = read('includes/modals.php');
-  assert.match(app, /pendingRequest = \{ side, timestamp: serverClock\.now\(\) \}/);
-  assert.match(app, /openRequestModal\(element\.dataset\.side\)/);
+  assert.match(app, /case "create-request":[\s\S]*?createRequest\(element\.dataset\.side, \{\s*timestamp: serverClock\.now\(\), startImmediately: true/);
+  assert.match(app, /case "set-result":\s*openRequestModal\(element\.dataset\.result\)/);
+  assert.match(app, /reviewController\.setResult\(decision\.result, \{/);
   assert.match(modals, /id="requestForm"/);
-  assert.doesNotMatch(app, /confirmReviewWindowMove|windowStart|windowEnd/);
+  assert.match(modals, />Save decision<\/button>/);
 });
 
 test('delete request requires confirmation and updates the server-backed review list', () => {

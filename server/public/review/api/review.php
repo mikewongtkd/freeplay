@@ -26,6 +26,13 @@ function ivr_has_status(array $reviews, array $statuses): bool
     return false;
 }
 
+function ivr_activate_review(array &$review, array $now): void
+{
+    $review['status'] = 'active';
+    $review['rst'] = $now['epochSeconds'];
+    $review['rstEpochUs'] = $now['epochUs'];
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $ring = ivr_ring();
     $reviews =& ivr_ring_reviews($ring);
@@ -44,6 +51,10 @@ if ($action === 'reset') {
 }
 
 if ($action === 'create-request') {
+    $startImmediately = !empty($body['startImmediately']);
+    if ($startImmediately && ivr_has_status($reviews, ['active'])) {
+        ivr_json(['ok' => false, 'error' => ['code' => 'active_review_locked', 'message' => 'Finish or delete the active review before starting another.']], 409);
+    }
     $side = in_array($body['side'] ?? '', ['chung', 'hong'], true) ? $body['side'] : 'chung';
     $origin = in_array($body['origin'] ?? '', ['coach', 'referee'], true) ? $body['origin'] : 'coach';
     $issueType = ($body['issueType'] ?? '') === 'technical' ? 'technical' : 'standard';
@@ -71,6 +82,11 @@ if ($action === 'create-request') {
         'status' => ($hasOpenRequest || !empty($body['preserveSelection'])) ? 'pending' : 'selected', 'issues' => $issues ?: [$reason],
         'linkedReviewId' => $body['linkedReviewId'] ?? null, 'annotation' => [],
     ];
+    if ($startImmediately) {
+        foreach ($reviews as &$item) if (($item['status'] ?? '') === 'selected') $item['status'] = 'pending';
+        unset($item);
+        ivr_activate_review($review, $now);
+    }
     $reviews[] = $review;
     ivr_review_response($reviews, $review, $now);
 }
@@ -110,12 +126,16 @@ switch ($action) {
         }
         foreach ($reviews as &$item) if (($item['status'] ?? '') === 'selected') $item['status'] = 'pending';
         unset($item);
-        $review['status'] = 'selected';
+        if (!empty($body['startImmediately'])) {
+            ivr_activate_review($review, $now);
+        } else {
+            $review['status'] = 'selected';
+        }
         break;
     case 'start':
         if ($review['status'] !== 'selected') ivr_json(['ok' => false, 'error' => ['code' => 'invalid_state', 'message' => 'Select this request before starting formal review.']], 409);
         if (ivr_has_status($reviews, ['active'])) ivr_json(['ok' => false, 'error' => ['code' => 'active_review_locked', 'message' => 'Another review is already active for this ring.']], 409);
-        $review['rst'] = $now['epochSeconds']; $review['rstEpochUs'] = $now['epochUs']; $review['status'] = 'active';
+        ivr_activate_review($review, $now);
         break;
     case 'mark-aur':
         if (!in_array($review['status'], ['active', 'completed'], true)) ivr_json(['ok' => false, 'error' => ['code' => 'invalid_state', 'message' => 'Start review before marking AUR.']], 409);
@@ -132,6 +152,21 @@ switch ($action) {
     case 'set-result':
         $result = (string) ($body['result'] ?? '');
         if ($review['status'] !== 'active' || !in_array($result, ['accepted', 'rejected', 'ivr_issue'], true)) ivr_json(['ok' => false, 'error' => ['code' => 'invalid_state', 'message' => 'A valid formal result requires an active review.']], 409);
+        if (array_key_exists('details', $body)) {
+            $details = $body['details'];
+            if (!is_array($details)
+                || !in_array($details['origin'] ?? null, ['coach', 'referee'], true)
+                || !in_array($details['issueType'] ?? null, ['standard', 'technical'], true)
+                || !is_string($details['reason'] ?? null)
+                || trim($details['reason']) === '') {
+                ivr_json(['ok' => false, 'error' => ['code' => 'invalid_details', 'message' => 'Choose an origin, issue type, and review reason.']], 400);
+            }
+            $review['origin'] = $details['origin'];
+            $review['isCoachRequest'] = $details['origin'] === 'coach';
+            $review['issueType'] = $details['issueType'];
+            $review['reason'] = trim($details['reason']);
+            $review['issues'][0] = $review['reason'];
+        }
         $review['result'] = $result; $review['decisionAt'] = $now['epochSeconds']; $review['status'] = 'completed';
         $review['reviewDurationSeconds'] = max(0, $review['decisionAt'] - (float) $review['rst']);
         break;

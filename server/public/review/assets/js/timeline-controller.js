@@ -1,5 +1,5 @@
 import { state, activeReview, reviewName } from "./state.js";
-import { playbackController } from "./playback-controller.js";
+import { playbackController, timelineGrowthPaused } from "./playback-controller.js";
 
 const $ = window.jQuery;
 const tickIntervalSeconds = 10;
@@ -174,10 +174,6 @@ export const timelineController = {
         })
         .join(""),
     );
-    if (state.provisionalRequest) {
-      const draft = state.provisionalRequest;
-      $("#timelineAnnotations").append(`<div class="annotation-marker request-mark ${draft.side} provisional" data-time="${draft.rm}"><span>RM</span></div>`);
-    }
     this.updatePositions();
   },
   renderPsselEvents() {
@@ -235,7 +231,7 @@ export const timelineController = {
     );
     const endSource = state.timelineFixedEnd
       ? "recording end"
-      : state.currentRequest && !state.activeReviewId
+      : timelineGrowthPaused()
         ? "paused"
         : "current time";
     $("#timelineRangeLabel").text(

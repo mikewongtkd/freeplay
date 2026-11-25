@@ -31,7 +31,6 @@ const commands = {
     document
       .querySelector('[data-action="create-request"][data-side="hong"]')
       ?.click(),
-  s: () => reviewController.startReview(),
 };
 
 export function installKeyboard() {

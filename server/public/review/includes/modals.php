@@ -1,6 +1,6 @@
 <div class="modal fade" id="requestModal" tabindex="-1" aria-labelledby="requestModalTitle" aria-hidden="true">
   <div class="modal-dialog"><form id="requestForm" class="modal-content">
-    <div class="modal-header"><h2 id="requestModalTitle" class="modal-title fs-5">Review request</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancel request"></button></div>
+    <div class="modal-header"><h2 id="requestModalTitle" class="modal-title fs-5">Review request</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cancel decision"></button></div>
     <div class="modal-body">
       <p id="requestModalContext" class="small text-secondary"></p>
       <label class="form-label" for="requestOrigin">Origin</label>
@@ -18,7 +18,7 @@
         <select id="requestGamJeomReason" name="gamJeomReason" class="form-select" disabled></select>
       </div>
     </div>
-    <div class="modal-footer"><span class="small text-secondary me-auto"><kbd>Esc</kbd> cancel · <kbd>Enter</kbd> save</span><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Create request</button></div>
+    <div class="modal-footer"><span class="small text-secondary me-auto"><kbd>Esc</kbd> cancel · <kbd>Enter</kbd> save</span><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button type="submit" class="btn btn-primary">Save decision</button></div>
   </form></div>
 </div>
 
