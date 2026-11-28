@@ -25,11 +25,25 @@
   }
   function ringCard(ring,cameras){
     const live=cameras.filter(c=>c.connected).length;
-    const badges=cameras.map(c=>{ const parts=cameraParts(c), state=status(c); return `<div><div class="text-center"><label class="small" for="camera-${esc(c.stream_id)}" class="form-label">Camera ${esc(parts.camera)}</label></div><button type="button" class="badge camera-status-badge text-bg-${state.cls}" data-stream-id="${esc(c.stream_id)}" aria-pressed="false" title="Show details for ${esc(c.stream_id)}">${state.label}</button></div></div>`; }).join('');
+    const buttons=[1,2,3].map(number=>{
+      const camera=cameras.find(c=>cameraParts(c).camera===number);
+      const state=status(camera||{});
+      const color=state.cls==='warning'?'danger':state.cls;
+      const icon=state.live?'fa-video':'fa-video-slash';
+      const attributes=camera?`data-stream-id="${esc(camera.stream_id)}" aria-pressed="false"`:'disabled';
+      const label=`Camera ${number}: ${state.label}`;
+      return `<button type="button" class="btn btn-sm btn-${color} camera-status-button text-nowrap" ${attributes} aria-label="${label}" title="${label}"><i class="fa-solid ${icon}" aria-hidden="true"></i> ${number}</button>`;
+    }).join('');
     return `<div class="col-12"><div class="card shadow-sm h-100 ring-card"><div class="card-body d-flex flex-column">
-      <div class="d-flex justify-content-between align-items-start gap-3"><div><h3 class="h5 mb-1">Ring ${esc(ring)}</h3><div class="small text-secondary">${live} of ${cameras.length} cameras live</div></div><a class="btn btn-primary btn-sm text-nowrap" href="review/index.php?ring=${encodeURIComponent(ring)}">Ring ${esc(ring)} IVR</a></div>
+      <div class="d-flex justify-content-between align-items-start gap-3">
+        <div>
+          <h3 class="h5 mb-1">Ring ${esc(ring)}</h3>
+          <div class="d-flex flex-wrap gap-2 my-2">${buttons}</div>
+          <div class="small text-secondary">${live} of ${cameras.length} cameras live</div>
+        </div>
+        <a class="btn btn-primary btn-sm text-nowrap" href="review/index.php?ring=${encodeURIComponent(ring)}">Ring ${esc(ring)} IVR</a>
+      </div>
       <div class="d-flex flex-wrap gap-2 mt-3"><a class="btn btn-sm btn-outline-primary" href="review/matches.php?ring=${encodeURIComponent(ring)}">View Ring ${esc(ring)} Matches</a><a class="btn btn-sm btn-outline-success" href="review/report.php?ring=${encodeURIComponent(ring)}">View Ring ${esc(ring)} Report</a></div>
-      <div class="d-flex flex-wrap gap-2 mt-3">${badges}</div>
     </div></div></div>`;
   }
   let selectedStreamId=null, camerasById=new Map();
@@ -37,8 +51,8 @@
     const c=camerasById.get(streamId); if(!c)return;
     selectedStreamId=streamId;
     $('#cameraDetails').html(details(c));
-    $('.camera-status-badge').attr('aria-pressed','false').removeClass('selected');
-    $('.camera-status-badge').filter(function(){return $(this).attr('data-stream-id')===streamId;}).attr('aria-pressed','true').addClass('selected');
+    $('.camera-status-button[data-stream-id]').attr('aria-pressed','false');
+    $('.camera-status-button[data-stream-id]').filter(function(){return $(this).attr('data-stream-id')===streamId;}).attr('aria-pressed','true');
   }
   function refresh(){ $.getJSON('api/cameras.php').done(r=>{
     const cams=r.cameras||[]; camerasById=new Map(cams.map(c=>[String(c.stream_id),c]));
@@ -48,9 +62,9 @@
     const html=[...rings.entries()].sort((a,b)=>a[0]-b[0]).map(([ring,cameras])=>ringCard(ring,cameras)).join('');
     $('#ringGrid').html(html||'<div class="col-12"><div class="alert alert-info">No cameras registered yet. Start freeplay.js, then connect a tablet.</div></div>');
     if(selectedStreamId&&camerasById.has(selectedStreamId))selectCamera(selectedStreamId);
-    else if(selectedStreamId){selectedStreamId=null; $('#cameraDetails').html('<div class="card shadow-sm border-secondary"><div class="card-body"><h2 id="cameraDetailsHeading" class="h5">Camera details</h2><p class="text-secondary mb-0">The selected camera is no longer registered. Select another camera status badge.</p></div></div>');}
+    else if(selectedStreamId){selectedStreamId=null; $('#cameraDetails').html('<div class="card shadow-sm border-secondary"><div class="card-body"><h2 id="cameraDetailsHeading" class="h5">Camera details</h2><p class="text-secondary mb-0">The selected camera is no longer registered. Select another camera button.</p></div></div>');}
     const n=cams.filter(x=>x.connected).length; $('#liveCount').text(n+' LIVE').attr('class','badge text-bg-'+(n?'success':'secondary')); $('#updatedAt').text(r.updated_at?'Updated '+new Date(r.updated_at).toLocaleTimeString():'');
   }); }
-  $('#ringGrid').on('click','.camera-status-badge',function(){selectCamera(String($(this).attr('data-stream-id')));});
+  $('#ringGrid').on('click','.camera-status-button[data-stream-id]',function(){selectCamera(String($(this).attr('data-stream-id')));});
   refresh(); setInterval(refresh,1000);
 })();

@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= htmlspecialchars($title) ?></title>
 <link href="vendor/bootstrap/5.3.3/css/bootstrap.min.css" rel="stylesheet">
+<link href="vendor/fontawesome-free/7.3.0/css/all.min.css" rel="stylesheet">
 <link href="css/app.css" rel="stylesheet">
 </head>
 <body class="bg-body-tertiary">
@@ -26,7 +27,7 @@
         <div class="card shadow-sm border-secondary">
           <div class="card-body">
             <h2 id="cameraDetailsHeading" class="h5">Camera details</h2>
-            <p class="text-secondary mb-0">Select a camera status badge to view its live metrics and history link.</p>
+            <p class="text-secondary mb-0">Select a camera button to view its live metrics and history link.</p>
           </div>
         </div>
       </div>
