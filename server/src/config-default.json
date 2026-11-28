@@ -1,6 +1,7 @@
 {
   "fpConf": {
     "root": "..",
+    "adminPass": "",
     "dataDir": "/data",
     "schemaPath": "share/freeplay/db/schema.sql",
     "db": "/data/freeplay.sqlite",

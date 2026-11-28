@@ -6,7 +6,8 @@
   "main": "freeplay.js",
   "scripts": {
     "start": "node freeplay.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "management": "node management/worker.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.10.0",

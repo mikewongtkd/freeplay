@@ -1,0 +1,32 @@
+# Run from the repository root:
+# docker compose -f deploy/docker/compose.management.yaml up --build -d management
+# This adds an independent INSPECTION-ONLY worker to the existing deployment.
+# It does not start/stop ingestion, mount host devices or expose a worker port.
+services:
+  management:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile.management
+    restart: "no" # A crash leaves a persistent lock for explicit recovery.
+    user: "${FREEPLAY_MANAGEMENT_UID:-33}:${FREEPLAY_MANAGEMENT_GID:-33}"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      FREEPLAY_CONFIG: /usr/local/freeplay/config.json
+    volumes:
+      - type: bind
+        source: ../../src/config.json
+        target: /usr/local/freeplay/config.json
+        read_only: true
+      - type: bind
+        source: ${FREEPLAY_DATA_HOST:?Set FREEPLAY_DATA_HOST to the existing absolute host data directory}
+        target: /data
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${FREEPLAY_SSD_HOST:?Set FREEPLAY_SSD_HOST to the mounted host SSD root}
+        target: /archives
+        read_only: true # Inspection does not need archive writes.
+        bind:
+          create_host_path: false
