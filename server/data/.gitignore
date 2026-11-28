@@ -1,3 +1,4 @@
 live-status.json
 freeplay.sqlite*
+management.sqlite*
 video/*
