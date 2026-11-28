@@ -76,7 +76,15 @@ port or shell endpoint.
    `docker compose -f deploy/docker/compose.management.yaml up --build -d management`.
    The image installs a container-native better-sqlite3 binary, not the host's
    possibly incompatible `src/node_modules` binary. PHP uses the files already
-   mounted under `/var/www/html`, including `public/admin/data/`.
+   mounted under `/var/www/html`, including `public/admin/data/`. The administrative
+   schema is outside the web root at `deploy/db/management.sql`; bind-mount the host
+   `deploy/db` directory read-only at `/opt/freeplay/db` in the PHP container
+   (included in `deploy/docker/Makefile`). Existing containers need that mount
+   added when recreated. `FREEPLAY_MANAGEMENT_SCHEMA` can override its location.
+   The console also honors `fpConf.schemaDir`, relative to the directory containing
+   `config.json`. Existing deployments mounting `deploy` at
+   `/usr/local/share/freeplay` can use `../share/freeplay/db`; no additional mount
+   is required for that layout.
 5. Open the console, log in if configured, and check worker availability. Enter
    `/archives` in the SSD form. A host macOS path such as `/Volumes/MySSD` will not
    work inside the container unless mounted there explicitly. The worker probes
@@ -108,6 +116,16 @@ verification, service isolation and activation require subsequent implementation
 
 ## Inspection, dates and dependencies
 
+- Inspect Snapshot displays a live stage message, stage progress bar, elapsed
+  time, and file/page counts. The console polls every three seconds and restores
+  the most recent inspection on reload. Remaining-time estimates use observed
+  throughput within the current stage; they are approximate, not a prediction
+  for the whole inspection. SQLite integrity and foreign-key checks have an
+  indeterminate bar because they expose no reliable completion percentage.
+  Stale updates are identified instead of counting down to a misleading zero.
+  Progress is stored in the existing administrative progress column; no schema
+  migration is required. Restart a running worker to load the updated code after
+  its current inspection has finished, then refresh the browser.
 - Inspection first uses the SQLite backup API with a read-only source connection.
   The consistent copy includes committed WAL transactions. It never copies only
   the active main database file or deletes WAL/SHM files.
@@ -119,9 +137,15 @@ verification, service isolation and activation require subsequent implementation
   preflight is still required before archive implementation. Do not run repeated
   large snapshots during a tournament without
   validating the I/O impact on disposable representative data first.
-- The date form defaults the end date to the start date. PHP timezone-aware
-  calendar arithmetic converts inclusive local days into `[start, next day)` UTC
-  boundaries; DST days can be 23 or 25 hours. Both boundaries appear in results.
+- Archive Data lists valid `YYYY-MM-DD` subdirectories from the configured video
+  root (`/data/video` by default), with a checkbox before each date. Files,
+  symlinks and invalid calendar dates are excluded. Refresh dates reloads the
+  list while preserving available selections. The recorder uses UTC directory
+  dates, so the browser submits a separate UTC day interval for each selected
+  checkbox; gaps between selected dates are not included. The button previews
+  the selected dates, not an archive creation operation. The API still accepts
+  explicit local date ranges for existing clients; timezone-aware calendar
+  arithmetic handles 23/25-hour DST days. UTC boundaries appear in results.
 - Media selection prefers indexed server-epoch GOP bounds; stream PTS and UTC
   directory names do not establish tournament membership. Selected boundary files
   retain all GOPs and report out-of-range dependencies. Unrelated media is not

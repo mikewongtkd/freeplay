@@ -28,19 +28,25 @@ function timestampUs(value) {
   return Number.isSafeInteger(result) ? result : null;
 }
 
-function inspect(db, {root, videoDir, limit = 1000}) {
+function inspect(db, {root, videoDir, limit = 1000, onProgress = () => {}}) {
   const findings = []; let total = 0;
   const add = (severity, table, row, code, evidence, action) => {
     total++;
     if (findings.length < limit) findings.push({severity, table, row, code, evidence, recommendedAction:action});
   };
   const tables = new Set(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all().map(r => r.name));
+  onProgress({phase:'tables',message:'Counting records in the snapshot',current:0,total:tables.size});
   const counts = {};
-  for (const name of tables) counts[name] = db.prepare(`SELECT count(*) AS n FROM "${name.replaceAll('"', '""')}"`).get().n;
+  for (const name of tables) {
+    counts[name] = db.prepare(`SELECT count(*) AS n FROM "${name.replaceAll('"', '""')}"`).get().n;
+    onProgress({phase:'tables',message:`Counted ${name}`,current:Object.keys(counts).length,total:tables.size});
+  }
+  onProgress({phase:'integrity',message:'Checking SQLite integrity. Large databases can take several minutes; SQLite does not provide a reliable percentage for this check.'});
   for (const result of db.prepare('PRAGMA integrity_check').all()) {
     const message = Object.values(result)[0];
     if (message !== 'ok') add('error', 'database', null, 'integrity', message, 'Preserve the source and recover from a verified backup.');
   }
+  onProgress({phase:'foreign-keys',message:'Checking database relationships. This check has no reliable time estimate.'});
   for (const result of db.prepare('PRAGMA foreign_key_check').all()) add('error', result.table, result.rowid, 'foreign_key', result, 'Resolve the missing relationship before extraction.');
   const checks = [
     ['sessions', "SELECT id FROM sessions WHERE ended_at IS NULL", 'unfinished_session', 'warning', 'Confirm whether the session is still recording; preserve incomplete footage.'],
@@ -54,13 +60,20 @@ function inspect(db, {root, videoDir, limit = 1000}) {
     ['ivr_review_requests', 'SELECT q.id,q.ring_id,m.ring_id AS match_ring FROM ivr_review_requests q JOIN ivr_matches m ON m.id=q.match_id WHERE q.ring_id<>m.ring_id', 'review_ring_mismatch', 'error', 'Resolve review/match ring assignments before extraction.'],
     ['ivr_matches', 'SELECT m.id,r.tournament_id,c.tournament_id AS competitor_tournament FROM ivr_matches m JOIN ivr_rings r ON r.id=m.ring_id JOIN ivr_competitors c ON c.id IN (m.chung_competitor_id,m.hong_competitor_id) WHERE c.tournament_id<>r.tournament_id', 'cross_tournament_competitor', 'error', 'Resolve competitor assignments before extraction.'],
   ];
+  let checked = 0;
   for (const [table, sql, code, severity, action] of checks) {
+    onProgress({phase:'records',message:`Checking ${table}: ${code.replaceAll('_',' ')}`,current:checked++,total:checks.length});
     if (!tables.has(table)) { add('error', table, null, 'missing_table', table, 'Schema is incompatible; do not migrate the source automatically.'); continue; }
     try { for (const row of db.prepare(sql).all()) add(severity, table, row.id, code, row, action); }
     catch (error) { add('error', table, null, 'unsupported_schema', error.message, 'Inspect the deployed schema and migrations.'); }
   }
+  onProgress({phase:'records',message:'Record checks finished',current:checks.length,total:checks.length});
   let referencedBytes = 0;
-  if (tables.has('files')) for (const file of db.prepare('SELECT * FROM files').all()) {
+  const files = tables.has('files') ? db.prepare('SELECT * FROM files').all() : [];
+  let checkedFiles = 0;
+  onProgress({phase:'media',message:`Checking referenced media and GOP byte ranges: 0 of ${files.length} files`,current:0,total:files.length});
+  for (const file of files) {
+    onProgress({phase:'media',message:`Checking file ${checkedFiles+1} of ${files.length}: ${file.path}`,current:checkedFiles,total:files.length});
     try {
       const resolved = mediaPath(root, videoDir, file.path);
       const stat = fs.statSync(resolved); referencedBytes += stat.size;
@@ -80,6 +93,7 @@ function inspect(db, {root, videoDir, limit = 1000}) {
     } catch (error) {
       add(file.complete ? 'error' : 'warning', 'files', file.id, 'unresolved_media', {path:file.path, reason:error.message}, 'Check configured roots, storage availability and incomplete-recording status.');
     }
+    onProgress({phase:'media',message:`Checked ${++checkedFiles} of ${files.length} files; ${total} findings so far`,current:checkedFiles,total:files.length});
   }
   return {counts, referencedBytes, findings, findingCount:total, findingsTruncated:total > limit,
     scope:'Consistent database snapshot and referenced-file metadata only; live media can change after snapshot.',

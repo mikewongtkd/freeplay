@@ -5,8 +5,8 @@ WORKDIR /usr/local/freeplay
 COPY src/package*.json ./
 RUN npm ci --omit=dev
 COPY src/management/ ./management/
-COPY public/admin/data/schema.sql /opt/freeplay/management-schema.sql
+COPY deploy/db/management.sql /opt/freeplay/db/management.sql
 ENV FREEPLAY_CONFIG=/usr/local/freeplay/config.json \
-    FREEPLAY_MANAGEMENT_SCHEMA=/opt/freeplay/management-schema.sql
+    FREEPLAY_MANAGEMENT_SCHEMA=/opt/freeplay/db/management.sql
 USER node
 CMD ["node", "management/worker.js"]

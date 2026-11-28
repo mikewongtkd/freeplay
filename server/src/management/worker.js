@@ -6,8 +6,18 @@ const path = require('node:path');
 const os = require('node:os');
 const crypto = require('node:crypto');
 const {inspect, datePreview, storageProbe} = require('./inspection');
+const {progressReporter} = require('./progress');
 const now = () => new Date().toISOString();
+const configPath=path.join(__dirname,'..','config.json');
+if(!fs.existsSync(configPath)) {
+  try {
+    fs.copyFileSync(path.join(__dirname,'config-default.json'),configPath,fs.constants.COPYFILE_EXCL);
+  } catch(err) {
+    if(err.code!=='EEXIST') throw err;
+  }
+}
 
+const {fpConf}=require(configPath);
 function configuration(configFile = process.env.FREEPLAY_CONFIG || path.join(__dirname,'..','config.json')) {
   const {fpConf:c} = JSON.parse(fs.readFileSync(configFile,'utf8'));
   if (!c || typeof c !== 'object') throw new Error('Missing fpConf');
@@ -55,6 +65,8 @@ async function executeNext(db, Database, config) {
     return item;
   }).immediate();
   if (!op) return false;
+  const report = progressReporter(db,op.id);
+  report({phase:'preparing',message:'Preparing inspection and checking snapshot space'});
   let source, snapshot;
   try {
     const params = JSON.parse(op.parameters);
@@ -85,20 +97,28 @@ async function executeNext(db, Database, config) {
       journal(db,op.id,'create-owned-directory','complete',{path:owned});
       const file = path.join(owned,'snapshot.sqlite');
       journal(db,op.id,'sqlite-backup','intent',{source:config.db,destination:file});
-      db.prepare('UPDATE operations SET progress=?,updated_at=? WHERE id=?').run('Backing up a consistent SQLite snapshot',now(),op.id);
+      report({phase:'backup',message:'Creating a consistent snapshot. Recording activity and database size affect copy time.'});
       source = new Database(config.db,{readonly:true,fileMustExist:true});
       source.pragma('busy_timeout=5000'); source.pragma('query_only=ON');
-      await source.backup(file);
+      await source.backup(file,{progress:({totalPages,remainingPages}) => {
+        report({phase:'backup',message:`Copying snapshot: ${totalPages-remainingPages} of ${totalPages} database pages`,current:totalPages-remainingPages,total:totalPages});
+        return 200;
+      }});
       source.close(); source = null;
       journal(db,op.id,'sqlite-backup','complete',{destination:file});
       snapshot = new Database(file,{readonly:true,fileMustExist:true}); snapshot.pragma('query_only=ON');
-      db.prepare('UPDATE operations SET progress=?,updated_at=? WHERE id=?').run('Inspecting snapshot; no source mutations',now(),op.id);
-      result = op.type === 'inspect' ? inspect(snapshot,config) : datePreview(snapshot,params.interval);
+      report({phase:'analysis',message:op.type === 'inspect' ? 'Starting snapshot checks' : 'Resolving date selection and dependencies; duration depends on database size'});
+      if (op.type === 'inspect') result = inspect(snapshot,{...config,onProgress:report});
+      else if (params.intervals) {
+        result = {selectedDates:params.dates,timezone:'UTC',previews:params.intervals.map(interval => datePreview(snapshot,interval)),
+          archiveEligible:false,policy:'Separate previews for the selected UTC recording dates only. Shared boundary dependencies can appear in more than one preview; counts must not be summed.'};
+      } else result = datePreview(snapshot,params.interval);
       result.snapshot = file;
       snapshot.close(); snapshot = null;
     } else throw new Error('Operation is not allowlisted');
     journal(db,op.id,'result','complete',{readOnlySource:true});
-    db.prepare("UPDATE operations SET state='completed',result=?,progress='Completed; source unchanged',updated_at=? WHERE id=?").run(JSON.stringify(result),now(),op.id);
+    report({phase:'complete',message:op.type === 'inspect' ? `Inspection complete: ${result.findingCount} findings. Source unchanged.` : 'Completed; source unchanged',current:1,total:1},true);
+    db.prepare("UPDATE operations SET state='completed',result=?,updated_at=? WHERE id=?").run(JSON.stringify(result),now(),op.id);
   } catch (error) {
     journal(db,op.id,'operation','error',{message:error.message, recovery:'Source was not modified. Preserve any operation-owned snapshot for diagnosis.'});
     db.prepare("UPDATE operations SET state='failed',error=?,progress='Failed; source unchanged',updated_at=? WHERE id=?").run(error.message,now(),op.id);
@@ -109,7 +129,7 @@ async function executeNext(db, Database, config) {
 async function main() {
   const Database = require('better-sqlite3');
   const config = configuration();
-  const candidates = [process.env.FREEPLAY_MANAGEMENT_SCHEMA,path.join(__dirname,'..','..','public','admin','data','schema.sql'),'/var/www/html/admin/data/schema.sql'].filter(Boolean);
+  const candidates = [path.join(fpConf.schemaDir,'management.sql'),'/usr/share/freeplay/db/management.sql', '/opt/freeplay/db/management.sql'].filter(Boolean);
   const schema = candidates.find(file => fs.existsSync(file));
   if (!schema) throw new Error('Management schema unavailable');
   const db = store(Database,config,schema), owner = crypto.randomUUID();

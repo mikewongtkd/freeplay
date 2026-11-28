@@ -17,7 +17,7 @@ class NativeAdapter {
   exec(sql) { return this.db.exec(sql); }
   pragma(sql) { return this.db.prepare('PRAGMA ' + sql).all(); }
   close() { this.db.close(); }
-  backup(file) { return sqlite.backup(this.db,file); }
+  backup(file, options = {}) { return sqlite.backup(this.db,file,options); }
   transaction(fn) {
     const run = () => { this.db.exec('BEGIN IMMEDIATE'); try { const result = fn(); this.db.exec('COMMIT'); return result; } catch (error) { this.db.exec('ROLLBACK'); throw error; } };
     run.immediate = run; return run;
@@ -96,7 +96,7 @@ test('media paths reject traversal, symlinks and missing files',t=>{
 test('admin lock and operation constraint reject concurrency; WAL snapshot includes committed data',async t=>{
   const f=fixture(t);if(!f)return;
   const cfg={...f,db:f.dbFile,managementDb:path.join(f.root,'management.sqlite')};
-  const admin=store(f.Driver,cfg,path.join(__dirname,'../../public/admin/data/schema.sql'));
+  const admin=store(f.Driver,cfg,path.join(__dirname,'../../deploy/db/management.sql'));
   t.after(()=>admin.close());
   acquire(admin,'first');
   assert.throws(()=>acquire(admin,'second'),/lock exists/);
@@ -118,7 +118,7 @@ test('admin lock and operation constraint reject concurrency; WAL snapshot inclu
 test('failed snapshot preserves live database and reports failure',async t=>{
   const f=fixture(t);if(!f)return;
   const cfg={...f,db:path.join(f.root,'missing.sqlite'),managementDb:path.join(f.root,'management.sqlite')};
-  const admin=store(f.Driver,cfg,path.join(__dirname,'../../public/admin/data/schema.sql'));t.after(()=>admin.close());
+  const admin=store(f.Driver,cfg,path.join(__dirname,'../../deploy/db/management.sql'));t.after(()=>admin.close());
   const id='c'.repeat(32),time=new Date().toISOString();
   admin.prepare("INSERT INTO operations(id,type,state,parameters,created_at,updated_at) VALUES (?,'inspect','queued','{}',?,?)").run(id,time,time);
   await executeNext(admin,f.Driver,cfg);
@@ -181,6 +181,10 @@ test('HTTP console enforces password, CSRF, operation allowlist and queue exclus
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'freeplay-admin-http-'));
   const configFile=path.join(root,'config.json');
   const config={fpConf:{adminPass:hash.stdout,dataDir:root,db:path.join(root,'source.sqlite')}};
+  config.fpConf.videoDir=path.join(root,'video');fs.mkdirSync(config.fpConf.videoDir);
+  for (const day of ['2026-11-03','2026-11-01','2026-02-30','unrelated']) fs.mkdirSync(path.join(config.fpConf.videoDir,day));
+  fs.writeFileSync(path.join(config.fpConf.videoDir,'2026-11-02'),'not a directory');
+  fs.symlinkSync(root,path.join(config.fpConf.videoDir,'2026-11-04'));
   fs.writeFileSync(configFile,JSON.stringify(config));
   const {spawn}=require('node:child_process');
   const server=spawn(php,['-d','session.save_path='+root,'-S','127.0.0.1:'+port,'-t',path.join(__dirname,'../../public')],{env:{...process.env,FREEPLAY_CONFIG:configFile},stdio:['ignore','ignore','pipe']});
@@ -207,6 +211,19 @@ test('HTTP console enforces password, CSRF, operation allowlist and queue exclus
   assert.equal(queued.status,202);const {data:{id}}=await queued.json();
   assert.equal((await post({action:'inspect'})).status,409);
   assert.equal((await post({action:'cancel',id})).status,200);
+  const listed=await fetch(base+'api.php?action=video-dates',{headers:{Cookie:loggedCookie}});
+  assert.deepEqual((await listed.json()).data.dates,['2026-11-01','2026-11-03']);
+  assert.equal((await post({action:'date-preview',dates:[]})).status,400);
+  assert.equal((await post({action:'date-preview',dates:['2026-11-02']})).status,400);
+  const days=await post({action:'date-preview',dates:['2026-11-03','2026-11-01']});
+  assert.equal(days.status,202);
+  const dayId=(await days.json()).data.id;
+  const dayDetail=await fetch(base+'api.php?id='+dayId,{headers:{Cookie:loggedCookie}});
+  const params=JSON.parse((await dayDetail.json()).data.operation.parameters);
+  assert.deepEqual(params.dates,['2026-11-01','2026-11-03']);
+  assert.equal(params.intervals.length,2);
+  assert.ok(params.intervals.every(interval=>interval.timezone==='UTC'&&interval.endUs-interval.startUs===86400000000));
+  assert.equal((await post({action:'cancel',id:dayId})).status,200);
   const status=await fetch(base+'api.php',{headers:{Cookie:loggedCookie}});
   assert.equal((await status.json()).data.mode.mode,'INSPECTION_ONLY');
   config.fpConf.adminPass='';fs.writeFileSync(configFile,JSON.stringify(config));
@@ -219,7 +236,7 @@ test('HTTP console enforces password, CSRF, operation allowlist and queue exclus
 test('snapshot capacity failure creates no owned snapshot and preserves source',async t=>{
   const f=fixture(t);if(!f)return;
   const cfg={...f,db:f.dbFile,managementDb:path.join(f.root,'management.sqlite')};
-  const admin=store(f.Driver,cfg,path.join(__dirname,'../../public/admin/data/schema.sql'));t.after(()=>admin.close());
+  const admin=store(f.Driver,cfg,path.join(__dirname,'../../deploy/db/management.sql'));t.after(()=>admin.close());
   const id='d'.repeat(32),time=new Date().toISOString();
   admin.prepare("INSERT INTO operations(id,type,state,parameters,created_at,updated_at) VALUES (?,'inspect','queued','{}',?,?)").run(id,time,time);
   t.mock.method(fs,'statfsSync',()=>({bavail:0,bsize:4096}));
@@ -228,4 +245,56 @@ test('snapshot capacity failure creates no owned snapshot and preserves source',
   assert.equal(op.state,'failed');assert.match(op.error,/Insufficient local space/);
   assert.equal(fs.existsSync(path.join(f.root,'management-work')),false);
   assert.equal(f.db.prepare('SELECT count(*) AS n FROM files').get().n,2);
+});
+
+test('inspection reports ordered check stages and measured file progress',t=>{
+  const f=fixture(t);if(!f)return;
+  const updates=[];
+  const result=inspect(f.db,{...f,onProgress:update=>updates.push(update)});
+  assert.deepEqual([...new Set(updates.map(update=>update.phase))],['tables','integrity','foreign-keys','records','media']);
+  const media=updates.filter(update=>update.phase==='media');
+  assert.equal(media[0].current,0);assert.equal(media[0].total,2);
+  assert.equal(media.at(-1).current,2);assert.equal(media.at(-1).total,2);
+  assert.ok(updates.find(update=>update.phase==='integrity').message.includes('does not provide a reliable percentage'));
+  assert.equal(result.counts.files,2);
+});
+
+test('progress persists stage-local estimates, throttles updates and resets unknown stages',t=>{
+  const f=fixture(t);if(!f)return;
+  const {progressReporter}=require('../management/progress');
+  const cfg={managementDb:path.join(f.root,'management.sqlite')};
+  const admin=store(f.Driver,cfg,path.join(__dirname,'../../deploy/db/management.sql'));t.after(()=>admin.close());
+  const id='e'.repeat(32),time=new Date().toISOString();
+  admin.prepare("INSERT INTO operations(id,type,state,parameters,created_at,updated_at) VALUES (?,'inspect','running','{}',?,?)").run(id,time,time);
+  let clock=100000;
+  const report=progressReporter(admin,id,()=>clock);
+  const read=()=>JSON.parse(admin.prepare('SELECT progress FROM operations WHERE id=?').get(id).progress);
+  report({phase:'media',message:'Checking media',current:0,total:100});
+  assert.equal(read().etaSeconds,null);
+  clock+=5000;report({phase:'media',message:'10 checked',current:10,total:100});
+  assert.equal(read().percent,10);assert.equal(read().etaSeconds,45);
+  clock+=100;report({phase:'media',message:'11 checked',current:11,total:100});
+  assert.equal(read().current,10);
+  report({phase:'integrity',message:'Checking integrity'});
+  assert.equal(read().percent,null);assert.equal(read().etaSeconds,null);
+  report({phase:'complete',message:'Finished',current:1,total:1},true);
+  assert.equal(read().percent,100);assert.equal(read().etaSeconds,null);
+  assert.equal(admin.prepare("SELECT count(*) AS n FROM operation_steps WHERE step='inspection-progress'").get().n,3);
+});
+
+test('selected-date worker previews preserve gaps between UTC directory dates',async t=>{
+  const f=fixture(t);if(!f)return;
+  const cfg={...f,db:f.dbFile,managementDb:path.join(f.root,'management.sqlite')};
+  const admin=store(f.Driver,cfg,path.join(__dirname,'../../deploy/db/management.sql'));t.after(()=>admin.close());
+  const dates=['2026-11-27','2026-11-29'];
+  const intervals=dates.map(day=>({startUs:Date.parse(day+'T00:00:00Z')*1000,endUs:Date.parse(day+'T00:00:00Z')*1000+86400000000}));
+  const id='f'.repeat(32),time=new Date().toISOString();
+  admin.prepare("INSERT INTO operations(id,type,state,parameters,created_at,updated_at) VALUES (?,'date-preview','queued',?,?,?)").run(id,JSON.stringify({dates,intervals}),time,time);
+  await executeNext(admin,f.Driver,cfg);
+  const operation=admin.prepare('SELECT * FROM operations WHERE id=?').get(id);
+  assert.equal(operation.state,'completed',operation.error);
+  const result=JSON.parse(operation.result);
+  assert.deepEqual(result.selectedDates,dates);
+  assert.deepEqual(result.previews.map(preview=>preview.interval),intervals);
+  assert.ok(result.previews.every(preview=>!preview.selectedIds.events.includes(2)));
 });

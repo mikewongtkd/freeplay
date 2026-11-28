@@ -10,6 +10,7 @@ function management_config(): array
         $config = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
         if (!is_array($config['fpConf'] ?? null)) throw new RuntimeException('Invalid fpConf configuration.');
         $conf = $config['fpConf'];
+        $conf['_configDir'] = dirname(realpath($path));
         if (isset($conf['adminPass']) && !is_string($conf['adminPass'])) throw new RuntimeException('adminPass must be a password_hash string or blank.');
         $hash = $conf['adminPass'] ?? '';
         if ($hash !== '' && (password_get_info($hash)['algoName'] ?? 'unknown') === 'unknown') {
@@ -62,8 +63,45 @@ function management_store(array $conf): PDO
     }
     $db = new PDO('sqlite:' . $conf['managementDb'], null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
     $db->exec('PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;');
-    $db->exec((string) file_get_contents(__DIR__ . '/schema.sql'));
+    $override = getenv('FREEPLAY_MANAGEMENT_SCHEMA');
+    $candidates = [];
+    if ($override) {
+        $candidates[] = $override;
+    } else {
+        if (!empty($conf['schemaDir'])) {
+            $base = $conf['_configDir'] ?? dirname(__DIR__, 3) . '/src';
+            $directory = str_starts_with($conf['schemaDir'], '/') ? $conf['schemaDir'] : $base . '/' . $conf['schemaDir'];
+            $candidates[] = rtrim($directory, '/') . '/management.sql';
+        }
+        $candidates[] = dirname(__DIR__, 3) . '/deploy/db/management.sql';
+        $candidates[] = '/usr/local/share/freeplay/db/management.sql';
+        $candidates[] = '/usr/share/freeplay/db/management.sql';
+        $candidates[] = '/opt/freeplay/db/management.sql';
+    }
+    $schema = false;
+    foreach ($candidates as $candidate) {
+        if (is_readable($candidate)) { $schema = file_get_contents($candidate); break; }
+    }
+    if ($schema === false) throw new RuntimeException('Administrative schema is unavailable. Check the schema path or Docker mount.');
+    $db->exec($schema);
     return $db;
+}
+
+function management_video_dates(array $conf): array
+{
+    $root = $conf['videoDir'] ?? rtrim($conf['dataDir'] ?? '/data', '/') . '/video';
+    if (!is_dir($root) || !is_readable($root) || is_link($root)) {
+        throw new RuntimeException('The configured video directory is unavailable or unsafe.');
+    }
+    $dates = [];
+    foreach (new DirectoryIterator($root) as $entry) {
+        $name = $entry->getFilename();
+        if ($entry->isDot() || $entry->isLink() || !$entry->isDir() || !preg_match('/^\d{4}-\d{2}-\d{2}$/D', $name)) continue;
+        $date = DateTimeImmutable::createFromFormat('!Y-m-d', $name, new DateTimeZone('UTC'));
+        if ($date && $date->format('Y-m-d') === $name) $dates[] = $name;
+    }
+    sort($dates, SORT_STRING);
+    return ['root' => $root, 'dates' => $dates];
 }
 
 function management_interval(string $start, string $end, string $zone): array

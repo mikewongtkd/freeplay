@@ -39,9 +39,23 @@ $authorized = $conf !== null && management_authorized($conf);
 <div id="status" class="alert alert-info" aria-live="polite">Loading worker status…</div>
 <div class="alert alert-secondary">Inspection and previews are available. Archive creation, historical activation, restoration, cleanup and Return to Live are disabled until independent service coordination, write protection and runtime verification are implemented. A preview does not create an archive.</div>
 <div id="error" class="alert alert-danger" role="alert" hidden></div>
+
 <div class="row g-3">
-<section class="col-lg-6"><div class="card card-body h-100"><h2 class="h5">Data Quality</h2><p>Inspect a consistent database snapshot. Reports include integrity, relationships, indexed files and GOP ranges. No repairs or source changes are performed.</p><button class="btn btn-primary" data-operation="inspect">Inspect snapshot</button></div></section>
-<section class="col-lg-6"><form id="date-form" class="card card-body h-100"><h2 class="h5">Archive Game Day — preview</h2><label for="start" class="form-label">Start date</label><input class="form-control mb-2" id="start" name="startDate" type="date" required><label for="end" class="form-label">End date (defaults to start)</label><input class="form-control mb-2" id="end" name="endDate" type="date"><label for="zone" class="form-label">Timezone</label><input class="form-control mb-2" id="zone" name="timezone" value="America/Los_Angeles" required><label for="name" class="form-label">Tournament name (optional)</label><input class="form-control mb-3" id="name" name="name" maxlength="200"><button class="btn btn-primary">Preview date range</button></form></section>
+<section class="col-lg-6"><div class="card card-body h-100"><h2 class="h5">Data Quality</h2><p>Inspect a consistent database snapshot. Reports include integrity, relationships, indexed files and GOP ranges. No repairs or source changes are performed.</p><button class="btn btn-primary" data-operation="inspect">Inspect snapshot</button>
+<section id="inspection-progress" class="mt-3" hidden aria-labelledby="inspection-progress-title">
+<h3 id="inspection-progress-title" class="h6">Snapshot inspection progress</h3>
+<p id="inspection-message" class="mb-2" role="status" aria-live="polite"></p>
+<progress id="inspection-bar" class="w-100" max="100" aria-label="Current inspection stage"></progress>
+<p id="inspection-timing" class="small text-secondary mt-2 mb-0"></p>
+<p class="small text-secondary mb-0">Progress and remaining time refer to the current stage. Integrity and relationship checks may take several minutes and do not expose a reliable percentage. You can leave this page and return to check progress.</p>
+</section>
+</div></section>
+<section class="col-lg-6"><form id="date-form" class="card card-body h-100">
+<h2 class="h5">Archive Data</h2>
+<p class="small text-secondary">Select recording dates from <span id="archive-video-root">the video directory</span>. Dates are UTC.</p>
+<fieldset class="mb-3"><legend class="fs-6">Recording dates</legend><div id="archive-dates" aria-live="polite">Loading recording dates…</div></fieldset>
+<div class="d-flex flex-wrap gap-2"><button id="archive-preview" class="btn btn-primary" disabled>Preview selected dates</button><button id="refresh-dates" type="button" class="btn btn-outline-secondary">Refresh dates</button></div>
+</form></section>
 <section class="col-lg-6"><form id="storage-form" class="card card-body h-100"><h2 class="h5">External SSD</h2><label for="storage" class="form-label">Mounted path visible inside this container</label><input class="form-control mb-2" id="storage" name="storagePath" placeholder="/archives" required><p class="small text-secondary">Docker must bind-mount the host SSD first. This form cannot mount host disks. The path is checked without creating directories.</p><button class="btn btn-primary">Check storage</button></form></section>
 <section class="col-lg-6"><div class="card card-body h-100"><h2 class="h5">Historical Review / Restore / Return to Live</h2><p>These actions require verified service isolation and reversible activation. No environment changes are available in this phase.</p><button class="btn btn-secondary" disabled>Historical Review</button><button class="btn btn-secondary mt-2" disabled>Restore</button><button class="btn btn-secondary mt-2" disabled>Return to Live</button></div></section>
 </div>

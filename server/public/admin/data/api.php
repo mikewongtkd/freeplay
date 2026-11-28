@@ -11,6 +11,9 @@ try {
     $conf = management_config(); management_session();
     if (!management_authorized($conf)) management_json(['ok' => false, 'error' => ['code' => 'unauthorized', 'message' => 'Administrator login required.']], 401);
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        if (($_GET['action'] ?? '') === 'video-dates') {
+            management_json(['ok' => true, 'data' => management_video_dates($conf)]);
+        }
         $db = management_store($conf);
         $id = (string) ($_GET['id'] ?? '');
         if ($id !== '') {
@@ -48,7 +51,21 @@ try {
     }
     $params = [];
     if ($action === 'date-preview') {
-        $params['interval'] = management_interval((string) ($body['startDate'] ?? ''), (string) ($body['endDate'] ?? ''), (string) ($body['timezone'] ?? 'America/Los_Angeles'));
+        if (array_key_exists('dates', $body)) {
+            if (!is_array($body['dates']) || !$body['dates'] || count($body['dates']) > 3660) throw new InvalidArgumentException('Select at least one available recording date.');
+            $available = management_video_dates($conf)['dates'];
+            $params['dates'] = [];
+            foreach ($body['dates'] as $date) {
+                if (!is_string($date) || !in_array($date, $available, true)) throw new InvalidArgumentException('A selected recording date is no longer available. Refresh the date list.');
+                $params['dates'][] = $date;
+            }
+            $params['dates'] = array_values(array_unique($params['dates']));
+            sort($params['dates'], SORT_STRING);
+            // Recorder directory dates use UTC. Keep gaps between selected dates excluded.
+            $params['intervals'] = array_map(static fn($date) => management_interval($date, $date, 'UTC'), $params['dates']);
+        } else {
+            $params['interval'] = management_interval((string) ($body['startDate'] ?? ''), (string) ($body['endDate'] ?? ''), (string) ($body['timezone'] ?? 'America/Los_Angeles'));
+        }
         $params['name'] = mb_substr((string) ($body['name'] ?? ''), 0, 200);
     }
     if ($action === 'storage-probe') {

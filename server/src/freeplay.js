@@ -25,7 +25,8 @@ const ROOT=path.resolve(__dirname,fpConf.root||'..');
 const DATA_DIR=path.resolve(fpConf.dataDir||'/data');
 const VIDEO_DIR=path.resolve(fpConf.videoDir||path.join(DATA_DIR,'video'));
 const DB_PATH=path.resolve(fpConf.db||path.join(DATA_DIR,'freeplay.db'));
-const SCHEMA_PATH=path.resolve(fpConf.schemaDir||path.join(ROOT,'deploy', 'db','schema.sql'));
+const SCHEMA_DIR=path.resolve(fpConf.schemaDir||path.join(ROOT,'deploy','db'));
+const SCHEMA_PATH=path.join(SCHEMA_DIR,'schema.sql');
 const PORT=fpConf.port;
 fs.mkdirSync(VIDEO_DIR,{recursive:true});
 

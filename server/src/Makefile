@@ -1,4 +1,4 @@
-.PHONY: build run update-request test
+.PHONY: build management run update-request test
 
 build:
 	@if [ ! -f "node_modules/update" ]; then \
@@ -6,9 +6,13 @@ build:
 		rm -f node_modules/update; \
 	fi
 
-run: build
-	npm start
+management:
+	npm run management &
+
+run: build management
+	npm start &
 	apachectl graceful
+
 
 update-request:
 	touch node_modules/update
